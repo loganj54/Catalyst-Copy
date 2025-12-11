@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Search, Map, Rocket } from 'lucide-react';
 
 const Process = () => {
   return (
-    <section className="px-6 lg:px-12 py-24 bg-stone-50 border-t border-stone-100">
+    <section className="px-6 lg:px-12 py-24 border-t border-stone-100">
       <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
         <div className="max-w-xl">
           <span className="text-[#FF4A1C] font-semibold tracking-tight mb-2 block">The Workflow</span>

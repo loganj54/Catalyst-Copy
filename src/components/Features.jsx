@@ -3,7 +3,7 @@ import { BarChart3, Zap, Users } from 'lucide-react';
 
 const Features = () => {
   return (
-    <section className="px-6 lg:px-12 py-24 bg-white">
+    <section className="px-6 lg:px-12 py-24">
       <div className="max-w-2xl mb-16">
         <h2 className="lg:text-4xl text-3xl font-semibold text-[#2A2B2A] tracking-tight mb-4">Everything you need to learn.</h2>
         <p className="text-lg text-stone-500 leading-relaxed">Powerful features packed into a simple, intuitive interface designed for modern teams.</p>

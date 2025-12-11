@@ -3,7 +3,7 @@ import { Layers, Twitter, Github, Linkedin } from 'lucide-react';
 
 const Footer = () => {
   return (
-    <footer className="bg-white pt-16 pb-8 px-6 lg:px-12 border-t border-stone-100">
+    <footer className="pt-16 pb-8 px-6 lg:px-12 border-t border-stone-100">
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8 mb-16">
         <div className="col-span-2 lg:col-span-2">
           <div className="flex items-center gap-2 mb-6">

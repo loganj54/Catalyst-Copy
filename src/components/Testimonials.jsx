@@ -3,7 +3,7 @@ import { Star } from 'lucide-react';
 
 const Testimonials = () => {
   return (
-    <section className="px-6 lg:px-12 py-24 bg-white overflow-hidden">
+    <section className="px-6 lg:px-12 py-24 overflow-hidden">
       <h2 className="text-3xl lg:text-4xl font-semibold tracking-tight text-[#2A2B2A] text-center mb-16">Loved by thousands of creators.</h2>
       
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
