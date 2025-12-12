@@ -1,0 +1,427 @@
+[1mdiff --git a/src/components/Navbar.jsx b/src/components/Navbar.jsx[m
+[1mindex 9b1aef6..b9d779e 100644[m
+[1m--- a/src/components/Navbar.jsx[m
+[1m+++ b/src/components/Navbar.jsx[m
+[36m@@ -1,17 +1,33 @@[m
+[31m-import React from 'react';[m
+[31m-import { Layers, ArrowRight, User, LogOut } from 'lucide-react';[m
+[32m+[m[32mimport React, { useState, useRef, useEffect } from 'react';[m
+[32m+[m[32mimport { Layers, ArrowRight, LogOut, ChevronDown } from 'lucide-react';[m
+ import { Link, useNavigate } from 'react-router-dom';[m
+ import { useAuth } from '../context/AuthContext';[m
+ [m
+ const Navbar = () => {[m
+   const { user, signOut } = useAuth();[m
+   const navigate = useNavigate();[m
+[32m+[m[32m  const [isDropdownOpen, setIsDropdownOpen] = useState(false);[m
+[32m+[m[32m  const dropdownRef = useRef(null);[m
+ [m
+   const handleSignOut = async () => {[m
+     await signOut();[m
+     navigate('/');[m
+[32m+[m[32m    setIsDropdownOpen(false);[m
+   };[m
+ [m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    const handleClickOutside = (event) => {[m
+[32m+[m[32m      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {[m
+[32m+[m[32m        setIsDropdownOpen(false);[m
+[32m+[m[32m      }[m
+[32m+[m[32m    };[m
+[32m+[m
+[32m+[m[32m    document.addEventListener('mousedown', handleClickOutside);[m
+[32m+[m[32m    return () => {[m
+[32m+[m[32m      document.removeEventListener('mousedown', handleClickOutside);[m
+[32m+[m[32m    };[m
+[32m+[m[32m  }, []);[m
+[32m+[m
+   return ([m
+     <nav className="lg:px-12 flex sticky z-50 bg-[#F8F4E3]/80 w-full border-stone-100 border-b pt-6 pr-6 pb-6 pl-6 top-0 backdrop-blur-sm items-center justify-between">[m
+       <Link to="/" className="flex gap-3 items-center">[m
+[36m@@ -29,17 +45,29 @@[m [mconst Navbar = () => {[m
+       <div className="flex items-center gap-4">[m
+         {user ? ([m
+           <>[m
+[31m-            <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-stone-600">[m
+[31m-              <User className="w-4 h-4" />[m
+[31m-              <span className="max-w-[150px] truncate">{user.email}</span>[m
+[32m+[m[32m            <Link to="/dashboard" className="text-sm font-medium text-stone-500 hover:text-[#2A2B2A] transition-colors pr-6">[m
+[32m+[m[32m              Dashboard[m
+[32m+[m[32m            </Link>[m
+[32m+[m[32m            <div className="relative" ref={dropdownRef}>[m
+[32m+[m[32m              <button[m
+[32m+[m[32m                onClick={() => setIsDropdownOpen(!isDropdownOpen)}[m
+[32m+[m[32m                className="flex items-center gap-2 text-sm font-medium text-stone-600 hover:text-[#2A2B2A] transition-colors focus:outline-none"[m
+[32m+[m[32m              >[m
+[32m+[m[32m                <span className="pr-4 max-w-[150px] truncate hidden sm:block">{user.email?.split('@')[0]}</span>[m
+[32m+[m[32m              </button>[m
+[32m+[m
+[32m+[m[32m              {isDropdownOpen && ([m
+[32m+[m[32m                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-stone-100 py-1 animate-in fade-in zoom-in-95 duration-200">[m
+[32m+[m[32m                  <button[m
+[32m+[m[32m                    onClick={handleSignOut}[m
+[32m+[m[32m                    className="w-full px-4 py-2 text-left text-sm text-stone-600 hover:bg-stone-50 hover:text-[#FF4A1C] flex items-center gap-2 transition-colors"[m
+[32m+[m[32m                  >[m
+[32m+[m[32m                    <LogOut className="w-4 h-4" />[m
+[32m+[m[32m                    Log out[m
+[32m+[m[32m                  </button>[m
+[32m+[m[32m                </div>[m
+[32m+[m[32m              )}[m
+             </div>[m
+[31m-            <button [m
+[31m-              onClick={handleSignOut}[m
+[31m-              className="flex items-center gap-2 px-5 py-2 bg-white border border-stone-200 rounded-full text-sm font-medium hover:bg-stone-50 hover:border-stone-300 transition-all text-[#2A2B2A]"[m
+[31m-            >[m
+[31m-              <LogOut className="w-4 h-4" />[m
+[31m-              Log out[m
+[31m-            </button>[m
+           </>[m
+         ) : ([m
+           <>[m
+[1mdiff --git a/src/pages/Blueprint.jsx b/src/pages/Blueprint.jsx[m
+[1mindex a3b0c01..76b4c88 100644[m
+[1m--- a/src/pages/Blueprint.jsx[m
+[1m+++ b/src/pages/Blueprint.jsx[m
+[36m@@ -1,23 +1,78 @@[m
+[31m-import React, { useState, useEffect } from 'react';[m
+[32m+[m[32mimport React, { useState, useEffect, useCallback } from 'react';[m
+ import { useParams, useNavigate } from 'react-router-dom';[m
+[31m-import { ArrowLeft, BookOpen, Target, Calendar, FileText, Loader2, Download, ExternalLink } from 'lucide-react';[m
+[32m+[m[32mimport { ArrowLeft, BookOpen, Target, Calendar, FileText, Loader2, Download, ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp, Bug } from 'lucide-react';[m
+ import { useAuth } from '../context/AuthContext';[m
+ import { supabase } from '../lib/supabase';[m
+ [m
+[32m+[m[32m// Generation status display configuration[m
+[32m+[m[32mconst STATUS_CONFIG = {[m
+[32m+[m[32m  pending: {[m[41m [m
+[32m+[m[32m    label: 'Waiting to start...',[m[41m [m
+[32m+[m[32m    icon: Loader2,[m[41m [m
+[32m+[m[32m    color: 'text-stone-500',[m
+[32m+[m[32m    animate: false[m[41m [m
+[32m+[m[32m  },[m
+[32m+[m[32m  analyzing: {[m[41m [m
+[32m+[m[32m    label: 'Analyzing your document...',[m[41m [m
+[32m+[m[32m    icon: Sparkles,[m[41m [m
+[32m+[m[32m    color: 'text-blue-500',[m
+[32m+[m[32m    animate: true[m[41m [m
+[32m+[m[32m  },[m
+[32m+[m[32m  analyzed: {[m[41m [m
+[32m+[m[32m    label: 'Analysis complete - ready for structure generation',[m[41m [m
+[32m+[m[32m    icon: Sparkles,[m[41m [m
+[32m+[m[32m    color: 'text-blue-500',[m
+[32m+[m[32m    animate: false[m[41m [m
+[32m+[m[32m  },[m
+[32m+[m[32m  searching: {[m[41m [m
+[32m+[m[32m    label: 'Finding the best resources...',[m[41m [m
+[32m+[m[32m    icon: Sparkles,[m[41m [m
+[32m+[m[32m    color: 'text-purple-500',[m
+[32m+[m[32m    animate: true[m[41m [m
+[32m+[m[32m  },[m
+[32m+[m[32m  generating: {[m[41m [m
+[32m+[m[32m    label: 'Building your learning path...',[m[41m [m
+[32m+[m[32m    icon: Sparkles,[m[41m [m
+[32m+[m[32m    color: 'text-orange-500',[m
+[32m+[m[32m    animate: true[m[41m [m
+[32m+[m[32m  },[m
+[32m+[m[32m  structure_complete: {[m[41m [m
+[32m+[m[32m    label: 'Structure generated - ready for resource search',[m[41m [m
+[32m+[m[32m    icon: Sparkles,[m[41m [m
+[32m+[m[32m    color: 'text-orange-500',[m
+[32m+[m[32m    animate: false[m[41m [m
+[32m+[m[32m  },[m
+[32m+[m[32m  completed: {[m[41m [m
+[32m+[m[32m    label: 'Complete!',[m[41m [m
+[32m+[m[32m    icon: Sparkles,[m[41m [m
+[32m+[m[32m    color: 'text-green-500',[m
+[32m+[m[32m    animate: false[m[41m [m
+[32m+[m[32m  },[m
+[32m+[m[32m  failed: {[m[41m [m
+[32m+[m[32m    label: 'Generation failed',[m[41m [m
+[32m+[m[32m    icon: AlertCircle,[m[41m [m
+[32m+[m[32m    color: 'text-red-500',[m
+[32m+[m[32m    animate: false[m[41m [m
+[32m+[m[32m  },[m
+[32m+[m[32m};[m
+[32m+[m
+ const Blueprint = () => {[m
+   const { id } = useParams();[m
+   const navigate = useNavigate();[m
+[31m-  const { user } = useAuth();[m
+[32m+[m[32m  const { user, session } = useAuth();[m
+   const [blueprint, setBlueprint] = useState(null);[m
+   const [loading, setLoading] = useState(true);[m
+[32m+[m[32m  const [generating, setGenerating] = useState(false);[m
+[32m+[m[32m  const [generationStatus, setGenerationStatus] = useState('pending');[m
+[32m+[m[32m  const [generationError, setGenerationError] = useState(null);[m
+[32m+[m[41m  [m
+[32m+[m[32m  // Debug state[m
+[32m+[m[32m  const [showDebug, setShowDebug] = useState(false);[m
+[32m+[m[32m  const [documentAnalysis, setDocumentAnalysis] = useState(null);[m
+[32m+[m[32m  const [blueprintResources, setBlueprintResources] = useState([]);[m
+ [m
+[31m-  useEffect(() => {[m
+[31m-    if (user && id) {[m
+[31m-      fetchBlueprint();[m
+[31m-    }[m
+[31m-  }, [user, id]);[m
+[31m-[m
+[31m-  const fetchBlueprint = async () => {[m
+[32m+[m[32m  // Fetch blueprint data[m
+[32m+[m[32m  const fetchBlueprint = useCallback(async () => {[m
+     try {[m
+       const { data, error } = await supabase[m
+         .from('blueprints')[m
+[36m@@ -28,15 +83,334 @@[m [mconst Blueprint = () => {[m
+ [m
+       if (error) throw error;[m
+       setBlueprint(data);[m
+[32m+[m[32m      setGenerationStatus(data.generation_status || 'pending');[m
+[32m+[m[32m      setGenerationError(data.generation_error);[m
+[32m+[m[41m      [m
+[32m+[m[32m      // Fetch document analysis for this blueprint[m
+[32m+[m[32m      const { data: analysisData } = await supabase[m
+[32m+[m[32m        .from('document_analyses')[m
+[32m+[m[32m        .select('*')[m
+[32m+[m[32m        .eq('blueprint_id', id)[m
+[32m+[m[32m        .single();[m
+[32m+[m[41m      [m
+[32m+[m[32m      if (analysisData) {[m
+[32m+[m[32m        setDocumentAnalysis(analysisData);[m
+[32m+[m[32m      }[m
+[32m+[m
+[32m+[m[32m      // Fetch blueprint resources[m
+[32m+[m[32m      const { data: resourcesData } = await supabase[m
+[32m+[m[32m        .from('blueprint_resources')[m
+[32m+[m[32m        .select(`[m
+[32m+[m[32m          *,[m
+[32m+[m[32m          curated_resources (*)[m
+[32m+[m[32m        `)[m
+[32m+[m[32m        .eq('blueprint_id', id);[m
+[32m+[m[41m      [m
+[32m+[m[32m      if (resourcesData) {[m
+[32m+[m[32m        setBlueprintResources(resourcesData);[m
+[32m+[m[32m      }[m
+[32m+[m[41m      [m
+[32m+[m[32m      return data;[m
+     } catch (error) {[m
+       console.error('Error fetching blueprint:', error);[m
+       alert('Failed to load blueprint');[m
+       navigate('/dashboard');[m
+[32m+[m[32m      return null;[m
+     } finally {[m
+       setLoading(false);[m
+     }[m
+[32m+[m[32m  }, [id, user?.id, navigate]);[m
+[32m+[m
+[32m+[m[32m  // Trigger blueprint generation[m
+[32m+[m[32m  const triggerGeneration = useCallback(async () => {[m
+[32m+[m[32m    if (!session?.access_token) {[m
+[32m+[m[32m      console.error('No access token available');[m
+[32m+[m[32m      return;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    setGenerating(true);[m
+[32m+[m[32m    setGenerationError(null);[m
+[32m+[m
+[32m+[m[32m    try {[m
+[32m+[m[32m      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;[m
+[32m+[m[41m      [m
+[32m+[m[32m      const response = await fetch(`${supabaseUrl}/functions/v1/generate-blueprint`, {[m
+[32m+[m[32m        method: 'POST',[m
+[32m+[m[32m        headers: {[m
+[32m+[m[32m          'Authorization': `Bearer ${session.access_token}`,[m
+[32m+[m[32m          'Content-Type': 'application/json',[m
+[32m+[m[32m        },[m
+[32m+[m[32m        body: JSON.stringify({ blueprint_id: id }),[m
+[32m+[m[32m      });[m
+[32m+[m
+[32m+[m[32m      const data = await response.json();[m
+[32m+[m
+[32m+[m[32m      if (!data.success) {[m
+[32m+[m[32m        throw new Error(data.error || 'Generation failed');[m
+[32m+[m[32m      }[m
+[32m+[m
+[32m+[m[32m      // Refresh blueprint data to get the generated content[m
+[32m+[m[32m      await fetchBlueprint();[m
+[32m+[m[41m      [m
+[32m+[m[32m    } catch (error) {[m
+[32m+[m[32m      console.error('Generation error:', error);[m
+[32m+[m[32m      setGenerationError(error.message);[m
+[32m+[m[32m      setGenerationStatus('failed');[m
+[32m+[m[32m    } finally {[m
+[32m+[m[32m      setGenerating(false);[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }, [id, session?.access_token, fetchBlueprint]);[m
+[32m+[m
+[32m+[m[32m  // Step-by-step generation functions - each calls a SEPARATE edge function[m
+[32m+[m[32m  const runAnalyzeDocument = async () => {[m
+[32m+[m[32m    if (!session?.access_token) {[m
+[32m+[m[32m      console.error('No access token available');[m
+[32m+[m[32m      return;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    setGenerating(true);[m
+[32m+[m[32m    setGenerationError(null);[m
+[32m+[m
+[32m+[m[32m    try {[m
+[32m+[m[32m      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;[m
+[32m+[m[41m      [m
+[32m+[m[32m      console.log('Calling analyze-document edge function...');[m
+[32m+[m[32m      const response = await fetch(`${supabaseUrl}/functions/v1/analyze-document`, {[m
+[32m+[m[32m        method: 'POST',[m
+[32m+[m[32m        headers: {[m
+[32m+[m[32m          'Authorization': `Bearer ${session.access_token}`,[m
+[32m+[m[32m          'Content-Type': 'application/json',[m
+[32m+[m[32m        },[m
+[32m+[m[32m        body: JSON.stringify({ blueprint_id: id }),[m
+[32m+[m[32m      });[m
+[32m+[m
+[32m+[m[32m      const data = await response.json();[m
+[32m+[m[32m      console.log('analyze-document result:', data);[m
+[32m+[m
+[32m+[m[32m      if (!data.success) {[m
+[32m+[m[32m        throw new Error(data.error || 'Analysis failed');[m
+[32m+[m[32m      }[m
+[32m+[m
+[32m+[m[32m      // Refresh blueprint data[m
+[32m+[m[32m      await fetchBlueprint();[m
+[32m+[m[41m      [m
+[32m+[m[32m      alert(`✅ Step 1 (Analyze Document) completed!\n\n${data.file_deleted ? '🗑️ Original file has been deleted for privacy.\n\n' : ''}Topics found: ${data.analysis?.topics?.length || 0}\nPrerequisites: ${data.analysis?.prerequisites?.length || 0}\n\nCheck the debug panel for full analysis.`);[m
+[32m+[m[41m      [m
+[32m+[m[32m    } catch (error) {[m
+[32m+[m[32m      console.error('analyze-document error:', error);[m
+[32m+[m[32m      setGenerationError(error.message);[m
+[32m+[m[32m      alert(`❌ Step 1 (Analyze Document) failed: ${error.message}`);[m
+[32m+[m[32m    } finally {[m
+[32m+[m[32m      setGenerating(false);[m
+[32m+[m[32m    }[m
+[32m+[m[32m  };[m
+[32m+[m
+[32m+[m[32m  const runGenerateStructure = async () => {[m
+[32m+[m[32m    if (!session?.access_token) {[m
+[32m+[m[32m      console.error('No access token available');[m
+[32m+[m[32m      return;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    setGenerating(true);[m
+[32m+[m[32m    setGenerationError(null);[m
+[32m+[m
+[32m+[m[32m    try {[m
+[32m+[m[32m      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;[m
+[32m+[m[41m      [m
+[32m+[m[32m      console.log('Calling generate-structure edge function...');[m
+[32m+[m[32m      const response = await fetch(`${supabaseUrl}/functions/v1/generate-structure`, {[m
+[32m+[m[32m        method: 'POST',[m
+[32m+[m[32m        headers: {[m
+[32m+[m[32m          'Authorization': `Bearer ${session.access_token}`,[m
+[32m+[m[32m          'Content-Type': 'application/json',[m
+[32m+[m[32m        },[m
+[32m+[m[32m        body: JSON.stringify({ blueprint_id: id }),[m
+[32m+[m[32m      });[m
+[32m+[m
+[32m+[m[32m      const data = await response.json();[m
+[32m+[m[32m      console.log('generate-structure result:', data);[m
+[32m+[m
+[32m+[m[32m      if (!data.success) {[m
+[32m+[m[32m        throw new Error(data.error || 'Structure generation failed');[m
+[32m+[m[32m      }[m
+[32m+[m
+[32m+[m[32m      // Refresh blueprint data[m
+[32m+[m[32m      await fetchBlueprint();[m
+[32m+[m[41m      [m
+[32m+[m[32m      alert(`✅ Step 2 (Generate Structure) completed!\n\nTitle: ${data.structure?.title || 'N/A'}\nSections: ${data.structure?.sections?.length || 0}\n\nCheck the debug panel for full structure.`);[m
+[32m+[m[41m      [m
+[32m+[m[32m    } catch (error) {[m
+[32m+[m[32m      console.error('generate-structure error:', error);[m
+[32m+[m[32m      setGenerationError(error.message);[m
+[32m+[m[32m      alert(`❌ Step 2 (Generate Structure) failed: ${error.message}`);[m
+[32m+[m[32m    } finally {[m
+[32m+[m[32m      setGenerating(false);[m
+[32m+[m[32m    }[m
+[32m+[m[32m  };[m
+[32m+[m
+[32m+[m[32m  const runSearchResources = async () => {[m
+[32m+[m[32m    if (!session?.access_token) {[m
+[32m+[m[32m      console.error('No access token available');[m
+[32m+[m[32m      return;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    setGenerating(true);[m
+[32m+[m[32m    setGenerationError(null);[m
+[32m+[m
+[32m+[m[32m    try {[m
+[32m+[m[32m      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;[m
+[32m+[m[41m      [m
+[32m+[m[32m      console.log('Calling search-resources edge function...');[m
+[32m+[m[32m      const response = await fetch(`${supabaseUrl}/functions/v1/search-resources`, {[m
+[32m+[m[32m        method: 'POST',[m
+[32m+[m[32m        headers: {[m
+[32m+[m[32m          'Authorization': `Bearer ${session.access_token}`,[m
+[32m+[m[32m          'Content-Type': 'application/json',[m
+[32m+[m[32m        },[m
+[32m+[m[32m        body: JSON.stringify({ blueprint_id: id }),[m
+[32m+[m[32m      });[m
+[32m+[m
+[32m+[m[32m      const data = await response.json();[m
+[32m+[m[32m      console.log('search-resources result:', data);[m
+[32m+[m
+[32m+[m[32m      if (!data.success) {[m
+[32m+[m[32m        throw new Error(data.error || 'Resource search failed');[m
+[32m+[m[32m      }[m
+[32m+[m
+[32m+[m[32m      // Refresh blueprint data[m
+[32m+[m[32m      await fetchBlueprint();[m
+[32m+[m[41m      [m
+[32m+[m[32m      alert(`✅ Step 3 (Search Resources) completed!\n\nTotal resources: ${data.resources_count || 0}\nCached: ${data.cached_count || 0}\nNew: ${data.new_count || 0}\n\n🎉 Blueprint generation complete!`);[m
+[32m+[m[41m      [m
+[32m+[m[32m    } catch (error) {[m
+[32m+[m[32m      console.error('search-resources error:', error);[m
+[32m+[m[32m      setGenerationError(error.message);[m
+[32m+[m[32m      alert(`❌ Step 3 (Search Resources) failed: ${error.message}`);[m
+[32m+[m[32m    } finally {[m
+[32m+[m[32m      setGenerating(false);[m
+[32m+[m[32m    }[m
+[32m+[m[32m  };[m
+[32m+[m
+[32m+[m[32m  const runAllSteps = async () => {[m
+[32m+[m[32m    if (!session?.access_token) {[m
+[32m+[m[32m      console.error('No access token available');[m
+[32m+[m[32m      return;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    setGenerating(true);[m
+[32m+[m[32m    setGenerationError(null);[m
+[32m+[m
+[32m+[m[32m    try {[m
+[32m+[m[32m      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;[m
+[32m+[m[41m      [m
+[32m+[m[32m      // Step 1: Analyze Document[m
+[32m+[m[32m      console.log('Running Step 1: Analyze Document...');[m
+[32m+[m[32m      setGenerationStatus('analyzing');[m
+[32m+[m[41m      [m
+[32m+[m[32m      let response = await fetch(`${supabaseUrl}/functions/v1/analyze-document`, {[m
+[32m+[m[32m        method: 'POST',[m
+[32m+[m[32m        headers: {[m
+[32m+[m[32m          'Authorization': `Bearer ${session.access_token}`,[m
+[32m+[m[32m          'Content-Type': 'application/json',[m
+[32m+[m[32m        },[m
+[32m+[m[32m        body: JSON.stringify({ blueprint_id: id }),[m
+[32m+[m[32m      });[m
+[32m+[m
+[32m+[m[32m      let data = await response.json();[m
+[32m+[m[32m      if (!data.success) throw new Error(data.error || 'Analysis failed');[m
+[32m+[m[32m      console.log('Step 1 complete:', data);[m
+[32m+[m
+[32m+[m[32m      // Step 2: Generate Structure[m
+[32m+[m[32m      console.log('Running Step 2: Generate Structure...');[m
+[32m+[m[32m      setGenerationStatus('generating');[m
+[32m+[m[41m      [m
+[32m+[m[32m      response = await fetch(`${supabaseUrl}/functions/v1/generate-structure`, {[m
+[32m+[m[32m        method: 'POST',[m
+[32m+[m[32m        headers: {[m
+[32m+[m[32m          'Authorization': `Bearer ${session.access_token}`,[m
+[32m+[m[32m          'Content-Type': 'application/json',[m
+[32m+[m[32m        },[m
+[32m+[m[32m        body: JSON.stringify({ blueprint_id: id }),[m
+[32m+[m[32m      });[m
+[32m+[
