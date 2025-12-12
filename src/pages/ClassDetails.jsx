@@ -103,7 +103,7 @@ const ClassDetails = () => {
       
       console.log('Attempting to upload file:', fileName);
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('class documents')
+        .from('class-documents')
         .upload(fileName, file);
 
       if (uploadError) {
@@ -111,7 +111,7 @@ const ClassDetails = () => {
         
         // Check for specific errors
         if (uploadError.message?.includes('not found') || uploadError.message?.includes('does not exist')) {
-          alert('⚠️ Storage bucket not set up!\n\nPlease create the "class documents" bucket in Supabase:\n1. Go to Storage in Supabase Dashboard\n2. Create new bucket named "class documents"\n3. Set it to Public\n4. Add storage policies (see STORAGE_SETUP.md)');
+          alert('⚠️ Storage bucket not set up!\n\nPlease create the "class-documents" bucket in Supabase:\n1. Go to Storage in Supabase Dashboard\n2. Create new bucket named "class-documents"\n3. Set it to Public\n4. Add storage policies (see STORAGE_SETUP.md)');
           return;
         }
         
@@ -122,7 +122,7 @@ const ClassDetails = () => {
       
       // Get public URL
       const { data: urlData } = supabase.storage
-        .from('class documents')
+        .from('class-documents')
         .getPublicUrl(fileName);
 
       console.log('Saving metadata to database...');
@@ -185,7 +185,7 @@ const ClassDetails = () => {
       try {
         // Delete from storage
         const { error: storageError } = await supabase.storage
-          .from('class documents')
+          .from('class-documents')
           .remove([filePath]);
 
         if (storageError) console.error('Storage delete error:', storageError);

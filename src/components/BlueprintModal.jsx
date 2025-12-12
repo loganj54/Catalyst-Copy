@@ -114,7 +114,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
 
   const taskOptions = [
     'Understanding a concept',
-    'Solving a homework problem',
+    'Solving some homework problems',
     'Studying for an upcoming quiz/exam',
     'Just build me a full course outline for this class',
     'Something else'
@@ -222,7 +222,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
           const fileName = `${user.id}/${finalClassId}/${Date.now()}.${fileExt}`;
           
           const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('class documents')
+            .from('class-documents')
             .upload(fileName, formData.fileUpload);
 
           if (uploadError) {
@@ -232,7 +232,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
           } else {
             // Get public URL
             const { data: urlData } = supabase.storage
-              .from('class documents')
+              .from('class-documents')
               .getPublicUrl(fileName);
             fileUrl = urlData.publicUrl;
 
