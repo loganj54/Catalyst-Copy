@@ -1,16 +1,32 @@
-import React from 'react';
-import { Layers, ArrowRight, User, LogOut } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Layers, ArrowRight, LogOut, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+    setIsDropdownOpen(false);
   };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
     <nav className="lg:px-12 flex sticky z-50 bg-[#F8F4E3]/80 w-full border-stone-100 border-b pt-6 pr-6 pb-6 pl-6 top-0 backdrop-blur-sm items-center justify-between">
@@ -29,17 +45,29 @@ const Navbar = () => {
       <div className="flex items-center gap-4">
         {user ? (
           <>
-            <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-stone-600">
-              <User className="w-4 h-4" />
-              <span className="max-w-[150px] truncate">{user.email}</span>
+            <Link to="/dashboard" className="text-sm font-medium text-stone-500 hover:text-[#2A2B2A] transition-colors pr-6">
+              Dashboard
+            </Link>
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center gap-2 text-sm font-medium text-stone-600 hover:text-[#2A2B2A] transition-colors focus:outline-none"
+              >
+                <span className="pr-4 max-w-[150px] truncate hidden sm:block">{user.email?.split('@')[0]}</span>
+              </button>
+
+              {isDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-stone-100 py-1 animate-in fade-in zoom-in-95 duration-200">
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full px-4 py-2 text-left text-sm text-stone-600 hover:bg-stone-50 hover:text-[#FF4A1C] flex items-center gap-2 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Log out
+                  </button>
+                </div>
+              )}
             </div>
-            <button 
-              onClick={handleSignOut}
-              className="flex items-center gap-2 px-5 py-2 bg-white border border-stone-200 rounded-full text-sm font-medium hover:bg-stone-50 hover:border-stone-300 transition-all text-[#2A2B2A]"
-            >
-              <LogOut className="w-4 h-4" />
-              Log out
-            </button>
           </>
         ) : (
           <>
