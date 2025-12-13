@@ -413,51 +413,14 @@ serve(async (req) => {
 
     console.log('[analyze-document] Analysis saved with ID:', newAnalysis?.id);
 
-    // DELETE the original file from Supabase Storage (privacy-first approach)
-    if (fileUrl) {
-      console.log('[analyze-document] Deleting original file from storage...');
-      
-      try {
-        // Extract the file path from the URL
-        // URL format: https://xxx.supabase.co/storage/v1/object/public/bucket-name/path/to/file
-        const urlParts = fileUrl.split('/storage/v1/object/public/');
-        if (urlParts.length === 2) {
-          const pathParts = urlParts[1].split('/');
-          const bucketName = pathParts[0];
-          const filePath = pathParts.slice(1).join('/');
-          
-          console.log(`[analyze-document] Deleting from bucket: ${bucketName}, path: ${filePath}`);
-          
-          const { error: deleteFileError } = await supabase
-            .storage
-            .from(bucketName)
-            .remove([filePath]);
-          
-          if (deleteFileError) {
-            console.error('[analyze-document] File deletion error:', deleteFileError);
-            // Don't throw - analysis succeeded, file deletion is secondary
-          } else {
-            console.log('[analyze-document] Original file deleted successfully');
-          }
-        }
-      } catch (deleteErr) {
-        console.error('[analyze-document] Error during file deletion:', deleteErr);
-        // Don't throw - analysis succeeded
-      }
-
-      // Clear the file URL from the blueprint (file no longer exists)
-      await supabase
-        .from('blueprints')
-        .update({ 
-          file_metadata: { 
-            ...blueprint.file_metadata, 
-            url: null, 
-            deleted: true,
-            deleted_at: new Date().toISOString(),
-          },
-        })
-        .eq('id', blueprint_id);
-    }
+    // NOTE: We NO LONGER delete the original file from storage.
+    // Files should only be deleted when:
+    // 1. User explicitly deletes the document from the class page
+    // 2. The entire class is deleted (cascade delete)
+    // 
+    // This preserves documents for reuse across multiple blueprints and
+    // prevents data loss when blueprints are deleted.
+    console.log('[analyze-document] File preserved in storage (not deleted)');
 
     // Update blueprint status to indicate analysis is complete
     await supabase
@@ -474,8 +437,8 @@ serve(async (req) => {
         status: 'analysis_complete',
         analysis_id: newAnalysis?.id,
         analysis: analysis,
-        file_deleted: !!fileUrl,
-        message: 'Document analysis complete. Original file has been deleted. You can now run Step 2 (Generate Structure).',
+        file_deleted: false, // Files are now preserved
+        message: 'Document analysis complete. Original file has been preserved in storage. You can now run Step 2 (Generate Structure).',
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

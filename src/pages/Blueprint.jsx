@@ -239,7 +239,7 @@ const Blueprint = () => {
       // Refresh blueprint data
       await fetchBlueprint();
       
-      alert(`✅ Step 1 (Analyze Document) completed!\n\n${data.file_deleted ? '🗑️ Original file has been deleted for privacy.\n\n' : ''}Topics found: ${data.analysis?.topics?.length || 0}\nPrerequisites: ${data.analysis?.prerequisites?.length || 0}\n\nCheck the debug panel for full analysis.`);
+      alert(`✅ Step 1 (Analyze Document) completed!\n\nTopics found: ${data.analysis?.topics?.length || 0}\nPrerequisites: ${data.analysis?.prerequisites?.length || 0}\n\nCheck the debug panel for full analysis.`);
       
     } catch (error) {
       console.error('analyze-document error:', error);
@@ -625,29 +625,21 @@ const Blueprint = () => {
             )}
 
             {fileInfo && (
-              <div className={`${fileInfo.deleted ? 'bg-green-50 border-2 border-green-200' : 'bg-[#FF4A1C]/5 border-2 border-[#FF4A1C]/20'} rounded-xl p-6`}>
+              <div className="bg-[#FF4A1C]/5 border-2 border-[#FF4A1C]/20 rounded-xl p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-3 bg-white rounded-lg">
-                      <FileText className={`w-6 h-6 ${fileInfo.deleted ? 'text-green-600' : 'text-[#FF4A1C]'}`} />
+                      <FileText className="w-6 h-6 text-[#FF4A1C]" />
                     </div>
                     <div>
-                      <p className="font-semibold text-[#2A2B2A]">
-                        {fileInfo.deleted ? 'Document Analyzed & Deleted' : 'Uploaded Document'}
-                      </p>
+                      <p className="font-semibold text-[#2A2B2A]">Uploaded Document</p>
                       <p className="text-sm text-stone-600">{fileInfo.name}</p>
-                      {fileInfo.deleted ? (
-                        <p className="text-xs text-green-600 mt-1 font-medium">
-                          ✔ Original file deleted for privacy - analysis saved
-                        </p>
-                      ) : (
-                        <p className="text-xs text-stone-500 mt-1">
-                          {(fileInfo.size / 1024).toFixed(1)} KB
-                        </p>
-                      )}
+                      <p className="text-xs text-stone-500 mt-1">
+                        {(fileInfo.size / 1024).toFixed(1)} KB
+                      </p>
                     </div>
                   </div>
-                  {fileInfo.url && !fileInfo.deleted && (
+                  {fileInfo.url && (
                     <div className="flex gap-2">
                       <a
                         href={fileInfo.url}
@@ -784,7 +776,7 @@ const Blueprint = () => {
                   </button>
                 </div>
                 <div className="bg-stone-800 p-3 rounded-lg text-xs font-mono space-y-1">
-                  <p className="text-blue-400">→ analyze-document: Extracts topics, prerequisites, stores analysis, DELETES original file</p>
+                  <p className="text-blue-400">→ analyze-document: Extracts topics, prerequisites, stores analysis (file preserved)</p>
                   <p className="text-orange-400">→ generate-structure: Creates learning path structure from stored analysis</p>
                   <p className="text-purple-400">→ search-resources: Finds educational resources using Claude's knowledge</p>
                 </div>

@@ -216,42 +216,70 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
           // Use the existing document's URL
           fileUrl = formData.fileUpload.url;
         } else {
-          // Upload new file to CLASS documents bucket
-          const fileExt = formData.fileUpload.name.split('.').pop();
-          // Use finalClassId in the path
-          const fileName = `${user.id}/${finalClassId}/${Date.now()}.${fileExt}`;
-          
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('class-documents')
-            .upload(fileName, formData.fileUpload);
+          // Check for duplicate document in this class (by filename and size)
+          console.log('Checking for duplicate document...');
+          const { data: existingDocs, error: checkError } = await supabase
+            .from('class_documents')
+            .select('*')
+            .eq('class_id', finalClassId)
+            .eq('user_id', user.id)
+            .eq('name', formData.fileUpload.name)
+            .eq('file_size', formData.fileUpload.size);
 
-          if (uploadError) {
-            console.error('File upload error:', uploadError);
-            // Continue anyway, don't fail the whole blueprint creation? 
-            // Maybe alert user but let blueprint proceed without file?
-          } else {
-            // Get public URL
-            const { data: urlData } = supabase.storage
+          if (checkError) {
+            console.error('Error checking for duplicates:', checkError);
+          } else if (existingDocs && existingDocs.length > 0) {
+            // Found duplicate - use existing file instead of uploading again
+            console.log('✅ Duplicate found - reusing existing document');
+            const existingDoc = existingDocs[0];
+            fileUrl = existingDoc.file_url;
+            
+            alert(
+              `ℹ️ This document already exists in the class!\n\n` +
+              `"${formData.fileUpload.name}"\n\n` +
+              `We'll reuse the existing file instead of uploading a duplicate.`
+            );
+          }
+
+          // Only upload if no duplicate was found
+          if (!fileUrl) {
+            // Upload new file to CLASS documents bucket
+            const fileExt = formData.fileUpload.name.split('.').pop();
+            // Use finalClassId in the path
+            const fileName = `${user.id}/${finalClassId}/${Date.now()}.${fileExt}`;
+            
+            const { data: uploadData, error: uploadError } = await supabase.storage
               .from('class-documents')
-              .getPublicUrl(fileName);
-            fileUrl = urlData.publicUrl;
+              .upload(fileName, formData.fileUpload);
 
-            // ALSO save to class_documents table so it appears in the class page
-            const { error: docError } = await supabase
-              .from('class_documents')
-              .insert([{
-                class_id: finalClassId,
-                user_id: user.id,
-                name: formData.fileUpload.name,
-                file_path: fileName,
-                file_url: fileUrl,
-                file_size: formData.fileUpload.size,
-                file_type: formData.fileUpload.type
-              }]);
-              
-            if (docError) {
-              console.error('Error saving document metadata:', docError);
-              // We don't stop the blueprint creation if this fails, but it's good to log
+            if (uploadError) {
+              console.error('File upload error:', uploadError);
+              // Continue anyway, don't fail the whole blueprint creation? 
+              // Maybe alert user but let blueprint proceed without file?
+            } else {
+              // Get public URL
+              const { data: urlData } = supabase.storage
+                .from('class-documents')
+                .getPublicUrl(fileName);
+              fileUrl = urlData.publicUrl;
+
+              // ALSO save to class_documents table so it appears in the class page
+              const { error: docError } = await supabase
+                .from('class_documents')
+                .insert([{
+                  class_id: finalClassId,
+                  user_id: user.id,
+                  name: formData.fileUpload.name,
+                  file_path: fileName,
+                  file_url: fileUrl,
+                  file_size: formData.fileUpload.size,
+                  file_type: formData.fileUpload.type
+                }]);
+                
+              if (docError) {
+                console.error('Error saving document metadata:', docError);
+                // We don't stop the blueprint creation if this fails, but it's good to log
+              }
             }
           }
         }

@@ -97,6 +97,36 @@ const ClassDetails = () => {
     setUploadingDocument(true);
 
     try {
+      // Check for duplicate document in this class (by filename and size)
+      console.log('Checking for duplicate document...');
+      const { data: existingDocs, error: checkError } = await supabase
+        .from('class_documents')
+        .select('*')
+        .eq('class_id', id)
+        .eq('user_id', user.id)
+        .eq('name', file.name)
+        .eq('file_size', file.size);
+
+      if (checkError) {
+        console.error('Error checking for duplicates:', checkError);
+      } else if (existingDocs && existingDocs.length > 0) {
+        // Found duplicate - ask user what to do
+        const shouldContinue = window.confirm(
+          `⚠️ A document with the same name and size already exists in this class:\n\n` +
+          `"${file.name}" (${(file.size / 1024).toFixed(1)} KB)\n\n` +
+          `Do you want to upload it anyway as a new version?`
+        );
+        
+        if (!shouldContinue) {
+          setUploadingDocument(false);
+          // Reset file input
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+          return;
+        }
+      }
+
       // Upload file to Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${id}/${Date.now()}.${fileExt}`;
