@@ -36,7 +36,7 @@ export function createSupabaseClientWithAuth(authHeader: string) {
 // ============================================================================
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-const CLAUDE_MODEL = 'claude-3-5-haiku-latest';
+const CLAUDE_MODEL = 'claude-haiku-4-5';
 
 export interface ClaudeResponse {
   content: string;
@@ -256,7 +256,6 @@ IMPORTANT: You must respond with valid JSON only. No markdown, no explanation, j
   try {
     let jsonStr = textContent.text.trim();
     
-    // Remove markdown code blocks if present
     if (jsonStr.startsWith('```json')) {
       jsonStr = jsonStr.slice(7);
     } else if (jsonStr.startsWith('```')) {
@@ -269,7 +268,11 @@ IMPORTANT: You must respond with valid JSON only. No markdown, no explanation, j
 
     return JSON.parse(jsonStr);
   } catch (parseError) {
-    console.error('Failed to parse Claude JSON response:', textContent.text.substring(0, 500));
+    console.error('Failed to parse Claude JSON response (first 500 chars):', textContent.text.substring(0, 500));
+    console.error('Failed to parse Claude JSON response (last 500 chars):', textContent.text.substring(textContent.text.length - 500));
+    console.error('Total response length:', textContent.text.length);
+    console.error('Parse error details:', parseError);
+    console.error('Usage stats:', data.usage);
     throw new Error(`Failed to parse Claude response as JSON: ${parseError}`);
   }
 }

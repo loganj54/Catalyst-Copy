@@ -357,7 +357,7 @@ serve(async (req) => {
       PROMPTS.documentAnalysis.user('', blueprint.task_type), // Content comes from PDF
       pdfDocument,
       textContent || null, // Additional text context if provided
-      { temperature: 0.3, maxTokens: 4096 }
+      { temperature: 0.3, maxTokens: 8192 } // Increased token limit for complex documents
     );
 
     console.log('[analyze-document] Analysis complete:');
@@ -395,7 +395,7 @@ serve(async (req) => {
       extracted_text: extractedText,
       source_filename: fileName,
       source_type: sourceType,
-      model_used: 'claude-3-5-haiku-latest',
+      model_used: 'claude-haiku-4-5',
     };
 
     console.log('[analyze-document] Storing analysis in database...');
