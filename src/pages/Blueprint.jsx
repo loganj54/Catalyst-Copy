@@ -87,14 +87,59 @@ const Blueprint = () => {
       setGenerationError(data.generation_error);
       
       // Fetch document analysis for this blueprint
-      const { data: analysisData } = await supabase
+      // Try two approaches:
+      // 1. Find by blueprint_id (direct match)
+      // 2. Find by matching document filename (for reused documents)
+      
+      let analysisData = null;
+      let analysisError = null;
+      
+      // Approach 1: Direct blueprint match
+      const { data: directMatch, error: directError } = await supabase
         .from('document_analyses')
         .select('*')
         .eq('blueprint_id', id)
-        .single();
+        .maybeSingle(); // Use maybeSingle() instead of single() to handle 0 or 1 results
+      
+      if (directError) {
+        console.error('Error fetching document analysis by blueprint_id:', directError);
+        analysisError = directError;
+      }
+      
+      if (directMatch) {
+        console.log('✅ Document analysis found by blueprint_id:', directMatch);
+        analysisData = directMatch;
+      } else {
+        // Approach 2: Search by document filename (for reused documents)
+        const fileName = data.file_metadata?.name || data.content?.fileUpload?.name;
+        
+        if (fileName) {
+          console.log('🔍 No direct match, searching by filename:', fileName);
+          
+          const { data: filenameMatch, error: filenameError } = await supabase
+            .from('document_analyses')
+            .select('*')
+            .eq('source_filename', fileName)
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (filenameError) {
+            console.error('Error fetching document analysis by filename:', filenameError);
+          }
+          
+          if (filenameMatch) {
+            console.log('✅ Document analysis found by filename:', filenameMatch);
+            analysisData = filenameMatch;
+          }
+        }
+      }
       
       if (analysisData) {
         setDocumentAnalysis(analysisData);
+      } else {
+        console.log('ℹ️ No document analysis found for blueprint:', id);
       }
 
       // Fetch blueprint resources
