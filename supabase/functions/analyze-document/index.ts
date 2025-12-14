@@ -7,7 +7,8 @@
 // - Uses Claude's VISION capabilities to read PDFs directly (sees figures, diagrams, equations!)
 // - Analyzes EACH PROBLEM SEPARATELY for problem sets
 // - Extracts structured learning metadata without duplication
-// - DELETES original file after successful analysis (privacy-first approach)
+// - Links analysis to DOCUMENT (not blueprint) for reuse across blueprints
+// - Checks if document already has an analysis before re-analyzing
 //
 // LIMITS: PDFs up to 32MB, up to 100 pages
 // ============================================================================
@@ -26,6 +27,7 @@ import { PROMPTS } from '../_shared/prompts.ts';
 
 interface AnalyzeRequest {
   blueprint_id: string;
+  force_reanalyze?: boolean; // If true, re-analyze even if analysis exists
 }
 
 // Clean analysis result - each problem is separate with full details
@@ -114,12 +116,14 @@ serve(async (req) => {
 
     const body: AnalyzeRequest = await req.json();
     blueprint_id = body.blueprint_id;
+    const forceReanalyze = body.force_reanalyze || false;
 
     if (!blueprint_id) {
       throw new Error('Missing required field: blueprint_id');
     }
 
     console.log(`[analyze-document] Starting analysis for blueprint: ${blueprint_id}`);
+    console.log(`[analyze-document] Force re-analyze: ${forceReanalyze}`);
 
     // Verify user owns this blueprint
     const authClient = createSupabaseClientWithAuth(authHeader);
@@ -136,30 +140,10 @@ serve(async (req) => {
 
     console.log('[analyze-document] Blueprint found:', blueprint.title || blueprint.id);
 
-    // Delete any existing analysis for this blueprint (to allow retry)
-    const { error: deleteError } = await supabase
-      .from('document_analyses')
-      .delete()
-      .eq('blueprint_id', blueprint_id);
-    
-    if (deleteError) {
-      console.log('[analyze-document] No existing analysis to delete or delete failed:', deleteError);
-    }
-
-    // Update status to analyzing
-    await supabase
-      .from('blueprints')
-      .update({ 
-        generation_status: 'analyzing',
-        generation_started_at: new Date().toISOString(),
-        generation_error: null,
-      })
-      .eq('id', blueprint_id);
-
-    // Get content to analyze
-    const textContent = blueprint.description || blueprint.content?.textInput || '';
+    // Get file info from blueprint
     const fileUrl = blueprint.file_metadata?.url || blueprint.content?.fileUpload?.url;
     const fileName = blueprint.file_metadata?.name || blueprint.content?.fileUpload?.name || 'uploaded-document';
+    const textContent = blueprint.description || blueprint.content?.textInput || '';
 
     console.log('[analyze-document] Content sources:');
     console.log('  - Text content length:', textContent?.length || 0);
@@ -170,6 +154,121 @@ serve(async (req) => {
       throw new Error('No content to analyze - please provide a document or text');
     }
 
+    // =========================================================================
+    // STEP 1: Find or identify the class_document record
+    // =========================================================================
+    let documentId: string | null = blueprint.document_id || null;
+    let classDocument: any = null;
+
+    // If blueprint already has a document_id, use it
+    if (documentId) {
+      console.log(`[analyze-document] Blueprint has document_id: ${documentId}`);
+      const { data: doc } = await supabase
+        .from('class_documents')
+        .select('*')
+        .eq('id', documentId)
+        .single();
+      classDocument = doc;
+    }
+
+    // If no document_id on blueprint, try to find the class_document by matching
+    if (!classDocument && blueprint.class_id && fileName && fileName !== 'uploaded-document') {
+      console.log(`[analyze-document] Searching for document by filename: ${fileName}`);
+      const { data: docs } = await supabase
+        .from('class_documents')
+        .select('*')
+        .eq('class_id', blueprint.class_id)
+        .eq('user_id', blueprint.user_id)
+        .eq('name', fileName)
+        .limit(1);
+
+      if (docs && docs.length > 0) {
+        classDocument = docs[0];
+        documentId = classDocument.id;
+        console.log(`[analyze-document] Found class_document: ${documentId}`);
+        
+        // Update blueprint with the document_id for future reference
+        await supabase
+          .from('blueprints')
+          .update({ document_id: documentId })
+          .eq('id', blueprint_id);
+        console.log(`[analyze-document] Updated blueprint with document_id`);
+      }
+    }
+
+    // =========================================================================
+    // STEP 2: Check if analysis already exists for this document
+    // =========================================================================
+    let existingAnalysis: any = null;
+
+    if (documentId && !forceReanalyze) {
+      console.log(`[analyze-document] Checking for existing analysis for document: ${documentId}`);
+      const { data: existing } = await supabase
+        .from('document_analyses')
+        .select('*')
+        .eq('document_id', documentId)
+        .maybeSingle();
+
+      if (existing) {
+        existingAnalysis = existing;
+        console.log(`[analyze-document] Found existing analysis: ${(existing as any).id}`);
+      }
+    }
+
+    // If we found an existing analysis and not forcing re-analyze, return it
+    if (existingAnalysis && !forceReanalyze) {
+      console.log('[analyze-document] Using existing analysis (document already analyzed)');
+      
+      // Update blueprint status
+      await supabase
+        .from('blueprints')
+        .update({ 
+          generation_status: 'analyzed',
+          document_id: documentId,
+        })
+        .eq('id', blueprint_id);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          step: 'analyze',
+          status: 'analysis_complete',
+          analysis_id: existingAnalysis.id,
+          analysis: existingAnalysis.raw_analysis,
+          document_id: documentId,
+          reused_existing: true,
+          message: 'Document was already analyzed. Using existing analysis. You can now run Step 2 (Generate Structure).',
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+
+    // =========================================================================
+    // STEP 3: Perform the analysis (no existing analysis or force re-analyze)
+    // =========================================================================
+    
+    // Update status to analyzing
+    await supabase
+      .from('blueprints')
+      .update({ 
+        generation_status: 'analyzing',
+        generation_started_at: new Date().toISOString(),
+        generation_error: null,
+      })
+      .eq('id', blueprint_id);
+
+    // If forcing re-analyze, delete existing analysis for this document
+    if (forceReanalyze && documentId) {
+      console.log('[analyze-document] Deleting existing analysis for re-analyze...');
+      await supabase
+        .from('document_analyses')
+        .delete()
+        .eq('document_id', documentId);
+    }
+
     // Prepare content for analysis
     let extractedText = textContent || '';
     let sourceType: 'pdf' | 'text' | 'both' = textContent ? 'text' : 'pdf';
@@ -178,7 +277,6 @@ serve(async (req) => {
     // If there's a file, fetch it
     if (fileUrl) {
       console.log('[analyze-document] Fetching file content from:', fileUrl);
-      console.log('[analyze-document] Full URL:', fileUrl);
       
       try {
         // Try to fetch the file - could be public URL or signed URL
@@ -192,19 +290,13 @@ serve(async (req) => {
           console.log('[analyze-document] Direct fetch failed (status:', fileResponse.status, '), trying Supabase storage...');
           
           // Extract bucket and path from URL
-          // URL formats:
-          //   Public:  https://xxx.supabase.co/storage/v1/object/public/bucket-name/path/to/file
-          //   Private: https://xxx.supabase.co/storage/v1/object/bucket-name/path/to/file
-          
           let bucketName: string | null = null;
           let filePath: string | null = null;
           
-          // Try public URL format first
           const publicPrefix = '/storage/v1/object/public/';
           let prefixIndex = fileUrl.indexOf(publicPrefix);
           let prefixLength = publicPrefix.length;
           
-          // If not found, try private URL format (without /public/)
           if (prefixIndex === -1) {
             const privatePrefix = '/storage/v1/object/';
             prefixIndex = fileUrl.indexOf(privatePrefix);
@@ -213,7 +305,6 @@ serve(async (req) => {
           
           if (prefixIndex !== -1) {
             const afterPrefix = fileUrl.substring(prefixIndex + prefixLength);
-            // Split into bucket (first segment) and path (rest)
             const firstSlashIndex = afterPrefix.indexOf('/');
             
             if (firstSlashIndex !== -1) {
@@ -228,13 +319,9 @@ serve(async (req) => {
           if (bucketName && filePath) {
             console.log('[analyze-document] Parsed URL - bucket:', bucketName, 'path:', filePath);
 
-            // Use direct REST API call with proper authorization
-            // This bypasses the SDK which has issues with bucket names containing spaces
             const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
             const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
             
-            // Construct the authenticated download URL
-            // Format: /storage/v1/object/authenticated/bucket-name/file-path
             const encodedBucket = encodeURIComponent(bucketName);
             const encodedPath = filePath.split('/').map(segment => encodeURIComponent(segment)).join('/');
             const authenticatedUrl = `${supabaseUrl}/storage/v1/object/authenticated/${encodedBucket}/${encodedPath}`;
@@ -251,7 +338,6 @@ serve(async (req) => {
             if (!fileResponse.ok) {
               console.log('[analyze-document] Authenticated download failed:', fileResponse.status);
               
-              // Try the /object/ endpoint (without authenticated/)
               const directUrl = `${supabaseUrl}/storage/v1/object/${encodedBucket}/${encodedPath}`;
               console.log('[analyze-document] Trying direct object URL:', directUrl);
               
@@ -281,16 +367,13 @@ serve(async (req) => {
         console.log('[analyze-document] File content type:', contentType);
         
         if (contentType.includes('application/pdf')) {
-          // PDF detected - use Claude's vision capabilities!
           console.log('[analyze-document] PDF detected - will use Claude vision to read it');
           
-          // Fetch the PDF as binary and convert to base64
           const pdfArrayBuffer = await fileResponse.arrayBuffer();
           const pdfBase64 = arrayBufferToBase64(pdfArrayBuffer);
           
           console.log('[analyze-document] PDF converted to base64, size:', pdfBase64.length, 'chars');
           
-          // Check size limits (32MB max for Claude, but base64 is ~1.37x larger)
           const estimatedOriginalSize = (pdfBase64.length * 3) / 4;
           if (estimatedOriginalSize > 32 * 1024 * 1024) {
             throw new Error('PDF is too large. Maximum file size is 32MB.');
@@ -302,7 +385,6 @@ serve(async (req) => {
             filename: fileName,
           };
           
-          // Store note about PDF
           extractedText = textContent 
             ? `${textContent}\n\n[Original document was a PDF: ${fileName} - analyzed with AI vision]`
             : `[PDF: ${fileName} - analyzed with AI vision]`;
@@ -310,14 +392,12 @@ serve(async (req) => {
           sourceType = textContent ? 'both' : 'pdf';
           
         } else if (contentType.includes('text/')) {
-          // Plain text file
           const fileText = await fileResponse.text();
           extractedText = textContent 
             ? `${textContent}\n\n---FILE CONTENT---\n${fileText}`
             : fileText;
           sourceType = textContent ? 'both' : 'text';
         } else {
-          // Try to read as text anyway
           try {
             const fileText = await fileResponse.text();
             if (fileText && fileText.length > 0 && fileText.length < 100000) {
@@ -335,7 +415,6 @@ serve(async (req) => {
         if (!textContent) {
           throw new Error(`Failed to fetch file content: ${fetchError.message}`);
         }
-        // Continue with just text content if file fetch fails
       }
     }
 
@@ -349,15 +428,15 @@ serve(async (req) => {
     console.log('  - Text content length:', extractedText?.length || 0);
     console.log('  - Source type:', sourceType);
 
-    // Call Claude for analysis - use PDF vision if we have a PDF
+    // Call Claude for analysis
     console.log('[analyze-document] Calling Claude for analysis...');
     
     const analysis = await callClaudeWithPDFAndText<AnalysisResult>(
       PROMPTS.documentAnalysis.system,
-      PROMPTS.documentAnalysis.user('', blueprint.task_type), // Content comes from PDF
+      PROMPTS.documentAnalysis.user('', blueprint.task_type),
       pdfDocument,
-      textContent || null, // Additional text context if provided
-      { temperature: 0.3, maxTokens: 8192 } // Increased token limit for complex documents
+      textContent || null,
+      { temperature: 0.3, maxTokens: 8192 }
     );
 
     console.log('[analyze-document] Analysis complete:');
@@ -366,11 +445,11 @@ serve(async (req) => {
     console.log('  - Prerequisites found:', analysis.prerequisites?.length || 0);
     console.log('  - Course level:', analysis.course_level);
 
-    // Calculate total estimated time from problems or use study_recommendations
+    // Calculate total estimated time
     const totalTimeMinutes = analysis.study_recommendations?.total_time_minutes || 
       analysis.problems?.reduce((sum, p) => sum + (p.estimated_minutes || 0), 0) || 60;
 
-    // Map course_level to difficulty_level for backwards compatibility
+    // Map course_level to difficulty_level
     const difficultyMap: Record<string, string> = {
       'introductory': 'beginner',
       'intermediate': 'intermediate', 
@@ -378,19 +457,22 @@ serve(async (req) => {
       'graduate': 'expert'
     };
 
-    // Store the analysis in the database
-    // IMPORTANT: raw_analysis is the source of truth - other fields are derived for querying
+    // =========================================================================
+    // STEP 4: Store the analysis linked to DOCUMENT (not blueprint)
+    // =========================================================================
     const insertData = {
-      blueprint_id,
+      // Link to document (primary) and blueprint (for backwards compat)
+      document_id: documentId,
+      blueprint_id: blueprint_id,
       user_id: blueprint.user_id,
       class_id: blueprint.class_id || null,
-      // Derived fields for easy querying (not duplicating raw_analysis data)
-      topics: [], // Deprecated - use raw_analysis.problems instead
+      // Derived fields
+      topics: [],
       prerequisites: analysis.prerequisites || [],
-      problem_types: [], // Deprecated - problems are in raw_analysis.problems
+      problem_types: [],
       difficulty_level: difficultyMap[analysis.course_level] || 'intermediate',
       estimated_study_time_minutes: totalTimeMinutes,
-      // The actual analysis - this is the source of truth
+      // The actual analysis
       raw_analysis: analysis,
       extracted_text: extractedText,
       source_filename: fileName,
@@ -399,6 +481,8 @@ serve(async (req) => {
     };
 
     console.log('[analyze-document] Storing analysis in database...');
+    console.log('  - document_id:', documentId);
+    console.log('  - blueprint_id:', blueprint_id);
     
     const { data: newAnalysis, error: insertError } = await supabase
       .from('document_analyses')
@@ -413,19 +497,13 @@ serve(async (req) => {
 
     console.log('[analyze-document] Analysis saved with ID:', newAnalysis?.id);
 
-    // NOTE: We NO LONGER delete the original file from storage.
-    // Files should only be deleted when:
-    // 1. User explicitly deletes the document from the class page
-    // 2. The entire class is deleted (cascade delete)
-    // 
-    // This preserves documents for reuse across multiple blueprints and
-    // prevents data loss when blueprints are deleted.
-    console.log('[analyze-document] File preserved in storage (not deleted)');
-
-    // Update blueprint status to indicate analysis is complete
+    // Update blueprint with document_id and status
     await supabase
       .from('blueprints')
-      .update({ generation_status: 'analyzed' })
+      .update({ 
+        generation_status: 'analyzed',
+        document_id: documentId,
+      })
       .eq('id', blueprint_id);
 
     console.log('[analyze-document] Complete!');
@@ -437,8 +515,9 @@ serve(async (req) => {
         status: 'analysis_complete',
         analysis_id: newAnalysis?.id,
         analysis: analysis,
-        file_deleted: false, // Files are now preserved
-        message: 'Document analysis complete. Original file has been preserved in storage. You can now run Step 2 (Generate Structure).',
+        document_id: documentId,
+        reused_existing: false,
+        message: 'Document analysis complete. You can now run Step 2 (Generate Structure).',
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

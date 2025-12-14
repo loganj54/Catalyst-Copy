@@ -69,6 +69,7 @@ const Blueprint = () => {
   // Debug state
   const [showDebug, setShowDebug] = useState(false);
   const [documentAnalysis, setDocumentAnalysis] = useState(null);
+  const [learningStructure, setLearningStructure] = useState(null);
   const [blueprintResources, setBlueprintResources] = useState([]);
 
   // Fetch blueprint data
@@ -142,6 +143,25 @@ const Blueprint = () => {
         console.log('ℹ️ No document analysis found for blueprint:', id);
       }
 
+      // Fetch learning structure for this blueprint
+      const { data: structureData, error: structureError } = await supabase
+        .from('learning_structures')
+        .select('*')
+        .eq('blueprint_id', id)
+        .maybeSingle();
+      
+      if (structureError) {
+        console.error('Error fetching learning structure:', structureError);
+      }
+      
+      if (structureData) {
+        console.log('✅ Learning structure found:', structureData.id);
+        setLearningStructure(structureData);
+      } else {
+        console.log('ℹ️ No learning structure found for blueprint:', id);
+        setLearningStructure(null);
+      }
+
       // Fetch blueprint resources
       const { data: resourcesData } = await supabase
         .from('blueprint_resources')
@@ -165,46 +185,6 @@ const Blueprint = () => {
       setLoading(false);
     }
   }, [id, user?.id, navigate]);
-
-  // Trigger blueprint generation
-  const triggerGeneration = useCallback(async () => {
-    if (!session?.access_token) {
-      console.error('No access token available');
-      return;
-    }
-
-    setGenerating(true);
-    setGenerationError(null);
-
-    try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      
-      const response = await fetch(`${supabaseUrl}/functions/v1/generate-blueprint`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ blueprint_id: id }),
-      });
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Generation failed');
-      }
-
-      // Refresh blueprint data to get the generated content
-      await fetchBlueprint();
-      
-    } catch (error) {
-      console.error('Generation error:', error);
-      setGenerationError(error.message);
-      setGenerationStatus('failed');
-    } finally {
-      setGenerating(false);
-    }
-  }, [id, session?.access_token, fetchBlueprint]);
 
   // Step-by-step generation functions - each calls a SEPARATE edge function
   const runAnalyzeDocument = async () => {
@@ -428,7 +408,7 @@ const Blueprint = () => {
         // }
       });
     }
-  }, [user, id, fetchBlueprint, triggerGeneration]);
+  }, [user, id, fetchBlueprint]);
 
   // Poll for status updates while generating
   useEffect(() => {
@@ -543,7 +523,7 @@ const Blueprint = () => {
                 
                 {generationStatus === 'failed' && (
                   <button
-                    onClick={triggerGeneration}
+                    onClick={runAllSteps}
                     disabled={generating}
                     className="ml-auto flex items-center gap-2 px-4 py-2 bg-[#FF4A1C] text-white rounded-lg hover:bg-black transition-colors disabled:opacity-50"
                   >
@@ -807,6 +787,137 @@ const Blueprint = () => {
                   </pre>
                 ) : (
                   <p className="text-red-400 font-mono text-sm">No document analysis found for this blueprint</p>
+                )}
+              </div>
+
+              {/* Learning Structure */}
+              <div>
+                <h3 className="text-yellow-400 font-mono font-bold mb-2">LEARNING STRUCTURE (learning_structures table)</h3>
+                {learningStructure ? (
+                  <div className="space-y-4">
+                    {/* Summary Stats */}
+                    <div className="bg-stone-800 p-3 rounded-lg">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm font-mono">
+                        <div>
+                          <span className="text-stone-400">Prerequisites:</span>
+                          <span className="text-cyan-400 ml-2">{learningStructure.total_prerequisites}</span>
+                        </div>
+                        <div>
+                          <span className="text-stone-400">Sections:</span>
+                          <span className="text-cyan-400 ml-2">{learningStructure.total_sections}</span>
+                        </div>
+                        <div>
+                          <span className="text-stone-400">Learning Units:</span>
+                          <span className="text-cyan-400 ml-2">{learningStructure.total_learning_units}</span>
+                        </div>
+                        <div>
+                          <span className="text-stone-400">Search Queries:</span>
+                          <span className="text-cyan-400 ml-2">{learningStructure.total_search_queries}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Structure Summary */}
+                    {learningStructure.structure?.summary && (
+                      <div className="bg-stone-800 p-3 rounded-lg">
+                        <h4 className="text-cyan-400 font-mono font-bold mb-2">{learningStructure.structure.summary.title}</h4>
+                        <p className="text-stone-300 text-sm mb-2">{learningStructure.structure.summary.description}</p>
+                        <div className="text-xs text-stone-400">
+                          <span>Est. Time: {learningStructure.structure.summary.total_estimated_time_minutes} min</span>
+                          <span className="mx-2">|</span>
+                          <span>Difficulty: {learningStructure.structure.summary.difficulty_progression}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Prerequisites Section */}
+                    {learningStructure.structure?.prerequisites_section?.learning_units?.length > 0 && (
+                      <div className="bg-stone-800 p-3 rounded-lg">
+                        <h4 className="text-orange-400 font-mono font-bold mb-2">📚 PREREQUISITES</h4>
+                        <div className="space-y-3">
+                          {learningStructure.structure.prerequisites_section.learning_units.map((unit, idx) => (
+                            <div key={unit.unit_id || idx} className="border-l-2 border-orange-500 pl-3">
+                              <p className="text-white font-medium text-sm">{unit.topic}</p>
+                              <p className="text-stone-400 text-xs mb-2">{unit.description}</p>
+                              <div className="space-y-1">
+                                {unit.search_queries?.map((sq, qIdx) => (
+                                  <div key={qIdx} className="flex items-start gap-2 text-xs">
+                                    <span className="text-orange-400 shrink-0">{sq.priority}.</span>
+                                    <span className="text-green-400">"{sq.query}"</span>
+                                    <span className="text-stone-500">({sq.query_type})</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Content Sections */}
+                    {learningStructure.structure?.content_sections?.map((section, sIdx) => (
+                      <div key={section.section_id || sIdx} className="bg-stone-800 p-3 rounded-lg">
+                        <h4 className="text-purple-400 font-mono font-bold mb-2">
+                          📝 {section.title}
+                          <span className="text-stone-500 text-xs ml-2">({section.section_type})</span>
+                        </h4>
+                        <p className="text-stone-400 text-xs mb-3">{section.description}</p>
+                        
+                        {section.concepts?.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {section.concepts.map((concept, cIdx) => (
+                              <span key={cIdx} className="px-2 py-0.5 bg-purple-900/50 text-purple-300 text-xs rounded">
+                                {concept}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="space-y-3">
+                          {section.learning_units?.map((unit, uIdx) => (
+                            <div key={unit.unit_id || uIdx} className="border-l-2 border-purple-500 pl-3">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="text-white font-medium text-sm">{unit.topic}</p>
+                                {unit.priority && (
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                    unit.priority === 'essential' ? 'bg-red-900/50 text-red-300' :
+                                    unit.priority === 'recommended' ? 'bg-yellow-900/50 text-yellow-300' :
+                                    'bg-stone-700 text-stone-300'
+                                  }`}>
+                                    {unit.priority}
+                                  </span>
+                                )}
+                              </div>
+                              {unit.learning_objective && (
+                                <p className="text-stone-400 text-xs mb-2">{unit.learning_objective}</p>
+                              )}
+                              <div className="space-y-1">
+                                {unit.search_queries?.map((sq, qIdx) => (
+                                  <div key={qIdx} className="flex items-start gap-2 text-xs">
+                                    <span className="text-purple-400 shrink-0">{sq.priority}.</span>
+                                    <span className="text-green-400">"{sq.query}"</span>
+                                    <span className="text-stone-500">({sq.query_type})</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Raw JSON (collapsed by default) */}
+                    <details className="bg-stone-800 rounded-lg">
+                      <summary className="p-3 cursor-pointer text-stone-400 hover:text-white text-sm font-mono">
+                        📄 View Raw JSON
+                      </summary>
+                      <pre className="p-3 pt-0 text-green-400 text-xs overflow-x-auto whitespace-pre-wrap">
+                        {JSON.stringify(learningStructure, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
+                ) : (
+                  <p className="text-red-400 font-mono text-sm">No learning structure found for this blueprint</p>
                 )}
               </div>
 

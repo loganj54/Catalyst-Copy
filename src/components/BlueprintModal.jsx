@@ -210,11 +210,18 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
 
       // Upload file to Supabase Storage if present (only if it's a new upload, not existing document)
       let fileUrl = null;
+      let documentId = null; // Track the class_document ID for linking
+      
       if (formData.fileUpload) {
         // Check if this is an existing document (already has a URL)
         if (formData.fileUpload.isExisting) {
-          // Use the existing document's URL
+          // Use the existing document's URL and ID
           fileUrl = formData.fileUpload.url;
+          // If we have a selectedDocument, use its ID
+          if (selectedDocument) {
+            documentId = selectedDocument.id;
+            console.log('Using existing document ID:', documentId);
+          }
         } else {
           // Check for duplicate document in this class (by filename and size)
           console.log('Checking for duplicate document...');
@@ -233,6 +240,8 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
             console.log('✅ Duplicate found - reusing existing document');
             const existingDoc = existingDocs[0];
             fileUrl = existingDoc.file_url;
+            documentId = existingDoc.id; // Get the document ID for linking
+            console.log('Reusing existing document ID:', documentId);
             
             alert(
               `ℹ️ This document already exists in the class!\n\n` +
@@ -264,7 +273,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
               fileUrl = urlData.publicUrl;
 
               // ALSO save to class_documents table so it appears in the class page
-              const { error: docError } = await supabase
+              const { data: newDocData, error: docError } = await supabase
                 .from('class_documents')
                 .insert([{
                   class_id: finalClassId,
@@ -274,11 +283,16 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
                   file_url: fileUrl,
                   file_size: formData.fileUpload.size,
                   file_type: formData.fileUpload.type
-                }]);
+                }])
+                .select()
+                .single();
                 
               if (docError) {
                 console.error('Error saving document metadata:', docError);
                 // We don't stop the blueprint creation if this fails, but it's good to log
+              } else if (newDocData) {
+                documentId = newDocData.id;
+                console.log('Created new document with ID:', documentId);
               }
             }
           }
@@ -300,12 +314,13 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
         timestamp: new Date().toISOString()
       };
 
-      // Insert into blueprints table with the class_id
+      // Insert into blueprints table with the class_id and document_id
       const { data, error } = await supabase
         .from('blueprints')
         .insert([{
           user_id: user.id,
           class_id: finalClassId,
+          document_id: documentId, // Link to the class_document for analysis reuse
           title: formData.blueprintName,
           description: formData.textInput,
           task_type: finalTaskType,

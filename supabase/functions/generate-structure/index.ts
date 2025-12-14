@@ -1,0 +1,496 @@
+// ============================================================================
+// GENERATE STRUCTURE EDGE FUNCTION
+// ============================================================================
+// Step 2 of the Pipeline: Transforms document analysis into a comprehensive
+// learning structure with intelligent search queries for each topic/concept
+//
+// KEY FEATURES:
+// - Accepts document analysis or any structured input
+// - Generates 3-5 progressive search queries per topic
+// - Organizes output by prerequisites and content sections
+// - Stores results in learning_structures table for search-resources step
+//
+// INPUT: { blueprint_id } or { analysis: {...}, input_type: 'custom' }
+// OUTPUT: Structured learning path with search queries
+// ============================================================================
+
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { corsHeaders } from '../_shared/cors.ts';
+import { 
+  createSupabaseClient, 
+  createSupabaseClientWithAuth, 
+  callClaudeJSON,
+} from '../_shared/supabase-client.ts';
+import { PROMPTS } from '../_shared/prompts.ts';
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+interface GenerateStructureRequest {
+  // Option 1: Reference a blueprint (will fetch its document_analysis)
+  blueprint_id?: string;
+  
+  // Option 2: Direct input (for future flexibility)
+  analysis?: any;
+  input_type?: 'document_analysis' | 'custom';
+}
+
+// Search query generated for a topic
+interface SearchQuery {
+  query: string;
+  query_type: 'introduction' | 'concept' | 'tutorial' | 'example' | 'practice';
+  target_content: string;
+  priority: number;
+}
+
+// Learning unit within a section
+interface LearningUnit {
+  unit_id: string;
+  topic: string;
+  description?: string;
+  learning_objective?: string;
+  category?: string;
+  difficulty?: string;
+  priority?: string;
+  estimated_time_minutes: number;
+  search_queries: SearchQuery[];
+}
+
+// Prerequisite section structure
+interface PrerequisitesSection {
+  description: string;
+  learning_units: LearningUnit[];
+}
+
+// Content section (problem or topic)
+interface ContentSection {
+  section_id: string;
+  section_type: 'problem' | 'topic' | 'chapter';
+  title: string;
+  description: string;
+  concepts: string[];
+  learning_units: LearningUnit[];
+  problem_details?: {
+    original_problem_id: string;
+    key_equations: string[];
+    common_mistakes: string[];
+  };
+}
+
+// Complete learning structure
+interface LearningStructure {
+  summary: {
+    title: string;
+    description: string;
+    total_estimated_time_minutes: number;
+    difficulty_progression: string;
+  };
+  prerequisites_section: PrerequisitesSection;
+  content_sections: ContentSection[];
+}
+
+// Flattened search query for batch processing
+interface FlatSearchQuery {
+  unit_id: string;
+  section_id: string;
+  section_type: 'prerequisite' | 'content';
+  topic: string;
+  query: string;
+  query_type: string;
+  target_content: string;
+  priority: number;
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Flatten all search queries from the structure for easy batch processing
+ */
+function flattenSearchQueries(structure: LearningStructure): FlatSearchQuery[] {
+  const queries: FlatSearchQuery[] = [];
+  
+  // Flatten prerequisite queries
+  if (structure.prerequisites_section?.learning_units) {
+    for (const unit of structure.prerequisites_section.learning_units) {
+      for (const sq of unit.search_queries || []) {
+        queries.push({
+          unit_id: unit.unit_id,
+          section_id: 'prerequisites',
+          section_type: 'prerequisite',
+          topic: unit.topic,
+          query: sq.query,
+          query_type: sq.query_type,
+          target_content: sq.target_content,
+          priority: sq.priority,
+        });
+      }
+    }
+  }
+  
+  // Flatten content section queries
+  for (const section of structure.content_sections || []) {
+    for (const unit of section.learning_units || []) {
+      for (const sq of unit.search_queries || []) {
+        queries.push({
+          unit_id: unit.unit_id,
+          section_id: section.section_id,
+          section_type: 'content',
+          topic: unit.topic,
+          query: sq.query,
+          query_type: sq.query_type,
+          target_content: sq.target_content,
+          priority: sq.priority,
+        });
+      }
+    }
+  }
+  
+  return queries;
+}
+
+/**
+ * Count totals from the structure
+ */
+function countStructureMetrics(structure: LearningStructure) {
+  const prerequisiteUnits = structure.prerequisites_section?.learning_units?.length || 0;
+  const contentSections = structure.content_sections?.length || 0;
+  
+  let totalLearningUnits = prerequisiteUnits;
+  let totalSearchQueries = 0;
+  
+  // Count prerequisite queries
+  for (const unit of structure.prerequisites_section?.learning_units || []) {
+    totalSearchQueries += unit.search_queries?.length || 0;
+  }
+  
+  // Count content section units and queries
+  for (const section of structure.content_sections || []) {
+    totalLearningUnits += section.learning_units?.length || 0;
+    for (const unit of section.learning_units || []) {
+      totalSearchQueries += unit.search_queries?.length || 0;
+    }
+  }
+  
+  return {
+    total_prerequisites: prerequisiteUnits,
+    total_sections: contentSections,
+    total_learning_units: totalLearningUnits,
+    total_search_queries: totalSearchQueries,
+  };
+}
+
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
+
+serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  let blueprint_id: string | null = null;
+  const supabase = createSupabaseClient();
+
+  try {
+    // Verify authorization
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Missing authorization header');
+    }
+
+    const body: GenerateStructureRequest = await req.json();
+    blueprint_id = body.blueprint_id || null;
+
+    console.log(`[generate-structure] Starting structure generation`);
+    console.log(`  - Blueprint ID: ${blueprint_id || '(none - direct input)'}`);
+    console.log(`  - Input type: ${body.input_type || 'document_analysis'}`);
+
+    // Get the input data
+    let analysisData: any;
+    let userId: string;
+    let analysisId: string | null = null;
+    let documentId: string | null = null;
+
+    if (blueprint_id) {
+      // Fetch blueprint and its analysis
+      const authClient = createSupabaseClientWithAuth(authHeader);
+      
+      const { data: blueprint, error: blueprintError } = await authClient
+        .from('blueprints')
+        .select('*')
+        .eq('id', blueprint_id)
+        .single();
+
+      if (blueprintError || !blueprint) {
+        console.error('Blueprint fetch error:', blueprintError);
+        throw new Error('Blueprint not found or access denied');
+      }
+
+      userId = blueprint.user_id;
+      documentId = blueprint.document_id || null;
+      console.log(`[generate-structure] Found blueprint: ${blueprint.title || blueprint_id}`);
+      console.log(`[generate-structure] Blueprint document_id: ${documentId || '(none)'}`);
+
+      // =========================================================================
+      // Find the document analysis - prioritize document_id (new model)
+      // =========================================================================
+      let analysis = null;
+      
+      // Approach 1: Search by document_id (preferred - new data model)
+      if (documentId) {
+        console.log(`[generate-structure] Searching by document_id: ${documentId}`);
+        const { data: docMatch, error: docError } = await supabase
+          .from('document_analyses')
+          .select('*')
+          .eq('document_id', documentId)
+          .maybeSingle();
+        
+        if (docError) {
+          console.error('[generate-structure] document_id match error:', docError);
+        }
+        
+        if (docMatch) {
+          console.log('[generate-structure] Found analysis by document_id:', docMatch.id);
+          analysis = docMatch;
+        }
+      }
+      
+      // Approach 2: Search by blueprint_id (legacy/backwards compat)
+      if (!analysis) {
+        console.log(`[generate-structure] Searching by blueprint_id: ${blueprint_id}`);
+        const { data: bpMatch, error: bpError } = await supabase
+          .from('document_analyses')
+          .select('*')
+          .eq('blueprint_id', blueprint_id)
+          .maybeSingle();
+        
+        if (bpError) {
+          console.error('[generate-structure] blueprint_id match error:', bpError);
+        }
+        
+        if (bpMatch) {
+          console.log('[generate-structure] Found analysis by blueprint_id:', bpMatch.id);
+          analysis = bpMatch;
+        }
+      }
+      
+      // Approach 3: Search by document filename
+      if (!analysis) {
+        const fileName = blueprint.file_metadata?.name || blueprint.content?.fileUpload?.name;
+        
+        if (fileName) {
+          console.log(`[generate-structure] Searching by filename: ${fileName}`);
+          
+          const { data: filenameMatch, error: filenameError } = await supabase
+            .from('document_analyses')
+            .select('*')
+            .eq('source_filename', fileName)
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (filenameError) {
+            console.error('[generate-structure] Filename match error:', filenameError);
+          }
+          
+          if (filenameMatch) {
+            console.log('[generate-structure] Found analysis by filename:', filenameMatch.id);
+            analysis = filenameMatch;
+          }
+        }
+      }
+      
+      // Approach 4: Check if there's any analysis for this user's class
+      if (!analysis && blueprint.class_id) {
+        console.log(`[generate-structure] Searching by class_id: ${blueprint.class_id}`);
+        
+        const { data: classMatch, error: classError } = await supabase
+          .from('document_analyses')
+          .select('*')
+          .eq('class_id', blueprint.class_id)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (classMatch) {
+          console.log('[generate-structure] Found analysis by class_id:', classMatch.id);
+          analysis = classMatch;
+        }
+      }
+
+      if (!analysis) {
+        console.error('[generate-structure] No analysis found after all search attempts');
+        console.error('[generate-structure] Blueprint details:', {
+          id: blueprint_id,
+          document_id: documentId,
+          user_id: userId,
+          class_id: blueprint.class_id,
+          file_name: blueprint.file_metadata?.name || blueprint.content?.fileUpload?.name,
+        });
+        throw new Error('Document analysis not found. Please run the analyze-document step first.');
+      }
+
+      analysisId = analysis.id;
+      analysisData = analysis.raw_analysis;
+      
+      console.log(`[generate-structure] Found document analysis: ${analysisId}`);
+      console.log(`  - Document type: ${analysisData.document_type}`);
+      console.log(`  - Problems: ${analysisData.problems?.length || 0}`);
+      console.log(`  - Prerequisites: ${analysisData.prerequisites?.length || 0}`);
+
+      // Delete any existing learning structure for this blueprint (to allow retry)
+      const { error: deleteError } = await supabase
+        .from('learning_structures')
+        .delete()
+        .eq('blueprint_id', blueprint_id);
+      
+      if (deleteError) {
+        console.log('[generate-structure] No existing structure to delete or delete failed:', deleteError);
+      }
+
+      // Update blueprint status
+      await supabase
+        .from('blueprints')
+        .update({ 
+          generation_status: 'generating_structure',
+          generation_error: null,
+        })
+        .eq('id', blueprint_id);
+
+    } else if (body.analysis) {
+      // Direct input mode
+      analysisData = body.analysis;
+      
+      // Get user from auth
+      const authClient = createSupabaseClientWithAuth(authHeader);
+      const { data: { user }, error: userError } = await authClient.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error('Could not verify user');
+      }
+      
+      userId = user.id;
+      console.log(`[generate-structure] Using direct input mode`);
+    } else {
+      throw new Error('Must provide either blueprint_id or analysis data');
+    }
+
+    // Call Claude to generate the learning structure
+    console.log('[generate-structure] Calling Claude to generate learning structure...');
+    
+    const inputType = body.input_type || 'document_analysis';
+    
+    // Use higher token limit for complex documents with many problems/prerequisites
+    // Each problem can generate 3-5 search queries, so this can get large
+    const structure = await callClaudeJSON<LearningStructure>(
+      PROMPTS.generateStructure.system,
+      PROMPTS.generateStructure.user(analysisData, inputType),
+      { temperature: 0.4, maxTokens: 16384 }
+    );
+
+    console.log('[generate-structure] Structure generated:');
+    console.log(`  - Title: ${structure.summary?.title}`);
+    console.log(`  - Prerequisites: ${structure.prerequisites_section?.learning_units?.length || 0}`);
+    console.log(`  - Content sections: ${structure.content_sections?.length || 0}`);
+
+    // Flatten all search queries for easy access by search-resources
+    const allSearchQueries = flattenSearchQueries(structure);
+    console.log(`  - Total search queries: ${allSearchQueries.length}`);
+
+    // Calculate metrics
+    const metrics = countStructureMetrics(structure);
+
+    // Store the learning structure in the database
+    const insertData = {
+      blueprint_id: blueprint_id,
+      analysis_id: analysisId,
+      document_id: documentId || null,
+      user_id: userId,
+      structure: structure,
+      all_search_queries: allSearchQueries,
+      total_prerequisites: metrics.total_prerequisites,
+      total_sections: metrics.total_sections,
+      total_learning_units: metrics.total_learning_units,
+      total_search_queries: metrics.total_search_queries,
+      model_used: 'claude-haiku-4-5',
+    };
+
+    console.log('[generate-structure] Storing learning structure in database...');
+
+    const { data: newStructure, error: insertError } = await supabase
+      .from('learning_structures')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('[generate-structure] Database insert error:', insertError);
+      throw new Error(`Database error: ${insertError.message}`);
+    }
+
+    console.log('[generate-structure] Structure saved with ID:', newStructure?.id);
+
+    // Update blueprint status to indicate structure generation is complete
+    if (blueprint_id) {
+      await supabase
+        .from('blueprints')
+        .update({ generation_status: 'structure_generated' })
+        .eq('id', blueprint_id);
+    }
+
+    console.log('[generate-structure] Complete!');
+
+    return new Response(
+      JSON.stringify({ 
+        success: true,
+        step: 'generate_structure',
+        status: 'structure_generated',
+        structure_id: newStructure?.id,
+        structure: structure,
+        metrics: metrics,
+        search_queries_count: allSearchQueries.length,
+        message: `Learning structure generated with ${allSearchQueries.length} search queries. Ready for Step 3 (Search Resources).`,
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      }
+    );
+
+  } catch (error) {
+    console.error('[generate-structure] Error:', error);
+
+    // Update blueprint with error status
+    if (blueprint_id) {
+      try {
+        await supabase
+          .from('blueprints')
+          .update({ 
+            generation_status: 'failed',
+            generation_error: error?.message || 'Structure generation failed',
+          })
+          .eq('id', blueprint_id);
+      } catch (updateError) {
+        console.error('[generate-structure] Failed to update error status:', updateError);
+      }
+    }
+    
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error?.message || 'Unknown error occurred',
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      }
+    );
+  }
+});
+
