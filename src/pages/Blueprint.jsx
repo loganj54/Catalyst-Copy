@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Target, Calendar, FileText, Loader2, Download, ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp, Bug } from 'lucide-react';
+import { 
+  ArrowLeft, BookOpen, Target, Calendar, FileText, Loader2, Download, 
+  ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp, 
+  Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -56,6 +60,304 @@ const STATUS_CONFIG = {
   },
 };
 
+// ============================================================================
+// TOPIC CARD COMPONENT
+// ============================================================================
+// Displays a single learning topic with comfort check buttons and video results
+// ============================================================================
+
+const TopicCard = ({ 
+  unit, 
+  blueprintId, 
+  topicResponse, 
+  topicResources,
+  onComfortSelect,
+  onGenerateBlueprint,
+  isSearching,
+}) => {
+  const hasResources = topicResources && topicResources.length > 0;
+  const isComfortable = topicResponse?.response === 'comfortable';
+  const needsHelp = topicResponse?.response === 'needs_help';
+
+  return (
+    <div className={`bg-white rounded-xl border-2 transition-all duration-300 ${
+      isComfortable 
+        ? 'border-green-200 bg-green-50/30' 
+        : needsHelp 
+          ? 'border-orange-200 bg-orange-50/30' 
+          : 'border-stone-200 hover:border-stone-300'
+    }`}>
+      <div className="p-5">
+        {/* Topic Header */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1">
+            <h4 className="font-semibold text-[#2A2B2A] text-lg leading-tight">
+              {unit.topic}
+            </h4>
+            {unit.description && (
+              <p className="text-stone-600 text-sm mt-1 leading-relaxed">
+                {unit.description}
+              </p>
+            )}
+            {unit.learning_objective && (
+              <p className="text-stone-500 text-xs mt-2 italic">
+                Goal: {unit.learning_objective}
+              </p>
+            )}
+          </div>
+          
+          {/* Priority Badge */}
+          {unit.priority && (
+            <span className={`ml-3 px-2 py-1 text-xs font-medium rounded-full shrink-0 ${
+              unit.priority === 'essential' 
+                ? 'bg-red-100 text-red-700' 
+                : unit.priority === 'recommended'
+                  ? 'bg-yellow-100 text-yellow-700'
+                  : 'bg-stone-100 text-stone-600'
+            }`}>
+              {unit.priority}
+            </span>
+          )}
+        </div>
+
+        {/* Comfort Check Buttons */}
+        {!isComfortable && !hasResources && (
+          <div className="flex flex-wrap gap-2 mt-4">
+            <button
+              onClick={() => onComfortSelect(unit.unit_id, 'comfortable')}
+              disabled={isSearching}
+              className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg 
+                         hover:bg-green-200 transition-colors font-medium text-sm disabled:opacity-50"
+            >
+              <Check className="w-4 h-4" />
+              I'm Comfortable
+            </button>
+            <button
+              onClick={() => onGenerateBlueprint(unit)}
+              disabled={isSearching}
+              className="flex items-center gap-2 px-4 py-2 bg-[#FF4A1C] text-white rounded-lg 
+                         hover:bg-black transition-colors font-medium text-sm disabled:opacity-50"
+            >
+              {isSearching ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Searching...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4" />
+                  Generate Full Blueprint
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Comfortable Badge */}
+        {isComfortable && (
+          <div className="flex items-center gap-2 mt-4 text-green-600">
+            <Check className="w-5 h-5" />
+            <span className="font-medium text-sm">You're comfortable with this topic</span>
+          </div>
+        )}
+
+        {/* Video Resources */}
+        {hasResources && (
+          <div className="mt-4 pt-4 border-t border-stone-200">
+            <h5 className="text-sm font-semibold text-stone-700 mb-3 flex items-center gap-2">
+              <Play className="w-4 h-4 text-[#FF4A1C]" />
+              Recommended Resources
+            </h5>
+            <div className="space-y-3">
+              {topicResources.map((resource, idx) => (
+                <ResourceCard key={resource.id || idx} resource={resource} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// RESOURCE CARD COMPONENT
+// ============================================================================
+// Displays a single video/resource with thumbnail and metadata
+// ============================================================================
+
+const ResourceCard = ({ resource }) => {
+  const getPlatformIcon = (platform) => {
+    if (platform?.toLowerCase().includes('youtube')) {
+      return <Youtube className="w-4 h-4 text-red-500" />;
+    }
+    return <ExternalLink className="w-4 h-4 text-stone-400" />;
+  };
+
+  const formatDuration = (seconds) => {
+    if (!seconds) return null;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <a
+      href={resource.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex gap-3 p-3 bg-stone-50 rounded-lg hover:bg-stone-100 transition-colors group"
+    >
+      {/* Thumbnail */}
+      {resource.thumbnail_url ? (
+        <div className="relative w-24 h-16 rounded-md overflow-hidden bg-stone-200 shrink-0">
+          <img 
+            src={resource.thumbnail_url} 
+            alt={resource.title}
+            className="w-full h-full object-cover"
+          />
+          {resource.duration_seconds && (
+            <span className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/80 text-white text-xs rounded">
+              {formatDuration(resource.duration_seconds)}
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="w-24 h-16 rounded-md bg-gradient-to-br from-[#FF4A1C]/20 to-purple-200 
+                        flex items-center justify-center shrink-0">
+          <Play className="w-6 h-6 text-[#FF4A1C]" />
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <h6 className="font-medium text-[#2A2B2A] text-sm line-clamp-2 group-hover:text-[#FF4A1C] transition-colors">
+          {resource.title}
+        </h6>
+        
+        <div className="flex items-center gap-2 mt-1 text-xs text-stone-500">
+          {getPlatformIcon(resource.platform)}
+          <span>{resource.channel_name || resource.platform || 'Video'}</span>
+          
+          {resource.from_cache && resource.similarity && (
+            <span className="ml-auto flex items-center gap-1 text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
+              <Star className="w-3 h-3" />
+              {Math.round(resource.similarity * 100)}% match
+            </span>
+          )}
+        </div>
+
+        {/* Difficulty badge */}
+        {resource.difficulty_level && (
+          <span className={`inline-block mt-1 px-1.5 py-0.5 text-xs rounded ${
+            resource.difficulty_level === 'beginner' 
+              ? 'bg-green-100 text-green-700'
+              : resource.difficulty_level === 'intermediate'
+                ? 'bg-yellow-100 text-yellow-700'
+                : 'bg-red-100 text-red-700'
+          }`}>
+            {resource.difficulty_level}
+          </span>
+        )}
+      </div>
+
+      <ExternalLink className="w-4 h-4 text-stone-400 group-hover:text-[#FF4A1C] shrink-0 self-center" />
+    </a>
+  );
+};
+
+// ============================================================================
+// SECTION COMPONENT
+// ============================================================================
+// Displays a content section (Problem/Topic) with its learning units
+// ============================================================================
+
+const SectionDisplay = ({ 
+  section, 
+  blueprintId,
+  topicResponses,
+  topicResources,
+  onComfortSelect,
+  onGenerateBlueprint,
+  searchingTopics,
+}) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  return (
+    <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+      {/* Section Header */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between p-5 bg-gradient-to-r from-purple-50 to-white hover:from-purple-100 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-purple-100 rounded-lg">
+            <Target className="w-5 h-5 text-purple-600" />
+          </div>
+          <div className="text-left">
+            <h3 className="font-bold text-[#2A2B2A] text-lg">
+              {section.title}
+            </h3>
+            {section.description && (
+              <p className="text-stone-600 text-sm mt-0.5 line-clamp-1">
+                {section.description}
+              </p>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {section.concepts && section.concepts.length > 0 && (
+            <div className="hidden md:flex gap-1">
+              {section.concepts.slice(0, 3).map((concept, idx) => (
+                <span key={idx} className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
+                  {concept}
+                </span>
+              ))}
+              {section.concepts.length > 3 && (
+                <span className="px-2 py-0.5 bg-stone-100 text-stone-600 text-xs rounded-full">
+                  +{section.concepts.length - 3}
+                </span>
+              )}
+            </div>
+          )}
+          
+          {isExpanded ? (
+            <ChevronUp className="w-5 h-5 text-stone-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-stone-400" />
+          )}
+        </div>
+      </button>
+
+      {/* Section Content - Learning Units */}
+      {isExpanded && section.learning_units && section.learning_units.length > 0 && (
+        <div className="p-5 pt-0 space-y-3">
+          <h4 className="text-sm font-semibold text-stone-500 uppercase tracking-wide pt-2">
+            Core Topics
+          </h4>
+          {section.learning_units.map((unit, idx) => (
+            <TopicCard
+              key={unit.unit_id || idx}
+              unit={unit}
+              blueprintId={blueprintId}
+              topicResponse={topicResponses[unit.unit_id]}
+              topicResources={topicResources[unit.unit_id]}
+              onComfortSelect={onComfortSelect}
+              onGenerateBlueprint={onGenerateBlueprint}
+              isSearching={searchingTopics.has(unit.unit_id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// MAIN BLUEPRINT COMPONENT
+// ============================================================================
+
 const Blueprint = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -71,6 +373,11 @@ const Blueprint = () => {
   const [documentAnalysis, setDocumentAnalysis] = useState(null);
   const [learningStructure, setLearningStructure] = useState(null);
   const [blueprintResources, setBlueprintResources] = useState([]);
+
+  // Topic comfort and resources state
+  const [topicResponses, setTopicResponses] = useState({});
+  const [topicResources, setTopicResources] = useState({});
+  const [searchingTopics, setSearchingTopics] = useState(new Set());
 
   // Fetch blueprint data
   const fetchBlueprint = useCallback(async () => {
@@ -88,36 +395,23 @@ const Blueprint = () => {
       setGenerationError(data.generation_error);
       
       // Fetch document analysis for this blueprint
-      // Try two approaches:
-      // 1. Find by blueprint_id (direct match)
-      // 2. Find by matching document filename (for reused documents)
-      
       let analysisData = null;
-      let analysisError = null;
       
       // Approach 1: Direct blueprint match
-      const { data: directMatch, error: directError } = await supabase
+      const { data: directMatch } = await supabase
         .from('document_analyses')
         .select('*')
         .eq('blueprint_id', id)
-        .maybeSingle(); // Use maybeSingle() instead of single() to handle 0 or 1 results
-      
-      if (directError) {
-        console.error('Error fetching document analysis by blueprint_id:', directError);
-        analysisError = directError;
-      }
+        .maybeSingle();
       
       if (directMatch) {
-        console.log('✅ Document analysis found by blueprint_id:', directMatch);
         analysisData = directMatch;
       } else {
-        // Approach 2: Search by document filename (for reused documents)
+        // Approach 2: Search by document filename
         const fileName = data.file_metadata?.name || data.content?.fileUpload?.name;
         
         if (fileName) {
-          console.log('🔍 No direct match, searching by filename:', fileName);
-          
-          const { data: filenameMatch, error: filenameError } = await supabase
+          const { data: filenameMatch } = await supabase
             .from('document_analyses')
             .select('*')
             .eq('source_filename', fileName)
@@ -126,12 +420,7 @@ const Blueprint = () => {
             .limit(1)
             .maybeSingle();
           
-          if (filenameError) {
-            console.error('Error fetching document analysis by filename:', filenameError);
-          }
-          
           if (filenameMatch) {
-            console.log('✅ Document analysis found by filename:', filenameMatch);
             analysisData = filenameMatch;
           }
         }
@@ -139,32 +428,39 @@ const Blueprint = () => {
       
       if (analysisData) {
         setDocumentAnalysis(analysisData);
-      } else {
-        console.log('ℹ️ No document analysis found for blueprint:', id);
       }
 
       // Fetch learning structure for this blueprint
-      const { data: structureData, error: structureError } = await supabase
+      const { data: structureData } = await supabase
         .from('blueprint_structures')
         .select('*')
         .eq('blueprint_id', id)
         .maybeSingle();
       
-      if (structureError) {
-        console.error('Error fetching learning structure:', structureError);
-      }
-      
       if (structureData) {
-        console.log('✅ Learning structure found:', structureData.id);
         setLearningStructure(structureData);
       } else {
-        console.log('ℹ️ No learning structure found for blueprint:', id);
         setLearningStructure(null);
       }
 
-      // Fetch blueprint resources
+      // Fetch topic responses for this blueprint
+      const { data: responsesData } = await supabase
+        .from('topic_responses')
+        .select('*')
+        .eq('blueprint_id', id)
+        .eq('user_id', user.id);
+      
+      if (responsesData) {
+        const responsesMap = {};
+        responsesData.forEach(r => {
+          responsesMap[r.unit_id] = r;
+        });
+        setTopicResponses(responsesMap);
+      }
+
+      // Fetch topic resources for this blueprint
       const { data: resourcesData } = await supabase
-        .from('blueprint_resources')
+        .from('blueprint_topic_resources')
         .select(`
           *,
           curated_resources (*)
@@ -173,6 +469,23 @@ const Blueprint = () => {
       
       if (resourcesData) {
         setBlueprintResources(resourcesData);
+        
+        // Group resources by unit_id
+        const resourcesMap = {};
+        resourcesData.forEach(r => {
+          if (!resourcesMap[r.unit_id]) {
+            resourcesMap[r.unit_id] = [];
+          }
+          if (r.curated_resources) {
+            resourcesMap[r.unit_id].push({
+              ...r.curated_resources,
+              relevance_score: r.relevance_score,
+              from_cache: r.from_cache,
+              similarity: r.relevance_score,
+            });
+          }
+        });
+        setTopicResources(resourcesMap);
       }
       
       return data;
@@ -186,20 +499,100 @@ const Blueprint = () => {
     }
   }, [id, user?.id, navigate]);
 
-  // Step-by-step generation functions - each calls a SEPARATE edge function
-  const runAnalyzeDocument = async () => {
+  // Handle comfort selection
+  const handleComfortSelect = async (unitId, response) => {
+    try {
+      const { error } = await supabase
+        .from('topic_responses')
+        .upsert({
+          blueprint_id: id,
+          unit_id: unitId,
+          user_id: user.id,
+          response: response,
+        }, {
+          onConflict: 'blueprint_id,unit_id',
+        });
+
+      if (error) throw error;
+
+      setTopicResponses(prev => ({
+        ...prev,
+        [unitId]: { unit_id: unitId, response },
+      }));
+    } catch (error) {
+      console.error('Error saving comfort response:', error);
+      alert('Failed to save response');
+    }
+  };
+
+  // Handle generate blueprint (web search)
+  const handleGenerateBlueprint = async (unit) => {
     if (!session?.access_token) {
       console.error('No access token available');
       return;
     }
 
+    const unitId = unit.unit_id;
+    setSearchingTopics(prev => new Set([...prev, unitId]));
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/search-resources`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          blueprint_id: id,
+          unit_id: unitId,
+          topic: unit.topic,
+          description: unit.description || unit.learning_objective,
+          search_queries: unit.search_queries || [],
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Search failed');
+      }
+
+      // Update topic resources
+      if (data.resources && data.resources.length > 0) {
+        setTopicResources(prev => ({
+          ...prev,
+          [unitId]: data.resources,
+        }));
+      }
+
+      // Update topic response
+      setTopicResponses(prev => ({
+        ...prev,
+        [unitId]: { unit_id: unitId, response: 'needs_help', searched_at: new Date().toISOString() },
+      }));
+
+    } catch (error) {
+      console.error('Search error:', error);
+      alert(`Failed to find resources: ${error.message}`);
+    } finally {
+      setSearchingTopics(prev => {
+        const next = new Set(prev);
+        next.delete(unitId);
+        return next;
+      });
+    }
+  };
+
+  // Step-by-step generation functions
+  const runAnalyzeDocument = async () => {
+    if (!session?.access_token) return;
     setGenerating(true);
     setGenerationError(null);
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      
-      console.log('Calling analyze-document edge function...');
       const response = await fetch(`${supabaseUrl}/functions/v1/analyze-document`, {
         method: 'POST',
         headers: {
@@ -210,39 +603,26 @@ const Blueprint = () => {
       });
 
       const data = await response.json();
-      console.log('analyze-document result:', data);
+      if (!data.success) throw new Error(data.error || 'Analysis failed');
 
-      if (!data.success) {
-        throw new Error(data.error || 'Analysis failed');
-      }
-
-      // Refresh blueprint data
       await fetchBlueprint();
-      
-      alert(`✅ Step 1 (Analyze Document) completed!\n\nTopics found: ${data.analysis?.topics?.length || 0}\nPrerequisites: ${data.analysis?.prerequisites?.length || 0}\n\nCheck the debug panel for full analysis.`);
-      
+      alert(`✅ Step 1 (Analyze Document) completed!`);
     } catch (error) {
       console.error('analyze-document error:', error);
       setGenerationError(error.message);
-      alert(`❌ Step 1 (Analyze Document) failed: ${error.message}`);
+      alert(`❌ Step 1 failed: ${error.message}`);
     } finally {
       setGenerating(false);
     }
   };
 
   const runGenerateStructure = async () => {
-    if (!session?.access_token) {
-      console.error('No access token available');
-      return;
-    }
-
+    if (!session?.access_token) return;
     setGenerating(true);
     setGenerationError(null);
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      
-      console.log('Calling generate-structure edge function...');
       const response = await fetch(`${supabaseUrl}/functions/v1/generate-structure`, {
         method: 'POST',
         headers: {
@@ -253,85 +633,28 @@ const Blueprint = () => {
       });
 
       const data = await response.json();
-      console.log('generate-structure result:', data);
+      if (!data.success) throw new Error(data.error || 'Structure generation failed');
 
-      if (!data.success) {
-        throw new Error(data.error || 'Structure generation failed');
-      }
-
-      // Refresh blueprint data
       await fetchBlueprint();
-      
-      alert(`✅ Step 2 (Generate Structure) completed!\n\nTitle: ${data.structure?.title || 'N/A'}\nSections: ${data.structure?.sections?.length || 0}\n\nCheck the debug panel for full structure.`);
-      
+      alert(`✅ Step 2 (Generate Structure) completed!`);
     } catch (error) {
       console.error('generate-structure error:', error);
       setGenerationError(error.message);
-      alert(`❌ Step 2 (Generate Structure) failed: ${error.message}`);
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const runSearchResources = async () => {
-    if (!session?.access_token) {
-      console.error('No access token available');
-      return;
-    }
-
-    setGenerating(true);
-    setGenerationError(null);
-
-    try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      
-      console.log('Calling search-resources edge function...');
-      const response = await fetch(`${supabaseUrl}/functions/v1/search-resources`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ blueprint_id: id }),
-      });
-
-      const data = await response.json();
-      console.log('search-resources result:', data);
-
-      if (!data.success) {
-        throw new Error(data.error || 'Resource search failed');
-      }
-
-      // Refresh blueprint data
-      await fetchBlueprint();
-      
-      alert(`✅ Step 3 (Search Resources) completed!\n\nTotal resources: ${data.resources_count || 0}\nCached: ${data.cached_count || 0}\nNew: ${data.new_count || 0}\n\n🎉 Blueprint generation complete!`);
-      
-    } catch (error) {
-      console.error('search-resources error:', error);
-      setGenerationError(error.message);
-      alert(`❌ Step 3 (Search Resources) failed: ${error.message}`);
+      alert(`❌ Step 2 failed: ${error.message}`);
     } finally {
       setGenerating(false);
     }
   };
 
   const runAllSteps = async () => {
-    if (!session?.access_token) {
-      console.error('No access token available');
-      return;
-    }
-
+    if (!session?.access_token) return;
     setGenerating(true);
     setGenerationError(null);
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       
-      // Step 1: Analyze Document
-      console.log('Running Step 1: Analyze Document...');
       setGenerationStatus('analyzing');
-      
       let response = await fetch(`${supabaseUrl}/functions/v1/analyze-document`, {
         method: 'POST',
         headers: {
@@ -343,12 +666,8 @@ const Blueprint = () => {
 
       let data = await response.json();
       if (!data.success) throw new Error(data.error || 'Analysis failed');
-      console.log('Step 1 complete:', data);
 
-      // Step 2: Generate Structure
-      console.log('Running Step 2: Generate Structure...');
       setGenerationStatus('generating');
-      
       response = await fetch(`${supabaseUrl}/functions/v1/generate-structure`, {
         method: 'POST',
         headers: {
@@ -360,30 +679,9 @@ const Blueprint = () => {
 
       data = await response.json();
       if (!data.success) throw new Error(data.error || 'Structure generation failed');
-      console.log('Step 2 complete:', data);
 
-      // Step 3: Search Resources
-      console.log('Running Step 3: Search Resources...');
-      setGenerationStatus('searching');
-      
-      response = await fetch(`${supabaseUrl}/functions/v1/search-resources`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ blueprint_id: id }),
-      });
-
-      data = await response.json();
-      if (!data.success) throw new Error(data.error || 'Resource search failed');
-      console.log('Step 3 complete:', data);
-
-      // Refresh blueprint data
       await fetchBlueprint();
-      
-      alert(`🎉 All steps completed successfully!\n\nYour blueprint is ready.`);
-      
+      alert(`🎉 Structure generated! Now review each topic below.`);
     } catch (error) {
       console.error('Run all steps error:', error);
       setGenerationError(error.message);
@@ -393,48 +691,12 @@ const Blueprint = () => {
     }
   };
 
-  // Initial load and auto-trigger generation if needed
+  // Initial load
   useEffect(() => {
     if (user && id) {
-      fetchBlueprint().then((data) => {
-        // DISABLED FOR DEBUGGING - uncomment to enable auto-generation
-        // Auto-trigger generation if blueprint is pending and has content to analyze
-        // if (data && data.generation_status === 'pending') {
-        //   const hasContent = data.description || data.content?.textInput || 
-        //                     data.file_metadata?.url || data.content?.fileUpload?.url;
-        //   if (hasContent) {
-        //     triggerGeneration();
-        //   }
-        // }
-      });
+      fetchBlueprint();
     }
   }, [user, id, fetchBlueprint]);
-
-  // Poll for status updates while generating
-  useEffect(() => {
-    if (!generating && generationStatus !== 'pending') return;
-    if (generationStatus === 'completed' || generationStatus === 'failed') return;
-
-    const pollInterval = setInterval(async () => {
-      const { data } = await supabase
-        .from('blueprints')
-        .select('generation_status, generation_error, generated_content')
-        .eq('id', id)
-        .single();
-
-      if (data) {
-        setGenerationStatus(data.generation_status);
-        setGenerationError(data.generation_error);
-        
-        if (data.generation_status === 'completed' || data.generation_status === 'failed') {
-          setGenerating(false);
-          fetchBlueprint();
-        }
-      }
-    }, 2000);
-
-    return () => clearInterval(pollInterval);
-  }, [id, generating, generationStatus, fetchBlueprint]);
 
   if (loading) {
     return (
@@ -464,7 +726,7 @@ const Blueprint = () => {
   const blueprintName = blueprint.title || content.blueprintName;
   const description = blueprint.description || content.textInput;
   const fileInfo = blueprint.file_metadata || content.fileUpload;
-  const generatedContent = blueprint.generated_content;
+  const structure = learningStructure?.structure;
 
   const StatusIcon = STATUS_CONFIG[generationStatus]?.icon || Loader2;
   const statusConfig = STATUS_CONFIG[generationStatus] || STATUS_CONFIG.pending;
@@ -509,8 +771,32 @@ const Blueprint = () => {
               </div>
             </div>
 
+            {/* Generation Controls - Show if no structure yet */}
+            {!structure && (
+              <div className="flex flex-wrap gap-3 mb-6">
+                <button
+                  onClick={runAllSteps}
+                  disabled={generating}
+                  className="flex items-center gap-2 px-6 py-3 bg-[#FF4A1C] text-white rounded-xl 
+                             hover:bg-black transition-colors font-medium disabled:opacity-50"
+                >
+                  {generating ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5" />
+                      Generate Learning Structure
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
             {/* Generation Status Banner */}
-            {generationStatus !== 'completed' && (
+            {generationStatus !== 'completed' && !structure && (
               <div className={`flex items-center gap-3 p-4 rounded-xl mb-6 ${
                 generationStatus === 'failed' 
                   ? 'bg-red-50 border border-red-200' 
@@ -520,17 +806,6 @@ const Blueprint = () => {
                 <span className={`font-medium ${statusConfig.color}`}>
                   {statusConfig.label}
                 </span>
-                
-                {generationStatus === 'failed' && (
-                  <button
-                    onClick={runAllSteps}
-                    disabled={generating}
-                    className="ml-auto flex items-center gap-2 px-4 py-2 bg-[#FF4A1C] text-white rounded-lg hover:bg-black transition-colors disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
-                    Retry
-                  </button>
-                )}
               </div>
             )}
 
@@ -545,23 +820,11 @@ const Blueprint = () => {
               {content.className && (
                 <div className="flex items-start gap-3">
                   <div className="p-2 bg-blue-100 rounded-lg">
-                  <BookOpen className="w-5 h-5 text-blue-600" />
+                    <BookOpen className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
                     <p className="text-xs font-bold text-stone-400 uppercase">Class</p>
                     <p className="text-[#2A2B2A] font-semibold">{content.className}</p>
-                  </div>
-                </div>
-              )}
-
-              {content.professorName && (
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <BookOpen className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-stone-400 uppercase">Professor</p>
-                    <p className="text-[#2A2B2A] font-semibold">{content.professorName}</p>
                   </div>
                 </div>
               )}
@@ -577,128 +840,102 @@ const Blueprint = () => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
 
-              {blueprint.goal_type && blueprint.goal_type !== 'Not specified' && (
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Target className="w-5 h-5 text-green-600" />
+        {/* Learning Structure Display */}
+        {structure && (
+          <>
+            {/* Prerequisites Section */}
+            {structure.prerequisites_section?.learning_units?.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <BookOpen className="w-5 h-5 text-orange-600" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-stone-400 uppercase">Goal</p>
-                    <p className="text-[#2A2B2A] font-semibold">{blueprint.goal_type}</p>
+                    <h2 className="text-2xl font-bold text-[#2A2B2A]">Prerequisites</h2>
+                    <p className="text-stone-600 text-sm">
+                      {structure.prerequisites_section.description || 'Foundation knowledge you need before diving in'}
+                    </p>
                   </div>
                 </div>
-              )}
+
+                <div className="space-y-3">
+                  {structure.prerequisites_section.learning_units.map((unit, idx) => (
+                    <TopicCard
+                      key={unit.unit_id || idx}
+                      unit={unit}
+                      blueprintId={id}
+                      topicResponse={topicResponses[unit.unit_id]}
+                      topicResources={topicResources[unit.unit_id]}
+                      onComfortSelect={handleComfortSelect}
+                      onGenerateBlueprint={handleGenerateBlueprint}
+                      isSearching={searchingTopics.has(unit.unit_id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Content Sections */}
+            {structure.content_sections?.length > 0 && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold text-[#2A2B2A] flex items-center gap-3">
+                  <Target className="w-6 h-6 text-purple-600" />
+                  Learning Path
+                </h2>
+                
+                {structure.content_sections.map((section, idx) => (
+                  <SectionDisplay
+                    key={section.section_id || idx}
+                    section={section}
+                    blueprintId={id}
+                    topicResponses={topicResponses}
+                    topicResources={topicResources}
+                    onComfortSelect={handleComfortSelect}
+                    onGenerateBlueprint={handleGenerateBlueprint}
+                    searchingTopics={searchingTopics}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Help Text */}
+            <div className="mt-8 p-4 bg-blue-50 rounded-xl border border-blue-200">
+              <div className="flex items-start gap-3">
+                <HelpCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-blue-800 font-medium">How to use this blueprint</p>
+                  <p className="text-blue-700 text-sm mt-1">
+                    For each topic, click "I'm Comfortable" if you already know it, or 
+                    "Generate Full Blueprint" to find educational videos. Resources are 
+                    saved and reused, so common topics load instantly!
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-
-        {/* Context Section */}
-        {(description || fileInfo) && (
-          <div className="bg-white rounded-3xl p-8 shadow-sm border border-stone-100 mb-8">
-            <h2 className="text-2xl font-bold text-[#2A2B2A] mb-4">Context Provided</h2>
-            
-            {description && (
-              <div className="bg-stone-50 rounded-xl p-6 mb-4">
-                <p className="text-stone-700 whitespace-pre-wrap">{description}</p>
-              </div>
-            )}
-
-            {fileInfo && (
-              <div className="bg-[#FF4A1C]/5 border-2 border-[#FF4A1C]/20 rounded-xl p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 bg-white rounded-lg">
-                      <FileText className="w-6 h-6 text-[#FF4A1C]" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-[#2A2B2A]">Uploaded Document</p>
-                      <p className="text-sm text-stone-600">{fileInfo.name}</p>
-                      <p className="text-xs text-stone-500 mt-1">
-                        {(fileInfo.size / 1024).toFixed(1)} KB
-                      </p>
-                    </div>
-                  </div>
-                  {fileInfo.url && (
-                    <div className="flex gap-2">
-                      <a
-                        href={fileInfo.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2 bg-white text-[#FF4A1C] rounded-lg hover:bg-stone-50 transition-colors font-medium inline-flex items-center gap-2 border border-[#FF4A1C]/20"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        View
-                      </a>
-                      <a
-                        href={fileInfo.url}
-                        download
-                        className="px-4 py-2 bg-[#FF4A1C] text-white rounded-lg hover:bg-black transition-colors font-medium inline-flex items-center gap-2"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          </>
         )}
 
-        {/* Blueprint Content Placeholder */}
-        <div className="bg-white rounded-3xl p-8 shadow-sm border border-stone-100 mb-8">
-          <h2 className="text-2xl font-bold text-[#2A2B2A] mb-6">Your Learning Blueprint</h2>
-          
-          <div className="space-y-6">
-            {/* Placeholder Content */}
+        {/* Placeholder if no structure */}
+        {!structure && !generating && (
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-stone-100">
             <div className="bg-gradient-to-br from-[#FF4A1C]/5 to-purple-50 rounded-2xl p-8 text-center border-2 border-dashed border-stone-200">
               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                <FileText className="w-8 h-8 text-[#FF4A1C]" />
+                <Sparkles className="w-8 h-8 text-[#FF4A1C]" />
               </div>
               <h3 className="text-xl font-bold text-[#2A2B2A] mb-2">
-                Blueprint Generated Successfully!
+                Ready to Generate Your Learning Path
               </h3>
               <p className="text-stone-600 mb-6 max-w-md mx-auto">
-                Your personalized learning blueprint is ready. This is where your customized study plan, 
-                resources, and step-by-step guidance will appear.
+                Click "Generate Learning Structure" above to analyze your document and create 
+                a personalized learning path with topics and resources.
               </p>
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm">
-                <Calendar className="w-4 h-4 text-[#FF4A1C]" />
-                <span className="text-sm font-medium text-stone-600">
-                  AI-powered content coming soon
-                </span>
-              </div>
-            </div>
-
-            {/* Future sections placeholder */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-stone-50 rounded-xl p-6 text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <BookOpen className="w-6 h-6 text-blue-600" />
-                </div>
-                <h4 className="font-bold text-[#2A2B2A] mb-1">Study Materials</h4>
-                <p className="text-sm text-stone-500">Curated resources</p>
-              </div>
-
-              <div className="bg-stone-50 rounded-xl p-6 text-center">
-                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Target className="w-6 h-6 text-purple-600" />
-                </div>
-                <h4 className="font-bold text-[#2A2B2A] mb-1">Practice Problems</h4>
-                <p className="text-sm text-stone-500">Hands-on exercises</p>
-              </div>
-
-              <div className="bg-stone-50 rounded-xl p-6 text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Calendar className="w-6 h-6 text-green-600" />
-                </div>
-                <h4 className="font-bold text-[#2A2B2A] mb-1">Study Schedule</h4>
-                <p className="text-sm text-stone-500">Time management</p>
-              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Debug Panel */}
         <div className="mt-8 bg-stone-900 rounded-2xl overflow-hidden">
@@ -717,260 +954,63 @@ const Blueprint = () => {
             <div className="p-4 space-y-6 max-h-[80vh] overflow-y-auto">
               {/* Step-by-Step Generation Buttons */}
               <div>
-                <h3 className="text-yellow-400 font-mono font-bold mb-3">STEP-BY-STEP GENERATION (Separate Edge Functions)</h3>
-                <p className="text-stone-400 text-xs font-mono mb-3">
-                  Each button calls a separate Supabase Edge Function using Claude Haiku 3.5
-                </p>
+                <h3 className="text-yellow-400 font-mono font-bold mb-3">STEP-BY-STEP GENERATION</h3>
                 <div className="flex flex-wrap gap-2 mb-3">
                   <button
                     onClick={runAnalyzeDocument}
                     disabled={generating}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-mono text-sm disabled:opacity-50"
                   >
-                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                     1. Analyze Document
                   </button>
                   <button
                     onClick={runGenerateStructure}
                     disabled={generating}
-                    className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-mono text-sm disabled:opacity-50"
                   >
-                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                     2. Generate Structure
-                  </button>
-                  <button
-                    onClick={runSearchResources}
-                    disabled={generating}
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                    3. Search Resources
                   </button>
                   <button
                     onClick={runAllSteps}
                     disabled={generating}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-mono text-sm disabled:opacity-50"
                   >
-                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                     Run All Steps
                   </button>
                 </div>
-                <div className="bg-stone-800 p-3 rounded-lg text-xs font-mono space-y-1">
-                  <p className="text-blue-400">→ analyze-document: Extracts topics, prerequisites, stores analysis (file preserved)</p>
-                  <p className="text-orange-400">→ generate-structure: Creates learning path structure from stored analysis</p>
-                  <p className="text-purple-400">→ search-resources: Finds educational resources using Claude's knowledge</p>
-                </div>
               </div>
 
-              {/* Blueprint ID */}
+              {/* Topic Responses */}
               <div>
-                <h3 className="text-yellow-400 font-mono font-bold mb-2">BLUEPRINT ID</h3>
-                <pre className="bg-stone-800 p-3 rounded-lg text-green-400 text-sm overflow-x-auto">
-                  {id}
-                </pre>
-              </div>
-
-              {/* Full Blueprint Record */}
-              <div>
-                <h3 className="text-yellow-400 font-mono font-bold mb-2">FULL BLUEPRINT RECORD (blueprints table)</h3>
+                <h3 className="text-yellow-400 font-mono font-bold mb-2">TOPIC RESPONSES</h3>
                 <pre className="bg-stone-800 p-3 rounded-lg text-green-400 text-xs overflow-x-auto whitespace-pre-wrap">
-                  {JSON.stringify(blueprint, null, 2)}
+                  {JSON.stringify(topicResponses, null, 2)}
                 </pre>
               </div>
 
-              {/* Document Analysis */}
+              {/* Topic Resources */}
               <div>
-                <h3 className="text-yellow-400 font-mono font-bold mb-2">DOCUMENT ANALYSIS (document_analyses table)</h3>
-                {documentAnalysis ? (
-                  <pre className="bg-stone-800 p-3 rounded-lg text-green-400 text-xs overflow-x-auto whitespace-pre-wrap">
-                    {JSON.stringify(documentAnalysis, null, 2)}
-                  </pre>
-                ) : (
-                  <p className="text-red-400 font-mono text-sm">No document analysis found for this blueprint</p>
-                )}
+                <h3 className="text-yellow-400 font-mono font-bold mb-2">TOPIC RESOURCES</h3>
+                <pre className="bg-stone-800 p-3 rounded-lg text-green-400 text-xs overflow-x-auto whitespace-pre-wrap">
+                  {JSON.stringify(topicResources, null, 2)}
+                </pre>
               </div>
 
               {/* Learning Structure */}
               <div>
-                <h3 className="text-yellow-400 font-mono font-bold mb-2">LEARNING STRUCTURE (blueprint_structures table)</h3>
+                <h3 className="text-yellow-400 font-mono font-bold mb-2">LEARNING STRUCTURE</h3>
                 {learningStructure ? (
-                  <div className="space-y-4">
-                    {/* Summary Stats */}
-                    <div className="bg-stone-800 p-3 rounded-lg">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm font-mono">
-                        <div>
-                          <span className="text-stone-400">Prerequisites:</span>
-                          <span className="text-cyan-400 ml-2">{learningStructure.total_prerequisites}</span>
-                        </div>
-                        <div>
-                          <span className="text-stone-400">Sections:</span>
-                          <span className="text-cyan-400 ml-2">{learningStructure.total_sections}</span>
-                        </div>
-                        <div>
-                          <span className="text-stone-400">Learning Units:</span>
-                          <span className="text-cyan-400 ml-2">{learningStructure.total_learning_units}</span>
-                        </div>
-                        <div>
-                          <span className="text-stone-400">Search Queries:</span>
-                          <span className="text-cyan-400 ml-2">{learningStructure.total_search_queries}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Structure Summary */}
-                    {learningStructure.structure?.summary && (
-                      <div className="bg-stone-800 p-3 rounded-lg">
-                        <h4 className="text-cyan-400 font-mono font-bold mb-2">{learningStructure.structure.summary.title}</h4>
-                        <p className="text-stone-300 text-sm mb-2">{learningStructure.structure.summary.description}</p>
-                        <div className="text-xs text-stone-400">
-                          <span>Est. Time: {learningStructure.structure.summary.total_estimated_time_minutes} min</span>
-                          <span className="mx-2">|</span>
-                          <span>Difficulty: {learningStructure.structure.summary.difficulty_progression}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Prerequisites Section */}
-                    {learningStructure.structure?.prerequisites_section?.learning_units?.length > 0 && (
-                      <div className="bg-stone-800 p-3 rounded-lg">
-                        <h4 className="text-orange-400 font-mono font-bold mb-2">📚 PREREQUISITES</h4>
-                        <div className="space-y-3">
-                          {learningStructure.structure.prerequisites_section.learning_units.map((unit, idx) => (
-                            <div key={unit.unit_id || idx} className="border-l-2 border-orange-500 pl-3">
-                              <p className="text-white font-medium text-sm">{unit.topic}</p>
-                              <p className="text-stone-400 text-xs mb-2">{unit.description}</p>
-                              <div className="space-y-1">
-                                {unit.search_queries?.map((sq, qIdx) => (
-                                  <div key={qIdx} className="flex items-start gap-2 text-xs">
-                                    <span className="text-orange-400 shrink-0">{sq.priority}.</span>
-                                    <span className="text-green-400">"{sq.query}"</span>
-                                    <span className="text-stone-500">({sq.query_type})</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Content Sections */}
-                    {learningStructure.structure?.content_sections?.map((section, sIdx) => (
-                      <div key={section.section_id || sIdx} className="bg-stone-800 p-3 rounded-lg">
-                        <h4 className="text-purple-400 font-mono font-bold mb-2">
-                          📝 {section.title}
-                          <span className="text-stone-500 text-xs ml-2">({section.section_type})</span>
-                        </h4>
-                        <p className="text-stone-400 text-xs mb-3">{section.description}</p>
-                        
-                        {section.concepts?.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-3">
-                            {section.concepts.map((concept, cIdx) => (
-                              <span key={cIdx} className="px-2 py-0.5 bg-purple-900/50 text-purple-300 text-xs rounded">
-                                {concept}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="space-y-3">
-                          {section.learning_units?.map((unit, uIdx) => (
-                            <div key={unit.unit_id || uIdx} className="border-l-2 border-purple-500 pl-3">
-                              <div className="flex items-center gap-2 mb-1">
-                                <p className="text-white font-medium text-sm">{unit.topic}</p>
-                                {unit.priority && (
-                                  <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                    unit.priority === 'essential' ? 'bg-red-900/50 text-red-300' :
-                                    unit.priority === 'recommended' ? 'bg-yellow-900/50 text-yellow-300' :
-                                    'bg-stone-700 text-stone-300'
-                                  }`}>
-                                    {unit.priority}
-                                  </span>
-                                )}
-                              </div>
-                              {unit.learning_objective && (
-                                <p className="text-stone-400 text-xs mb-2">{unit.learning_objective}</p>
-                              )}
-                              <div className="space-y-1">
-                                {unit.search_queries?.map((sq, qIdx) => (
-                                  <div key={qIdx} className="flex items-start gap-2 text-xs">
-                                    <span className="text-purple-400 shrink-0">{sq.priority}.</span>
-                                    <span className="text-green-400">"{sq.query}"</span>
-                                    <span className="text-stone-500">({sq.query_type})</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Raw JSON (collapsed by default) */}
-                    <details className="bg-stone-800 rounded-lg">
-                      <summary className="p-3 cursor-pointer text-stone-400 hover:text-white text-sm font-mono">
-                        📄 View Raw JSON
-                      </summary>
-                      <pre className="p-3 pt-0 text-green-400 text-xs overflow-x-auto whitespace-pre-wrap">
-                        {JSON.stringify(learningStructure, null, 2)}
-                      </pre>
-                    </details>
-                  </div>
+                  <details className="bg-stone-800 rounded-lg">
+                    <summary className="p-3 cursor-pointer text-stone-400 hover:text-white text-sm font-mono">
+                      📄 View Raw JSON
+                    </summary>
+                    <pre className="p-3 pt-0 text-green-400 text-xs overflow-x-auto whitespace-pre-wrap">
+                      {JSON.stringify(learningStructure, null, 2)}
+                    </pre>
+                  </details>
                 ) : (
-                  <p className="text-red-400 font-mono text-sm">No learning structure found for this blueprint</p>
+                  <p className="text-red-400 font-mono text-sm">No learning structure found</p>
                 )}
-              </div>
-
-              {/* Generated Content */}
-              <div>
-                <h3 className="text-yellow-400 font-mono font-bold mb-2">GENERATED CONTENT (blueprint.generated_content)</h3>
-                {blueprint?.generated_content ? (
-                  <pre className="bg-stone-800 p-3 rounded-lg text-green-400 text-xs overflow-x-auto whitespace-pre-wrap">
-                    {JSON.stringify(blueprint.generated_content, null, 2)}
-                  </pre>
-                ) : (
-                  <p className="text-red-400 font-mono text-sm">No generated content yet</p>
-                )}
-              </div>
-
-              {/* Blueprint Resources */}
-              <div>
-                <h3 className="text-yellow-400 font-mono font-bold mb-2">BLUEPRINT RESOURCES (blueprint_resources + curated_resources)</h3>
-                {blueprintResources.length > 0 ? (
-                  <pre className="bg-stone-800 p-3 rounded-lg text-green-400 text-xs overflow-x-auto whitespace-pre-wrap">
-                    {JSON.stringify(blueprintResources, null, 2)}
-                  </pre>
-                ) : (
-                  <p className="text-red-400 font-mono text-sm">No resources linked to this blueprint</p>
-                )}
-              </div>
-
-              {/* Input Content */}
-              <div>
-                <h3 className="text-yellow-400 font-mono font-bold mb-2">INPUT CONTENT (what was sent to AI)</h3>
-                <pre className="bg-stone-800 p-3 rounded-lg text-blue-400 text-xs overflow-x-auto whitespace-pre-wrap">
-                  {blueprint?.description || blueprint?.content?.textInput || 'No text content'}
-                </pre>
-                {(blueprint?.file_metadata?.url || blueprint?.content?.fileUpload?.url) && (
-                  <p className="text-orange-400 font-mono text-sm mt-2">
-                    File URL: {blueprint?.file_metadata?.url || blueprint?.content?.fileUpload?.url}
-                  </p>
-                )}
-              </div>
-
-              {/* Generation Status */}
-              <div>
-                <h3 className="text-yellow-400 font-mono font-bold mb-2">GENERATION STATUS</h3>
-                <div className="bg-stone-800 p-3 rounded-lg text-sm font-mono">
-                  <p className="text-white">Status: <span className={
-                    generationStatus === 'completed' ? 'text-green-400' :
-                    generationStatus === 'failed' ? 'text-red-400' :
-                    'text-yellow-400'
-                  }>{generationStatus}</span></p>
-                  {generationError && (
-                    <p className="text-red-400 mt-2">Error: {generationError}</p>
-                  )}
-                </div>
               </div>
             </div>
           )}
@@ -981,3 +1021,4 @@ const Blueprint = () => {
 };
 
 export default Blueprint;
+

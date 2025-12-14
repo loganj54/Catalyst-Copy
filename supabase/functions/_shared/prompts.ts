@@ -143,17 +143,33 @@ CRITICAL RULES:
 6. Keep descriptions BRIEF (1-2 sentences max) - focus on search queries, not lengthy explanations.
 7. COMPLETE THE JSON - ensure all brackets are closed. If running long, reduce detail rather than truncating.
 
-SEARCH QUERY STRATEGY (generate 3-4 queries per topic, not all 5):
-For each topic, pick the most relevant from this progression:
-1. INTRODUCTION: "What is [topic] explained simply" or "[topic] basics for beginners tutorial"
-2. CORE CONCEPT: "[topic] how it works explained" or "[topic] fundamentals deep dive"  
-3. TUTORIAL/EXAMPLES: "[topic] step by step tutorial" or "[topic] example problems solved"
-4. PRACTICE: "[topic] practice problems" or "[topic] advanced applications" (only if essential)
+SEARCH QUERY STRATEGY - DIVERSITY IS CRITICAL:
+Generate exactly 3 queries per topic, and EACH MUST BE A DIFFERENT TYPE:
+- You MUST include queries from 3 DIFFERENT categories below
+- Do NOT repeat the same query type multiple times!
+- This ensures students get a complete A-Z roadmap, not just 3 introductions
+
+REQUIRED DIVERSITY - Pick 3 different types from:
+1. INTRODUCTION: "What is [topic] explained simply video" or "[topic] basics for beginners tutorial"
+2. CONCEPT: "[topic] how it works explained video" or "[topic] fundamentals deep dive tutorial"  
+3. TUTORIAL: "[topic] step by step tutorial" or "[topic] worked examples walkthrough video"
+4. EXAMPLE: "[topic] example problems solved" or "[topic] practice problem walkthrough"
+
+GOOD EXAMPLE (diverse types):
+- Query 1: "Wien's displacement law simple introduction video" [type: introduction]
+- Query 2: "Wien's law calculation step by step tutorial" [type: tutorial]  
+- Query 3: "Wien's displacement law example problems solved" [type: example]
+
+BAD EXAMPLE (all same type - DO NOT DO THIS):
+- Query 1: "Wien's displacement law simple introduction" [type: introduction]
+- Query 2: "Wien's law basics explained" [type: introduction]
+- Query 3: "Introduction to Wien's displacement law" [type: introduction]
 
 QUERY OPTIMIZATION TIPS:
+- ALWAYS include "video" or "tutorial video" in queries to prioritize video content (80% of results should be videos)
 - Include keywords like "tutorial", "explained", "walkthrough", "step by step", "for beginners"
 - Add subject context: "engineering", "physics", "calculus", etc.
-- Be specific about what type of content: "video", "lecture", "solved problems"
+- Be specific about what type of content: "video tutorial", "lecture", "solved problems"
 - Target known quality sources: Add channel names if appropriate (Khan Academy, Professor Leonard, MIT, etc.)
 - For problem-solving topics, include "how to solve", "example", "practice"
 
@@ -221,21 +237,19 @@ OUTPUT STRUCTURE:
   ]
 }
 
-EXAMPLE SEARCH QUERIES:
+EXAMPLE SEARCH QUERIES (note: exactly 3 queries with 3 DIFFERENT types):
 
 For a prerequisite on "View Factors in Radiation Heat Transfer":
-1. { "query": "introduction to radiation heat transfer basics explained", "query_type": "introduction", "priority": 1 }
-2. { "query": "what are view factors radiation heat transfer tutorial", "query_type": "concept", "priority": 2 }
-3. { "query": "how to calculate view factors step by step", "query_type": "tutorial", "priority": 3 }
-4. { "query": "view factor geometry examples solved problems", "query_type": "example", "priority": 4 }
-5. { "query": "view factor reciprocity summation rule engineering", "query_type": "practice", "priority": 5 }
+1. { "query": "what are view factors radiation heat transfer video tutorial", "query_type": "introduction", "priority": 1 }
+2. { "query": "how to calculate view factors step by step tutorial video", "query_type": "tutorial", "priority": 2 }
+3. { "query": "view factor geometry examples solved problems video", "query_type": "example", "priority": 3 }
 
 For a problem section on "Stefan-Boltzmann Law calculations":
-1. { "query": "Stefan-Boltzmann law explained simple introduction", "query_type": "introduction", "priority": 1 }
-2. { "query": "blackbody radiation emission calculation tutorial", "query_type": "concept", "priority": 2 }
-3. { "query": "Stefan-Boltzmann law example problems step by step", "query_type": "tutorial", "priority": 3 }
-4. { "query": "radiation heat transfer problem solving walkthrough", "query_type": "example", "priority": 4 }
-5. { "query": "thermal radiation practice problems engineering", "query_type": "practice", "priority": 5 }`,
+1. { "query": "Stefan-Boltzmann law explained simple introduction video", "query_type": "introduction", "priority": 1 }
+2. { "query": "Stefan-Boltzmann law step by step calculation tutorial video", "query_type": "tutorial", "priority": 2 }
+3. { "query": "Stefan-Boltzmann law example problems solved walkthrough", "query_type": "example", "priority": 3 }
+
+CRITICAL: Each topic gets EXACTLY 3 queries with 3 DIFFERENT query_types. Never repeat the same query_type!`,
 
     user: (input: any, inputType: 'document_analysis' | 'custom' = 'document_analysis') => `Generate a comprehensive learning structure with search queries based on the following ${inputType === 'document_analysis' ? 'document analysis' : 'input'}.
 
@@ -246,24 +260,29 @@ ${JSON.stringify(input, null, 2)}
 
 INSTRUCTIONS:
 1. Create a PREREQUISITES SECTION with learning units for each prerequisite concept
-   - Generate 3-5 progressive search queries for each prerequisite
-   - Start with basic introductions, build up to more detailed content
+   - Generate exactly 3 search queries for each prerequisite
+   - CRITICAL: Each query MUST be a DIFFERENT type (introduction, tutorial, example)
    
 2. Create CONTENT SECTIONS organized by problem or topic
    - For problem sets: One section per problem
    - For study guides/notes: One section per major topic
    - Each section should have learning units covering the key concepts
-   - Generate 3-5 search queries per learning unit
+   - Generate exactly 3 search queries per learning unit with DIFFERENT types
    
-3. For EACH search query, think:
-   - What would a great teacher recommend a student watch/read?
-   - What search terms would find high-quality educational content?
-   - How can we progress from "I know nothing" to "I can solve this"?
+3. DIVERSITY IS MANDATORY for search queries:
+   - Each topic gets 3 queries: one introduction, one tutorial, one example
+   - Do NOT use the same query_type multiple times per topic!
+   - This gives students a complete A-Z learning path, not repetitive resources
 
-4. Be CREATIVE and SPECIFIC with search queries:
+4. VIDEO-FIRST APPROACH:
+   - Always include "video" or "tutorial video" in your search queries
+   - 80% of resources should be video content
+   - Prioritize YouTube, Khan Academy, educational video platforms
+
+5. Be CREATIVE and SPECIFIC with search queries:
    - Don't just repeat the topic name - craft queries that will find great content
-   - Include platform-specific keywords (tutorial, explained, walkthrough)
-   - Target the student's level and build up progressively
+   - Include "video tutorial" to prioritize video content over articles
+   - Target known quality educators (Khan Academy, Professor Leonard, 3Blue1Brown, etc.)
 
 Output valid JSON only, no markdown.`
   },
