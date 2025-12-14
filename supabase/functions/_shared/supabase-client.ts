@@ -124,8 +124,9 @@ export async function callClaudeJSON<T = any>(
 CRITICAL JSON INSTRUCTIONS:
 1. You must respond with valid JSON only. No markdown, no explanation, just the JSON object.
 2. Ensure all arrays and objects are properly closed with ] and }.
-3. If the response would be very long, prioritize completing the JSON structure over including every detail.
-4. Every opening bracket must have a matching closing bracket.`;
+3. If you are approaching your response limit, prioritize completing the JSON structure over including every detail.
+4. Every opening bracket must have a matching closing bracket.
+5. Do not truncate mid-string - if you must stop early, end the last string properly with a closing quote.`;
 
   const response = await callClaude(jsonSystemPrompt, userPrompt, options);
   
@@ -249,7 +250,12 @@ export async function callClaudeWithPDF<T = any>(
   // Add JSON instruction to system prompt
   const jsonSystemPrompt = `${systemPrompt}
 
-IMPORTANT: You must respond with valid JSON only. No markdown, no explanation, just the JSON object.`;
+CRITICAL JSON INSTRUCTIONS:
+1. You must respond with valid JSON only. No markdown, no explanation, just the JSON object.
+2. Ensure all arrays and objects are properly closed with ] and }.
+3. If you are approaching your response limit, prioritize completing the JSON structure over including every detail.
+4. Every opening bracket must have a matching closing bracket.
+5. Do not truncate mid-string - if you must stop early, end the last string properly with a closing quote.`;
 
   console.log('Calling Claude API with PDF document...');
   console.log('Model:', CLAUDE_MODEL);
@@ -315,10 +321,11 @@ IMPORTANT: You must respond with valid JSON only. No markdown, no explanation, j
 
   console.log('Claude PDF analysis complete, tokens used:', data.usage);
 
-  // Parse the JSON response
+  // Parse the JSON response with repair logic for truncated responses
   try {
     let jsonStr = textContent.text.trim();
     
+    // Remove markdown code blocks if present
     if (jsonStr.startsWith('```json')) {
       jsonStr = jsonStr.slice(7);
     } else if (jsonStr.startsWith('```')) {
@@ -331,12 +338,68 @@ IMPORTANT: You must respond with valid JSON only. No markdown, no explanation, j
 
     return JSON.parse(jsonStr);
   } catch (parseError) {
-    console.error('Failed to parse Claude JSON response (first 500 chars):', textContent.text.substring(0, 500));
-    console.error('Failed to parse Claude JSON response (last 500 chars):', textContent.text.substring(textContent.text.length - 500));
-    console.error('Total response length:', textContent.text.length);
-    console.error('Parse error details:', parseError);
+    console.error('Failed to parse Claude JSON response.');
+    console.error('Response length:', textContent.text.length);
+    console.error('First 500 chars:', textContent.text.substring(0, 500));
+    console.error('Last 500 chars:', textContent.text.substring(textContent.text.length - 500));
+    console.error('Parse error:', parseError);
     console.error('Usage stats:', data.usage);
-    throw new Error(`Failed to parse Claude response as JSON: ${parseError}`);
+    
+    // Try to salvage truncated JSON by closing open brackets
+    try {
+      let jsonStr = textContent.text.trim();
+      
+      // Remove markdown if present
+      if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
+      else if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
+      if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
+      jsonStr = jsonStr.trim();
+      
+      // Count open brackets and braces
+      let openBraces = 0;
+      let openBrackets = 0;
+      let inString = false;
+      let escaped = false;
+      
+      for (const char of jsonStr) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (char === '\\') {
+          escaped = true;
+          continue;
+        }
+        if (char === '"') {
+          inString = !inString;
+          continue;
+        }
+        if (!inString) {
+          if (char === '{') openBraces++;
+          else if (char === '}') openBraces--;
+          else if (char === '[') openBrackets++;
+          else if (char === ']') openBrackets--;
+        }
+      }
+      
+      console.log(`Attempting JSON repair: ${openBraces} unclosed braces, ${openBrackets} unclosed brackets, inString=${inString}`);
+      
+      // If we're in the middle of a string, close it
+      if (inString) {
+        jsonStr += '"';
+      }
+      
+      // Close any open brackets and braces
+      jsonStr += ']'.repeat(Math.max(0, openBrackets));
+      jsonStr += '}'.repeat(Math.max(0, openBraces));
+      
+      const repaired = JSON.parse(jsonStr);
+      console.log('JSON repair successful!');
+      return repaired;
+    } catch (repairError) {
+      console.error('JSON repair also failed:', repairError);
+      throw new Error(`Failed to parse Claude response as JSON: ${parseError}. Response may have been truncated due to token limits. Consider reducing the size of the document or analyzing fewer problems at once.`);
+    }
   }
 }
 
@@ -369,7 +432,12 @@ export async function callClaudeWithPDFAndText<T = any>(
   // Add JSON instruction to system prompt
   const jsonSystemPrompt = `${systemPrompt}
 
-IMPORTANT: You must respond with valid JSON only. No markdown, no explanation, just the JSON object.`;
+CRITICAL JSON INSTRUCTIONS:
+1. You must respond with valid JSON only. No markdown, no explanation, just the JSON object.
+2. Ensure all arrays and objects are properly closed with ] and }.
+3. If you are approaching your response limit, prioritize completing the JSON structure over including every detail.
+4. Every opening bracket must have a matching closing bracket.
+5. Do not truncate mid-string - if you must stop early, end the last string properly with a closing quote.`;
 
   console.log('Calling Claude API with PDF + text...');
   console.log('Model:', CLAUDE_MODEL);
@@ -439,10 +507,11 @@ IMPORTANT: You must respond with valid JSON only. No markdown, no explanation, j
 
   console.log('Claude PDF+text analysis complete, tokens used:', data.usage);
 
-  // Parse the JSON response
+  // Parse the JSON response with repair logic for truncated responses
   try {
     let jsonStr = textContent.text.trim();
     
+    // Remove markdown code blocks if present
     if (jsonStr.startsWith('```json')) {
       jsonStr = jsonStr.slice(7);
     } else if (jsonStr.startsWith('```')) {
@@ -455,8 +524,67 @@ IMPORTANT: You must respond with valid JSON only. No markdown, no explanation, j
 
     return JSON.parse(jsonStr);
   } catch (parseError) {
-    console.error('Failed to parse Claude JSON response:', textContent.text.substring(0, 500));
-    throw new Error(`Failed to parse Claude response as JSON: ${parseError}`);
+    console.error('Failed to parse Claude JSON response.');
+    console.error('Response length:', textContent.text.length);
+    console.error('First 500 chars:', textContent.text.substring(0, 500));
+    console.error('Last 500 chars:', textContent.text.substring(textContent.text.length - 500));
+    console.error('Parse error:', parseError);
+    
+    // Try to salvage truncated JSON by closing open brackets
+    try {
+      let jsonStr = textContent.text.trim();
+      
+      // Remove markdown if present
+      if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
+      else if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
+      if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
+      jsonStr = jsonStr.trim();
+      
+      // Count open brackets and braces
+      let openBraces = 0;
+      let openBrackets = 0;
+      let inString = false;
+      let escaped = false;
+      
+      for (const char of jsonStr) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (char === '\\') {
+          escaped = true;
+          continue;
+        }
+        if (char === '"') {
+          inString = !inString;
+          continue;
+        }
+        if (!inString) {
+          if (char === '{') openBraces++;
+          else if (char === '}') openBraces--;
+          else if (char === '[') openBrackets++;
+          else if (char === ']') openBrackets--;
+        }
+      }
+      
+      console.log(`Attempting JSON repair: ${openBraces} unclosed braces, ${openBrackets} unclosed brackets, inString=${inString}`);
+      
+      // If we're in the middle of a string, close it
+      if (inString) {
+        jsonStr += '"';
+      }
+      
+      // Close any open brackets and braces
+      jsonStr += ']'.repeat(Math.max(0, openBrackets));
+      jsonStr += '}'.repeat(Math.max(0, openBraces));
+      
+      const repaired = JSON.parse(jsonStr);
+      console.log('JSON repair successful!');
+      return repaired;
+    } catch (repairError) {
+      console.error('JSON repair also failed:', repairError);
+      throw new Error(`Failed to parse Claude response as JSON: ${parseError}. Response may have been truncated due to token limits. Consider reducing the size of the document or analyzing fewer problems at once.`);
+    }
   }
 }
 

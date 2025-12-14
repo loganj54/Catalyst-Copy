@@ -8,7 +8,7 @@
 // - Accepts document analysis or any structured input
 // - Generates 3-5 progressive search queries per topic
 // - Organizes output by prerequisites and content sections
-// - Stores results in learning_structures table for search-resources step
+// - Stores results in blueprint_structures table for search-resources step
 //
 // INPUT: { blueprint_id } or { analysis: {...}, input_type: 'custom' }
 // OUTPUT: Structured learning path with search queries
@@ -346,7 +346,7 @@ serve(async (req) => {
 
       // Delete any existing learning structure for this blueprint (to allow retry)
       const { error: deleteError } = await supabase
-        .from('learning_structures')
+        .from('blueprint_structures')
         .delete()
         .eq('blueprint_id', blueprint_id);
       
@@ -424,7 +424,7 @@ serve(async (req) => {
     console.log('[generate-structure] Storing learning structure in database...');
 
     const { data: newStructure, error: insertError } = await supabase
-      .from('learning_structures')
+      .from('blueprint_structures')
       .insert(insertData)
       .select()
       .single();

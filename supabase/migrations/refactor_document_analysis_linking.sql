@@ -67,13 +67,15 @@ ON document_analyses(document_id)
 WHERE document_id IS NOT NULL;
 
 -- ============================================================================
--- STEP 5: Update learning_structures to also reference document_id
+-- STEP 5: Rename learning_structures to blueprint_structures and add document_id
 -- ============================================================================
 
-ALTER TABLE learning_structures 
+ALTER TABLE IF EXISTS learning_structures RENAME TO blueprint_structures;
+
+ALTER TABLE blueprint_structures 
 ADD COLUMN IF NOT EXISTS document_id UUID REFERENCES class_documents(id) ON DELETE SET NULL;
 
-CREATE INDEX IF NOT EXISTS idx_learning_structures_document_id ON learning_structures(document_id);
+CREATE INDEX IF NOT EXISTS idx_blueprint_structures_document_id ON blueprint_structures(document_id);
 
 -- ============================================================================
 -- NOTES:

@@ -18,6 +18,8 @@ CRITICAL RULES:
 2. Be specific - don't repeat the same information in multiple places.
 3. Focus on what the student needs to LEARN and DO, not just what the document contains.
 4. All output must be valid JSON with no markdown formatting.
+5. COMPLETE THE JSON STRUCTURE - ensure all brackets and braces are properly closed.
+6. If the document is very long, prioritize quality over quantity - analyze the most important problems/sections thoroughly rather than rushing through everything.
 
 FOR EACH PROBLEM, YOU MUST:
 - Write a COMPLETE problem_statement that paraphrases the original but includes ALL numerical values, conditions, and context. Someone reading only your statement should fully understand what the problem asks.
@@ -104,6 +106,8 @@ OUTPUT STRUCTURE:
     "tips": ["General tips for approaching this material"]
   }
 }
+
+IMPORTANT: If you reach your response limit before analyzing all problems, focus on completing the JSON structure properly for the problems you did analyze. Close all arrays and objects. A complete JSON with fewer problems is better than truncated JSON with all problems.
 
 If you cannot identify individual problems (e.g., it's lecture notes), use the "problems" array for major topics/sections instead, treating each as a learning unit.`,
 

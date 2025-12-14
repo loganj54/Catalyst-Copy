@@ -436,7 +436,7 @@ serve(async (req) => {
       PROMPTS.documentAnalysis.user('', blueprint.task_type),
       pdfDocument,
       textContent || null,
-      { temperature: 0.3, maxTokens: 8192 }
+      { temperature: 0.3, maxTokens: 16384 }
     );
 
     console.log('[analyze-document] Analysis complete:');

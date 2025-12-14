@@ -145,7 +145,7 @@ const Blueprint = () => {
 
       // Fetch learning structure for this blueprint
       const { data: structureData, error: structureError } = await supabase
-        .from('learning_structures')
+        .from('blueprint_structures')
         .select('*')
         .eq('blueprint_id', id)
         .maybeSingle();
@@ -792,7 +792,7 @@ const Blueprint = () => {
 
               {/* Learning Structure */}
               <div>
-                <h3 className="text-yellow-400 font-mono font-bold mb-2">LEARNING STRUCTURE (learning_structures table)</h3>
+                <h3 className="text-yellow-400 font-mono font-bold mb-2">LEARNING STRUCTURE (blueprint_structures table)</h3>
                 {learningStructure ? (
                   <div className="space-y-4">
                     {/* Summary Stats */}
