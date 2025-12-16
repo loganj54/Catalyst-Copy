@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -25,6 +25,7 @@ import BlueprintModal from '../components/BlueprintModal';
 const ClassDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const fileInputRef = useRef(null);
   
@@ -33,7 +34,7 @@ const ClassDetails = () => {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploadingDocument, setUploadingDocument] = useState(false);
-  const [activeTab, setActiveTab] = useState('documents'); // documents, blueprints, help
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'documents'); // documents, blueprints, help
   const [isBlueprintModalOpen, setIsBlueprintModalOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState(null);
 

@@ -483,17 +483,36 @@ const Blueprint = () => {
       // Fetch document analysis for this blueprint
       let analysisData = null;
       
-      // Approach 1: Direct blueprint match
-      const { data: directMatch } = await supabase
-        .from('document_analyses')
-        .select('*')
-        .eq('blueprint_id', id)
-        .maybeSingle();
-      
-      if (directMatch) {
-        analysisData = directMatch;
-      } else {
-        // Approach 2: Search by document filename
+      // Approach 0: Check by document_id (Primary method)
+      if (data.document_id) {
+        console.log('[Blueprint] Searching analysis by document_id:', data.document_id);
+        const { data: docMatch } = await supabase
+          .from('document_analyses')
+          .select('*')
+          .eq('document_id', data.document_id)
+          .maybeSingle();
+          
+        if (docMatch) {
+          console.log('[Blueprint] Found analysis by document_id');
+          analysisData = docMatch;
+        }
+      }
+
+      // Approach 1: Direct blueprint match (Legacy fallback)
+      if (!analysisData) {
+        const { data: directMatch } = await supabase
+          .from('document_analyses')
+          .select('*')
+          .eq('blueprint_id', id)
+          .maybeSingle();
+        
+        if (directMatch) {
+          analysisData = directMatch;
+        }
+      }
+
+      // Approach 2: Search by document filename (Last resort)
+      if (!analysisData) {
         const fileName = data.file_metadata?.name || data.content?.fileUpload?.name;
         
         if (fileName) {
@@ -848,7 +867,7 @@ const Blueprint = () => {
           <button 
             onClick={() => {
               if (blueprint.class_id) {
-                navigate(`/class/${blueprint.class_id}`);
+                navigate(`/class/${blueprint.class_id}?tab=blueprints`);
               } else {
                 navigate('/dashboard');
               }
@@ -1094,6 +1113,23 @@ const Blueprint = () => {
                     Run All Steps
                   </button>
                 </div>
+              </div>
+
+              {/* Document Analysis */}
+              <div>
+                <h3 className="text-yellow-400 font-mono font-bold mb-2">DOCUMENT ANALYSIS</h3>
+                {documentAnalysis ? (
+                  <details className="bg-stone-800 rounded-lg">
+                    <summary className="p-3 cursor-pointer text-stone-400 hover:text-white text-sm font-mono">
+                      📄 View Raw JSON
+                    </summary>
+                    <pre className="p-3 pt-0 text-green-400 text-xs overflow-x-auto whitespace-pre-wrap">
+                      {JSON.stringify(documentAnalysis, null, 2)}
+                    </pre>
+                  </details>
+                ) : (
+                  <p className="text-red-400 font-mono text-sm">No document analysis found</p>
+                )}
               </div>
 
               {/* Topic Responses */}
