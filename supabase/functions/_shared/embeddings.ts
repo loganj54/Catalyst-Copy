@@ -190,5 +190,120 @@ export function formatVectorForPostgres(embedding: number[]): string {
   return `[${embedding.join(',')}]`;
 }
 
+// ============================================================================
+// RICH SIGNATURE GENERATION FOR CONTENT ANALYSIS
+// ============================================================================
+
+export interface ContentAnalysisForEmbedding {
+  detailed_summary: string;
+  concepts_taught: string[];
+  prerequisites_assumed: string[];
+  difficulty_assessment: string;
+  formulas_covered?: string[];
+  problem_types?: string[];
+  teaching_style?: string;
+  key_topics?: string[];
+}
+
+/**
+ * Create a rich signature text from detailed content analysis.
+ * This produces a comprehensive text that captures what a resource CONTAINS,
+ * optimized for semantic matching against what a student NEEDS.
+ * 
+ * @param analysis - The content analysis from GPT-5-nano
+ * @param metadata - Optional video metadata (title, channel)
+ * @returns Rich text signature for embedding generation
+ */
+export function createRichSignatureText(
+  analysis: ContentAnalysisForEmbedding,
+  metadata?: { title?: string; channelName?: string }
+): string {
+  const parts: string[] = [];
+
+  // Header with title if available
+  if (metadata?.title) {
+    parts.push(`Resource: ${metadata.title}${metadata.channelName ? ` by ${metadata.channelName}` : ''}`);
+  }
+
+  // Core summary - this is the most important part
+  parts.push(`\nThis resource teaches: ${analysis.detailed_summary}`);
+
+  // Specific concepts - crucial for matching
+  if (analysis.concepts_taught && analysis.concepts_taught.length > 0) {
+    parts.push(`\nSpecific concepts covered:`);
+    for (const concept of analysis.concepts_taught) {
+      parts.push(`- ${concept}`);
+    }
+  }
+
+  // Prerequisites - important for difficulty matching
+  if (analysis.prerequisites_assumed && analysis.prerequisites_assumed.length > 0) {
+    parts.push(`\nPrerequisites needed: ${analysis.prerequisites_assumed.join(', ')}`);
+  }
+
+  // Difficulty assessment
+  parts.push(`\nDifficulty level: ${analysis.difficulty_assessment}`);
+
+  // Formulas and equations - very specific matching potential
+  if (analysis.formulas_covered && analysis.formulas_covered.length > 0) {
+    parts.push(`\nFormulas and equations covered: ${analysis.formulas_covered.join(', ')}`);
+  }
+
+  // Problem types - helps match students who need help with specific problem types
+  if (analysis.problem_types && analysis.problem_types.length > 0) {
+    parts.push(`\nProblem types addressed: ${analysis.problem_types.join(', ')}`);
+  }
+
+  // Teaching style
+  if (analysis.teaching_style) {
+    parts.push(`\nTeaching style: ${analysis.teaching_style}`);
+  }
+
+  // Key topics for additional matching context
+  if (analysis.key_topics && analysis.key_topics.length > 0) {
+    parts.push(`\nKey topics this helps with: ${analysis.key_topics.join(', ')}`);
+  }
+
+  return parts.join('\n').trim();
+}
+
+/**
+ * Create a query embedding text from blueprint learning needs.
+ * This formats the student's needs in a way that matches well against
+ * the rich resource signatures.
+ * 
+ * @param topic - The topic name from the blueprint
+ * @param description - Topic description or learning objective
+ * @param searchQueries - Generated search queries for this topic
+ * @returns Query text optimized for matching against resource signatures
+ */
+export function createNeedEmbeddingText(
+  topic: string,
+  description?: string,
+  learningObjective?: string,
+  searchQueries?: string[]
+): string {
+  const parts: string[] = [];
+
+  parts.push(`Student needs help with: ${topic}`);
+
+  if (description) {
+    parts.push(`\nContext: ${description}`);
+  }
+
+  if (learningObjective) {
+    parts.push(`\nLearning goal: ${learningObjective}`);
+  }
+
+  if (searchQueries && searchQueries.length > 0) {
+    parts.push(`\nSpecific topics to cover: ${searchQueries.join(', ')}`);
+  }
+
+  // Add matching hints to improve semantic alignment with resource signatures
+  parts.push(`\nLooking for resources that teach concepts, formulas, and problem-solving techniques for this topic.`);
+
+  return parts.join('\n').trim();
+}
+
 export { EMBEDDING_DIMENSIONS };
 

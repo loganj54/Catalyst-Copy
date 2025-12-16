@@ -71,6 +71,7 @@ const TopicCard = ({
   blueprintId, 
   topicResponse, 
   topicResources,
+  topicSearchMetadata,
   onComfortSelect,
   onGenerateBlueprint,
   isSearching,
@@ -173,6 +174,57 @@ const TopicCard = ({
                 <ResourceCard key={resource.id || idx} resource={resource} />
               ))}
             </div>
+            
+            {/* Search Metadata Display */}
+            {topicSearchMetadata && (
+              <div className="mt-4 p-3 bg-stone-100 rounded-lg border border-stone-200">
+                <div className="flex items-start gap-2">
+                  <div className="p-1 bg-blue-100 rounded">
+                    <Zap className="w-3 h-3 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-stone-600 mb-1">
+                      Search Method: <span className="text-blue-600">{topicSearchMetadata.search_method === 'youtube_api' ? 'YouTube Data API' : topicSearchMetadata.search_method === 'cache' ? 'Cached (instant)' : 'Claude Web Search'}</span>
+                    </p>
+                    <p className="text-xs text-stone-500 mb-2">
+                      Found {topicSearchMetadata.total_api_results} results, showing top {topicResources.length}
+                    </p>
+                    
+                    {/* Analysis Stats */}
+                    {topicSearchMetadata.analysis && (
+                      <div className="mb-2 p-2 bg-white rounded border border-stone-200">
+                        <p className="text-xs font-medium text-stone-600 mb-1">📊 Content Analysis:</p>
+                        <div className="grid grid-cols-2 gap-1 text-xs text-stone-500">
+                          <span>📝 Transcripts analyzed: {topicSearchMetadata.analysis.transcript_count}</span>
+                          <span>📋 Metadata-only: {topicSearchMetadata.analysis.metadata_only_count}</span>
+                          <span className="col-span-2">
+                            Avg. confidence: <span className={`font-mono ${
+                              topicSearchMetadata.analysis.average_confidence >= 0.8 ? 'text-green-600' :
+                              topicSearchMetadata.analysis.average_confidence >= 0.4 ? 'text-amber-600' :
+                              'text-stone-500'
+                            }`}>
+                              {Math.round(topicSearchMetadata.analysis.average_confidence * 100)}%
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-stone-600">Queries used:</p>
+                      {topicSearchMetadata.queries_used?.map((query, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <span className="text-xs text-stone-400">→</span>
+                          <code className="text-xs bg-white px-2 py-0.5 rounded border border-stone-200 text-stone-700 font-mono">
+                            {query}
+                          </code>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -247,17 +299,48 @@ const ResourceCard = ({ resource }) => {
           )}
         </div>
 
-        {/* Difficulty badge */}
-        {resource.difficulty_level && (
-          <span className={`inline-block mt-1 px-1.5 py-0.5 text-xs rounded ${
-            resource.difficulty_level === 'beginner' 
-              ? 'bg-green-100 text-green-700'
-              : resource.difficulty_level === 'intermediate'
-                ? 'bg-yellow-100 text-yellow-700'
-                : 'bg-red-100 text-red-700'
-          }`}>
-            {resource.difficulty_level}
-          </span>
+        {/* Badges row */}
+        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+          {/* Difficulty badge */}
+          {resource.difficulty_level && (
+            <span className={`px-1.5 py-0.5 text-xs rounded ${
+              resource.difficulty_level.includes('beginner')
+                ? 'bg-green-100 text-green-700'
+                : resource.difficulty_level.includes('intermediate')
+                  ? 'bg-yellow-100 text-yellow-700'
+                  : resource.difficulty_level.includes('advanced')
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-stone-100 text-stone-600'
+            }`}>
+              {resource.difficulty_level.split(' ')[0]}
+            </span>
+          )}
+          
+          {/* Analysis confidence badge */}
+          {resource.analysis_confidence !== undefined && (
+            <span className={`px-1.5 py-0.5 text-xs rounded flex items-center gap-1 ${
+              resource.analysis_confidence >= 0.8
+                ? 'bg-blue-100 text-blue-700'
+                : resource.analysis_confidence >= 0.4
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-stone-100 text-stone-500'
+            }`}>
+              {resource.transcript_source === 'auto_generated' || resource.transcript_source === 'manual' 
+                ? '📝 transcript' 
+                : '📋 metadata'}
+              <span className="font-mono">{Math.round(resource.analysis_confidence * 100)}%</span>
+            </span>
+          )}
+        </div>
+
+        {/* Key concepts preview (if available from analysis) */}
+        {resource.content_analysis?.concepts_taught?.length > 0 && (
+          <div className="mt-1.5">
+            <p className="text-xs text-stone-500 line-clamp-1">
+              <span className="font-medium">Covers:</span> {resource.content_analysis.concepts_taught.slice(0, 2).join(', ')}
+              {resource.content_analysis.concepts_taught.length > 2 && ` +${resource.content_analysis.concepts_taught.length - 2} more`}
+            </p>
+          </div>
         )}
       </div>
 
@@ -277,6 +360,7 @@ const SectionDisplay = ({
   blueprintId,
   topicResponses,
   topicResources,
+  topicSearchMetadata,
   onComfortSelect,
   onGenerateBlueprint,
   searchingTopics,
@@ -343,6 +427,7 @@ const SectionDisplay = ({
               blueprintId={blueprintId}
               topicResponse={topicResponses[unit.unit_id]}
               topicResources={topicResources[unit.unit_id]}
+              topicSearchMetadata={topicSearchMetadata?.[unit.unit_id]}
               onComfortSelect={onComfortSelect}
               onGenerateBlueprint={onGenerateBlueprint}
               isSearching={searchingTopics.has(unit.unit_id)}
@@ -378,6 +463,7 @@ const Blueprint = () => {
   const [topicResponses, setTopicResponses] = useState({});
   const [topicResources, setTopicResources] = useState({});
   const [searchingTopics, setSearchingTopics] = useState(new Set());
+  const [searchMetadata, setSearchMetadata] = useState({}); // Track search info per topic
 
   // Fetch blueprint data
   const fetchBlueprint = useCallback(async () => {
@@ -459,7 +545,8 @@ const Blueprint = () => {
       }
 
       // Fetch topic resources for this blueprint
-      const { data: resourcesData } = await supabase
+      console.log('[Blueprint] Fetching topic resources for blueprint:', id);
+      const { data: resourcesData, error: resourcesError } = await supabase
         .from('blueprint_topic_resources')
         .select(`
           *,
@@ -467,12 +554,19 @@ const Blueprint = () => {
         `)
         .eq('blueprint_id', id);
       
-      if (resourcesData) {
+      if (resourcesError) {
+        console.error('[Blueprint] Error fetching topic resources:', resourcesError);
+      }
+      
+      console.log('[Blueprint] Raw resources data:', resourcesData);
+      
+      if (resourcesData && resourcesData.length > 0) {
         setBlueprintResources(resourcesData);
         
         // Group resources by unit_id
         const resourcesMap = {};
         resourcesData.forEach(r => {
+          console.log('[Blueprint] Processing resource link:', r.unit_id, 'resource_id:', r.resource_id, 'curated:', r.curated_resources);
           if (!resourcesMap[r.unit_id]) {
             resourcesMap[r.unit_id] = [];
           }
@@ -485,7 +579,10 @@ const Blueprint = () => {
             });
           }
         });
+        console.log('[Blueprint] Grouped topic resources:', resourcesMap);
         setTopicResources(resourcesMap);
+      } else {
+        console.log('[Blueprint] No topic resources found in database');
       }
       
       return data;
@@ -548,7 +645,8 @@ const Blueprint = () => {
           blueprint_id: id,
           unit_id: unitId,
           topic: unit.topic,
-          description: unit.description || unit.learning_objective,
+          description: unit.description,
+          learning_objective: unit.learning_objective,
           search_queries: unit.search_queries || [],
         }),
       });
@@ -564,6 +662,17 @@ const Blueprint = () => {
         setTopicResources(prev => ({
           ...prev,
           [unitId]: data.resources,
+        }));
+      }
+
+      // Save search metadata for this topic (including analysis info)
+      if (data.search_metadata || data.analysis_metadata) {
+        setSearchMetadata(prev => ({
+          ...prev,
+          [unitId]: {
+            ...data.search_metadata,
+            analysis: data.analysis_metadata,
+          },
         }));
       }
 
@@ -870,6 +979,7 @@ const Blueprint = () => {
                       blueprintId={id}
                       topicResponse={topicResponses[unit.unit_id]}
                       topicResources={topicResources[unit.unit_id]}
+                      topicSearchMetadata={searchMetadata[unit.unit_id]}
                       onComfortSelect={handleComfortSelect}
                       onGenerateBlueprint={handleGenerateBlueprint}
                       isSearching={searchingTopics.has(unit.unit_id)}
@@ -894,6 +1004,7 @@ const Blueprint = () => {
                     blueprintId={id}
                     topicResponses={topicResponses}
                     topicResources={topicResources}
+                    topicSearchMetadata={searchMetadata}
                     onComfortSelect={handleComfortSelect}
                     onGenerateBlueprint={handleGenerateBlueprint}
                     searchingTopics={searchingTopics}
@@ -912,6 +1023,11 @@ const Blueprint = () => {
                     For each topic, click "I'm Comfortable" if you already know it, or 
                     "Generate Full Blueprint" to find educational videos. Resources are 
                     saved and reused, so common topics load instantly!
+                  </p>
+                  {/* Resource load status */}
+                  <p className="text-blue-600 text-xs mt-2 font-mono">
+                    📊 Loaded {Object.keys(topicResources).length} topics with resources 
+                    ({Object.values(topicResources).flat().length} total resources from database)
                   </p>
                 </div>
               </div>

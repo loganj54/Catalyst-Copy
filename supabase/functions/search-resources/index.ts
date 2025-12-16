@@ -26,14 +26,28 @@ import {
 import { 
   generateEmbedding, 
   createTopicEmbeddingText,
+  createRichSignatureText,
+  createNeedEmbeddingText,
   formatVectorForPostgres,
 } from '../_shared/embeddings.ts';
+import { 
+  fetchTranscript, 
+  extractVideoId,
+  truncateTranscript,
+} from '../_shared/transcript.ts';
+import { 
+  analyzeTranscript, 
+  analyzeMetadata,
+  generateRichSignature,
+  type ContentAnalysis,
+} from '../_shared/content-analyzer.ts';
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
+const YOUTUBE_API_KEY = Deno.env.get('YOUTUBE_API_KEY');
 const CLAUDE_MODEL = 'claude-haiku-4-5';
 const SIMILARITY_THRESHOLD = 0.95; // 95% similarity required for cache hit
 const MAX_CACHED_RESULTS = 3;
@@ -48,6 +62,7 @@ interface SearchRequest {
   unit_id: string;
   topic: string;
   description?: string;
+  learning_objective?: string;
   search_queries: Array<{
     query: string;
     query_type: string;
@@ -72,14 +87,148 @@ interface ResourceResult {
   similarity?: number;
   from_cache: boolean;
   query_type?: string;
+  query_used?: string; // The search query that found this resource
+  // New fields for transcript analysis
+  transcript_analyzed?: boolean;
+  transcript_source?: 'auto_generated' | 'manual' | 'metadata_only' | 'failed' | 'none';
+  content_analysis?: ContentAnalysis;
+  analysis_confidence?: number;
 }
 
 // ============================================================================
-// CLAUDE WEB SEARCH WITH TOOL USE
+// YOUTUBE DATA API SEARCH
+// ============================================================================
+
+// Return type for YouTube search including metadata
+interface YouTubeSearchResult {
+  resources: ResourceResult[];
+  searchMetadata: {
+    queries_used: string[];
+    search_method: 'youtube_api' | 'claude_web_search' | 'cache';
+    total_api_results: number;
+  };
+}
+
+/**
+ * Search YouTube directly using the YouTube Data API v3
+ * This is much more reliable than Claude's web search for finding videos
+ */
+async function searchYouTube(
+  topic: string,
+  searchQueries: Array<{ query: string; query_type: string; priority: number }>
+): Promise<YouTubeSearchResult> {
+  if (!YOUTUBE_API_KEY) {
+    console.log('[search-resources] No YouTube API key, falling back to Claude web search');
+    return { 
+      resources: [], 
+      searchMetadata: { 
+        queries_used: [], 
+        search_method: 'youtube_api',
+        total_api_results: 0 
+      } 
+    };
+  }
+
+  const results: ResourceResult[] = [];
+  const seenVideoIds = new Set<string>();
+  const queriesActuallyUsed: string[] = [];
+  let totalApiResults = 0;
+
+  // Use the topic as main query, plus top priority queries
+  const queriesToTry = [
+    `${topic} tutorial`,
+    `${topic} explained`,
+    ...(searchQueries?.slice(0, 2).map(q => q.query) || [])
+  ];
+
+  console.log('[search-resources] Searching YouTube with queries:', queriesToTry);
+
+  for (const query of queriesToTry) {
+    if (results.length >= MAX_SEARCH_RESULTS) break;
+
+    try {
+      const searchUrl = new URL('https://www.googleapis.com/youtube/v3/search');
+      searchUrl.searchParams.set('part', 'snippet');
+      searchUrl.searchParams.set('q', query);
+      searchUrl.searchParams.set('type', 'video');
+      searchUrl.searchParams.set('maxResults', '5');
+      searchUrl.searchParams.set('relevanceLanguage', 'en');
+      searchUrl.searchParams.set('safeSearch', 'strict');
+      searchUrl.searchParams.set('videoCategoryId', '27'); // Education category
+      searchUrl.searchParams.set('key', YOUTUBE_API_KEY);
+
+      console.log(`[search-resources] YouTube search: "${query}"`);
+      queriesActuallyUsed.push(query);
+      
+      const response = await fetch(searchUrl.toString());
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[search-resources] YouTube API error:', response.status, errorText);
+        continue;
+      }
+
+      const data = await response.json();
+      
+      if (data.items && data.items.length > 0) {
+        console.log(`[search-resources] Found ${data.items.length} YouTube results for "${query}"`);
+        totalApiResults += data.items.length;
+        
+        for (const item of data.items) {
+          if (results.length >= MAX_SEARCH_RESULTS) break;
+          
+          const videoId = item.id?.videoId;
+          if (!videoId || seenVideoIds.has(videoId)) continue;
+          
+          seenVideoIds.add(videoId);
+          
+          const snippet = item.snippet || {};
+          
+          results.push({
+            url: `https://www.youtube.com/watch?v=${videoId}`,
+            title: snippet.title || 'YouTube Video',
+            description: snippet.description?.substring(0, 500) || '',
+            platform: 'YouTube',
+            channel_name: snippet.channelTitle || null,
+            channel_url: snippet.channelId ? `https://www.youtube.com/channel/${snippet.channelId}` : null,
+            thumbnail_url: snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+            duration_seconds: null, // Would need another API call to get this
+            topic_signature: `Educational video about ${topic}: ${snippet.title}. ${snippet.description?.substring(0, 200) || ''}`,
+            concepts_covered: [topic],
+            difficulty_level: 'intermediate',
+            quality_score: 0.8,
+            from_cache: false,
+            query_used: query, // Track which query found this video
+          });
+          
+          console.log(`[search-resources] Added video: ${snippet.title}`);
+        }
+      } else {
+        console.log(`[search-resources] No YouTube results for "${query}"`);
+      }
+    } catch (error) {
+      console.error(`[search-resources] Error searching YouTube for "${query}":`, error);
+    }
+  }
+
+  console.log(`[search-resources] YouTube search complete, found ${results.length} videos`);
+  return {
+    resources: results,
+    searchMetadata: {
+      queries_used: queriesActuallyUsed,
+      search_method: 'youtube_api',
+      total_api_results: totalApiResults,
+    }
+  };
+}
+
+// ============================================================================
+// CLAUDE WEB SEARCH WITH TOOL USE (FALLBACK)
 // ============================================================================
 
 /**
  * Call Claude with web search tool to find educational videos
+ * This is used as a fallback when YouTube API is not available
  */
 async function searchWithClaude(
   topic: string,
@@ -96,79 +245,83 @@ async function searchWithClaude(
     .slice(0, 3) // Use top 3 priority queries
     .map(q => q.query);
 
-  const systemPrompt = `You are an expert educational content curator. Your job is to find high-quality educational resources that help students learn specific topics.
+  const systemPrompt = `You are an expert educational content curator who finds YouTube videos.
 
-CRITICAL: VIDEO-FIRST APPROACH (80% videos, 20% text)
-- STRONGLY prioritize YouTube videos and video content
-- At least 80% of your results MUST be videos
-- Only include text articles/websites if you cannot find enough quality videos
-- When searching, add "video" or "tutorial" to your search queries
+CRITICAL RULES:
+1. YOUTUBE VIDEOS ONLY - Every URL must be from youtube.com or youtu.be
+2. NO Wikipedia, blog posts, or articles - ONLY video content
+3. If a search returns no results, TRY SIMPLER/BROADER search terms
 
-When searching for videos, focus on:
-- YouTube videos from reputable educators (Khan Academy, Professor Leonard, 3Blue1Brown, MIT OpenCourseWare, Organic Chemistry Tutor, Crash Course, etc.)
-- Clear, well-explained video tutorials
-- Content appropriate for the difficulty level
-- Videos that directly address the topic
+SEARCH STRATEGY - START BROAD, THEN NARROW:
+- First try: "[main topic] youtube tutorial" or "[main topic] youtube explained"
+- If no results: simplify! Remove technical jargon, use common terms
+- For physics: try "blackbody radiation explained" not "Planck distribution function numerical integration"
+- For math: try "calculus derivatives tutorial" not "differentiation of polynomial functions step by step"
+- IMPORTANT: If "site:youtube.com" returns nothing, search WITHOUT it - YouTube results will still appear
 
-Only include text resources when:
-- No suitable video exists for a niche topic
-- A text resource provides unique value (interactive calculator, reference sheet, etc.)
+FALLBACK SEARCHES (if initial searches fail):
+- Try just the core concept: "Planck's law explained"
+- Try related broader topics: "thermal radiation physics"
+- Try popular educational channels + topic: "Physics blackbody radiation"
 
-For each resource you find, you MUST generate a detailed topic_signature that precisely describes what educational problem this resource solves. The signature should be 2-3 sentences and include:
-- Specific concepts taught
-- Mathematical formulas or methods covered (if applicable)
-- Problem types it helps with
-- Prerequisite knowledge assumed
+SELECTION CRITERIA:
+- Clear explanations and good production quality
+- Relevant to the topic (even if not perfectly specific)
+- Any YouTube channel is fine - prioritize quality over channel fame
 
-This signature will be used to match this resource to future students with similar learning needs, so be thorough and precise.`;
+For each video, generate a topic_signature (2-3 sentences) describing what it teaches.`;
 
-  // Build diverse search queries - use DIFFERENT query types for each resource
-  // This ensures we get a full A-Z roadmap: intro, tutorial, example, concept - not A-A-A
-  const queryTypesUsed = searchQueries.map(q => q.query_type);
-  const queriesWithTypes = searchQueries
-    .sort((a, b) => a.priority - b.priority)
-    .slice(0, MAX_SEARCH_RESULTS);
+  // Extract simpler search terms from the topic
+  const simplifiedTopic = topic
+    .replace(/and\s+/gi, '') // Remove "and"
+    .replace(/calculations?/gi, '') // Remove "calculations"
+    .replace(/\s+/g, ' ') // Normalize spaces
+    .trim();
   
-  // Create a formatted list showing WHICH query type each search should target
-  const diverseQueryInstructions = queriesWithTypes.map((q, i) => 
-    `${i + 1}. "${q.query}" [TYPE: ${q.query_type.toUpperCase()}] - Find a ${q.query_type === 'introduction' ? 'beginner-friendly intro' : q.query_type === 'tutorial' ? 'step-by-step tutorial' : q.query_type === 'example' ? 'worked example/solved problem' : q.query_type === 'concept' ? 'deep-dive explanation' : 'practice resource'}`
-  ).join('\n');
-
-  const userPrompt = `Find ${MAX_SEARCH_RESULTS} high-quality educational VIDEO resources for the following topic:
+  const userPrompt = `Find ${MAX_SEARCH_RESULTS} YouTube videos for this educational topic:
 
 TOPIC: ${topic}
-DESCRIPTION: ${description || 'No additional description provided'}
+${description ? `CONTEXT: ${description}` : ''}
 
-IMPORTANT - DIVERSE RESOURCE TYPES:
-Each search query below targets a DIFFERENT type of content. You MUST find resources that match the specified type for EACH query. Do NOT return 3 of the same type!
+SEARCH APPROACH - CRITICAL FOR SUCCESS:
+1. START with simple, broad searches - complex queries often return nothing!
+2. Try these search patterns IN ORDER until you find results:
+   - "${simplifiedTopic} tutorial"
+   - "${simplifiedTopic} explained" 
+   - "${topic.split(' ')[0]} ${topic.split(' ')[1] || ''} youtube" (just first 2 words)
+   - Related broader topic if specific searches fail
 
-${diverseQueryInstructions}
+3. If a search returns EMPTY results, immediately try a SIMPLER search
+4. DO NOT keep trying variations of the same complex query
 
-CRITICAL REQUIREMENTS:
-1. VIDEO FIRST: At least ${Math.ceil(MAX_SEARCH_RESULTS * 0.8)} out of ${MAX_SEARCH_RESULTS} resources MUST be YouTube videos or video content
-2. DIVERSE TYPES: Each resource should be a different type (one intro, one tutorial, one example, etc.) - NOT all the same!
-3. Add "video tutorial" to your searches to prioritize video content over text articles
+EXAMPLE: For "Planck's Distribution and Spectral Radiance Calculations":
+- DON'T search: "Planck distribution function numerical integration wavelength band"
+- DO search: "Planck's law explained" or "blackbody radiation tutorial"
 
-Search the web for educational VIDEOS matching these queries. After searching, you MUST output your findings as a JSON array with this EXACT format at the end of your response:
+REQUIREMENTS:
+- Return ONLY youtube.com or youtu.be URLs
+- Find ${MAX_SEARCH_RESULTS} different videos covering different aspects if possible
+- It's better to return 3 somewhat-related videos than 0 perfectly-specific ones
+
+After finding videos, output them in this JSON format:
 
 \`\`\`json
 [
   {
-    "url": "https://youtube.com/watch?v=...",
-    "title": "Video Title",
-    "description": "Brief description",
+    "url": "https://www.youtube.com/watch?v=VIDEO_ID",
+    "title": "Exact Video Title",
+    "description": "What this video covers",
     "platform": "YouTube",
     "channel_name": "Channel Name",
-    "topic_signature": "Detailed 2-3 sentence description of what this video teaches",
+    "topic_signature": "2-3 sentences describing what concepts this video teaches and what problems it helps solve",
     "concepts_covered": ["concept1", "concept2"],
-    "difficulty_level": "intermediate",
-    "quality_score": 0.8,
-    "resource_type": "introduction" | "tutorial" | "example" | "concept" | "practice"
+    "difficulty_level": "beginner|intermediate|advanced",
+    "quality_score": 0.8
   }
 ]
 \`\`\`
 
-This JSON output is REQUIRED. Do not skip it.`;
+If you cannot find ANY YouTube videos after multiple search attempts, explain what you tried and suggest alternative search terms the user could try manually.`;
 
   console.log('[search-resources] Calling Claude with web search...');
   console.log(`  - Topic: ${topic}`);
@@ -438,16 +591,19 @@ serve(async (req) => {
     }
 
     // =========================================================================
-    // STEP 1: Generate embedding for the topic
+    // STEP 1: Generate embedding for the topic (using need-based format)
     // =========================================================================
     
-    const queryText = createTopicEmbeddingText(
+    // Use the new need-based embedding text that matches against rich resource signatures
+    const queryText = createNeedEmbeddingText(
       topic,
       description,
+      body.learning_objective, // Optional learning objective from blueprint
       search_queries?.map(q => q.query)
     );
     
-    console.log('[search-resources] Generating query embedding...');
+    console.log('[search-resources] Generating query embedding (need-based format)...');
+    console.log(`  - Query text length: ${queryText.length} chars`);
     const { embedding: queryEmbedding } = await generateEmbedding(queryText);
     const vectorString = formatVectorForPostgres(queryEmbedding);
 
@@ -473,6 +629,15 @@ serve(async (req) => {
 
     let results: ResourceResult[] = [];
     let cacheHit = false;
+    let searchMetadata: {
+      queries_used: string[];
+      search_method: 'youtube_api' | 'claude_web_search' | 'cache';
+      total_api_results: number;
+    } = {
+      queries_used: [],
+      search_method: 'cache',
+      total_api_results: 0,
+    };
 
     // =========================================================================
     // STEP 3: Check if we have enough cached results
@@ -481,6 +646,11 @@ serve(async (req) => {
     if (cachedResources && cachedResources.length >= 1) {
       console.log(`[search-resources] Cache HIT! Found ${cachedResources.length} resources`);
       cacheHit = true;
+      searchMetadata = {
+        queries_used: ['(cached - no search needed)'],
+        search_method: 'cache',
+        total_api_results: cachedResources.length,
+      };
 
       results = cachedResources.map((r: any) => ({
         id: r.id,
@@ -509,52 +679,199 @@ serve(async (req) => {
 
     } else {
       // =========================================================================
-      // STEP 4: Cache miss - use Claude web search
+      // STEP 4: Cache miss - search for videos
       // =========================================================================
       
-      console.log('[search-resources] Cache MISS - performing web search...');
+      console.log('[search-resources] Cache MISS - searching for videos...');
       
-      const webResults = await searchWithClaude(
-        topic,
-        description || '',
-        search_queries || []
-      );
+      // Try YouTube API first (more reliable), then fall back to Claude web search
+      let webResults: ResourceResult[] = [];
+      
+      if (YOUTUBE_API_KEY) {
+        console.log('[search-resources] Using YouTube Data API...');
+        const youtubeResult = await searchYouTube(topic, search_queries || []);
+        webResults = youtubeResult.resources;
+        searchMetadata = youtubeResult.searchMetadata;
+      }
+      
+      // Fall back to Claude web search if YouTube didn't return results
+      if (webResults.length === 0) {
+        console.log('[search-resources] Falling back to Claude web search...');
+        webResults = await searchWithClaude(
+          topic,
+          description || '',
+          search_queries || []
+        );
+        searchMetadata = {
+          queries_used: search_queries?.map(q => q.query) || [topic],
+          search_method: 'claude_web_search',
+          total_api_results: webResults.length,
+        };
+      }
 
       if (webResults.length === 0) {
-        console.log('[search-resources] No results from web search');
+        console.log('[search-resources] No results from any search method');
       } else {
-        console.log(`[search-resources] Found ${webResults.length} resources from web`);
+        console.log(`[search-resources] Found ${webResults.length} resources`);
 
-        // Store each new resource with its embedding
+        // Process each resource: analyze transcript and store with rich embedding
         for (const resource of webResults) {
           try {
-            // Generate embedding for this resource's topic signature
-            const { embedding: resourceEmbedding } = await generateEmbedding(
-              resource.topic_signature
-            );
-            const resourceVector = formatVectorForPostgres(resourceEmbedding);
-
-            // Upsert into curated_resources (using URL as unique key)
-            const { data: insertedResource, error: insertError } = await supabase
+            // =========================================================
+            // STEP 4a: Check if resource already exists and is analyzed
+            // =========================================================
+            const { data: existingResource } = await supabase
               .from('curated_resources')
-              .upsert({
-                url: resource.url,
+              .select('id, transcript_analyzed, content_analysis, topic_signature, analysis_confidence')
+              .eq('url', resource.url)
+              .single();
+
+            if (existingResource?.transcript_analyzed && existingResource?.content_analysis) {
+              // Resource already analyzed - use cached data
+              console.log(`[search-resources] Using cached analysis for: ${resource.title}`);
+              resource.id = existingResource.id;
+              resource.topic_signature = existingResource.topic_signature;
+              resource.content_analysis = existingResource.content_analysis;
+              resource.analysis_confidence = existingResource.analysis_confidence;
+              resource.transcript_analyzed = true;
+              
+              // Update times_served
+              await supabase
+                .from('curated_resources')
+                .update({ times_served: supabase.rpc('increment_times_served', { resource_id: existingResource.id }) })
+                .eq('id', existingResource.id);
+              
+              results.push(resource);
+              continue;
+            }
+
+            // =========================================================
+            // STEP 4b: Fetch and analyze transcript (if not cached)
+            // =========================================================
+            console.log(`[search-resources] Analyzing new resource: ${resource.title}`);
+            
+            let transcriptText: string | null = null;
+            let transcriptSource: 'auto_generated' | 'manual' | 'metadata_only' | 'failed' = 'failed';
+            let contentAnalysis: ContentAnalysis | null = null;
+            let analysisConfidence = 0;
+
+            // Try to fetch transcript for YouTube videos
+            if (resource.platform === 'YouTube') {
+              const videoId = extractVideoId(resource.url);
+              if (videoId) {
+                console.log(`[search-resources] Fetching transcript for video: ${videoId}`);
+                const transcriptResult = await fetchTranscript(videoId);
+                
+                if (transcriptResult.success && transcriptResult.transcript) {
+                  transcriptText = truncateTranscript(transcriptResult.transcript, 15000);
+                  transcriptSource = transcriptResult.source;
+                  console.log(`[search-resources] Got transcript: ${transcriptResult.wordCount} words (${transcriptSource})`);
+                  
+                  // Analyze with GPT-5-nano
+                  const analysisResult = await analyzeTranscript(transcriptText, {
+                    title: resource.title,
+                    description: resource.description,
+                    channelName: resource.channel_name,
+                    duration_seconds: resource.duration_seconds,
+                  });
+                  
+                  if (analysisResult.success && analysisResult.analysis) {
+                    contentAnalysis = analysisResult.analysis;
+                    analysisConfidence = analysisResult.confidence;
+                    console.log(`[search-resources] Transcript analysis complete: ${contentAnalysis.concepts_taught.length} concepts`);
+                  }
+                } else {
+                  console.log(`[search-resources] No transcript available: ${transcriptResult.error}`);
+                }
+              }
+            }
+
+            // =========================================================
+            // STEP 4c: Fallback to metadata-only analysis
+            // =========================================================
+            if (!contentAnalysis) {
+              console.log(`[search-resources] Using metadata-only analysis for: ${resource.title}`);
+              transcriptSource = 'metadata_only';
+              
+              const metadataResult = await analyzeMetadata({
                 title: resource.title,
                 description: resource.description,
-                platform: resource.platform,
-                channel_name: resource.channel_name,
-                channel_url: resource.channel_url,
-                thumbnail_url: resource.thumbnail_url,
+                channelName: resource.channel_name,
                 duration_seconds: resource.duration_seconds,
-                resource_type: 'video',
-                original_search_query: search_queries?.[0]?.query || topic,
-                topic_signature: resource.topic_signature,
-                topic_embedding: resourceVector,
-                concepts_covered: resource.concepts_covered,
-                difficulty_level: resource.difficulty_level,
-                quality_score: resource.quality_score,
-                times_served: 1,
-              }, {
+              });
+              
+              if (metadataResult.success && metadataResult.analysis) {
+                contentAnalysis = metadataResult.analysis;
+                analysisConfidence = metadataResult.confidence; // Lower confidence (0.5 or 0.2)
+              }
+            }
+
+            // =========================================================
+            // STEP 4d: Generate rich signature and embedding
+            // =========================================================
+            let richSignature = resource.topic_signature; // Fallback to original
+            let resourceVector: string | null = null;
+
+            if (contentAnalysis) {
+              // Create rich signature from detailed analysis
+              richSignature = generateRichSignature(contentAnalysis, {
+                title: resource.title,
+                channelName: resource.channel_name,
+              });
+              
+              // Update resource with analysis data
+              resource.topic_signature = richSignature;
+              resource.content_analysis = contentAnalysis;
+              resource.concepts_covered = contentAnalysis.concepts_taught;
+              resource.difficulty_level = contentAnalysis.difficulty_assessment;
+              
+              console.log(`[search-resources] Generated rich signature (${richSignature.length} chars)`);
+            }
+
+            // Generate embedding from rich signature
+            try {
+              const { embedding: resourceEmbedding } = await generateEmbedding(richSignature);
+              resourceVector = formatVectorForPostgres(resourceEmbedding);
+            } catch (embedError) {
+              console.error('[search-resources] Error generating embedding, will store without:', embedError);
+            }
+
+            // =========================================================
+            // STEP 4e: Store resource with full analysis
+            // =========================================================
+            const upsertData: any = {
+              url: resource.url,
+              title: resource.title,
+              description: resource.description,
+              platform: resource.platform,
+              channel_name: resource.channel_name,
+              channel_url: resource.channel_url,
+              thumbnail_url: resource.thumbnail_url,
+              duration_seconds: resource.duration_seconds,
+              resource_type: 'video',
+              original_search_query: search_queries?.[0]?.query || topic,
+              topic_signature: richSignature,
+              concepts_covered: resource.concepts_covered,
+              difficulty_level: resource.difficulty_level,
+              quality_score: resource.quality_score,
+              times_served: 1,
+              // New transcript analysis fields
+              transcript_text: transcriptText,
+              transcript_analyzed: true,
+              transcript_source: transcriptSource,
+              content_analysis: contentAnalysis,
+              analysis_confidence: analysisConfidence,
+              analyzed_at: new Date().toISOString(),
+            };
+            
+            // Only include embedding if we have one
+            if (resourceVector) {
+              upsertData.topic_embedding = resourceVector;
+            }
+
+            const { data: insertedResource, error: insertError } = await supabase
+              .from('curated_resources')
+              .upsert(upsertData, {
                 onConflict: 'url',
                 ignoreDuplicates: false,
               })
@@ -566,26 +883,38 @@ serve(async (req) => {
               console.error('[search-resources] Insert error details:', JSON.stringify(insertError));
               
               // If upsert failed, try to fetch existing resource by URL
-              const { data: existingResource } = await supabase
+              const { data: existingRes } = await supabase
                 .from('curated_resources')
                 .select('id')
                 .eq('url', resource.url)
                 .single();
               
-              if (existingResource) {
-                resource.id = existingResource.id;
+              if (existingRes) {
+                resource.id = existingRes.id;
                 console.log(`[search-resources] Found existing resource: ${resource.id}`);
+              } else {
+                console.error('[search-resources] Could not find or create resource for URL:', resource.url);
               }
             } else {
               resource.id = insertedResource?.id;
-              console.log(`[search-resources] Stored resource: ${resource.title}, ID: ${resource.id}`);
+              console.log(`[search-resources] Stored analyzed resource: ${resource.title}, ID: ${resource.id}, confidence: ${analysisConfidence}`);
             }
+            
+            // Add analysis metadata to resource for response
+            resource.transcript_analyzed = true;
+            resource.transcript_source = transcriptSource;
+            resource.analysis_confidence = analysisConfidence;
 
-          } catch (embedError) {
-            console.error('[search-resources] Error generating resource embedding:', embedError);
+          } catch (storeError) {
+            console.error('[search-resources] Error in resource storage flow:', storeError);
           }
 
-          results.push(resource);
+          // Only add to results if we have an ID (can be linked to blueprint)
+          if (resource.id) {
+            results.push(resource);
+          } else {
+            console.warn('[search-resources] Skipping resource without ID:', resource.url);
+          }
         }
       }
     }
@@ -641,9 +970,19 @@ serve(async (req) => {
         onConflict: 'blueprint_id,unit_id',
       });
 
+    // Calculate analysis stats
+    const analyzedCount = results.filter(r => r.transcript_analyzed).length;
+    const transcriptCount = results.filter(r => r.transcript_source === 'auto_generated' || r.transcript_source === 'manual').length;
+    const avgConfidence = results.length > 0 
+      ? results.reduce((sum, r) => sum + (r.analysis_confidence || 0), 0) / results.length 
+      : 0;
+
     console.log('[search-resources] Complete!');
     console.log(`  - Results: ${results.length}`);
     console.log(`  - From cache: ${cacheHit}`);
+    console.log(`  - Search method: ${searchMetadata.search_method}`);
+    console.log(`  - Queries used: ${searchMetadata.queries_used.join(' | ')}`);
+    console.log(`  - Analyzed: ${analyzedCount}/${results.length}, Transcripts: ${transcriptCount}, Avg confidence: ${avgConfidence.toFixed(2)}`);
 
     return new Response(
       JSON.stringify({
@@ -654,6 +993,15 @@ serve(async (req) => {
           ? results[0].similarity 
           : null,
         total_count: results.length,
+        // Search metadata for UI display
+        search_metadata: searchMetadata,
+        // Analysis metadata
+        analysis_metadata: {
+          analyzed_count: analyzedCount,
+          transcript_count: transcriptCount,
+          metadata_only_count: results.filter(r => r.transcript_source === 'metadata_only').length,
+          average_confidence: avgConfidence,
+        },
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

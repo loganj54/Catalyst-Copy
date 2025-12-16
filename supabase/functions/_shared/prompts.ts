@@ -143,34 +143,40 @@ CRITICAL RULES:
 6. Keep descriptions BRIEF (1-2 sentences max) - focus on search queries, not lengthy explanations.
 7. COMPLETE THE JSON - ensure all brackets are closed. If running long, reduce detail rather than truncating.
 
-SEARCH QUERY STRATEGY - DIVERSITY IS CRITICAL:
-Generate exactly 3 queries per topic, and EACH MUST BE A DIFFERENT TYPE:
-- You MUST include queries from 3 DIFFERENT categories below
-- Do NOT repeat the same query type multiple times!
-- This ensures students get a complete A-Z roadmap, not just 3 introductions
+SEARCH QUERY STRATEGY - YOUTUBE VIDEOS ONLY:
+Generate exactly 3 queries per topic. EVERY query should be designed to find YouTube videos.
+
+CRITICAL: ALL QUERIES MUST TARGET YOUTUBE
+- Every query MUST include "youtube" or be phrased to find video content
+- We ONLY want YouTube video results - NO Wikipedia, NO articles, NO blogs
+- Add "site:youtube.com" or "youtube" to every query
 
 REQUIRED DIVERSITY - Pick 3 different types from:
-1. INTRODUCTION: "What is [topic] explained simply video" or "[topic] basics for beginners tutorial"
-2. CONCEPT: "[topic] how it works explained video" or "[topic] fundamentals deep dive tutorial"  
-3. TUTORIAL: "[topic] step by step tutorial" or "[topic] worked examples walkthrough video"
-4. EXAMPLE: "[topic] example problems solved" or "[topic] practice problem walkthrough"
+1. INTRODUCTION: "[topic] introduction youtube tutorial" or "[topic] basics explained youtube"
+2. CONCEPT: "[topic] how it works youtube" or "[topic] explained youtube video"  
+3. TUTORIAL: "[topic] step by step tutorial youtube" or "[topic] walkthrough youtube"
+4. EXAMPLE: "[topic] example problems solved youtube" or "[topic] practice problems youtube"
 
-GOOD EXAMPLE (diverse types):
-- Query 1: "Wien's displacement law simple introduction video" [type: introduction]
-- Query 2: "Wien's law calculation step by step tutorial" [type: tutorial]  
-- Query 3: "Wien's displacement law example problems solved" [type: example]
+GOOD EXAMPLE (diverse types, YouTube-focused):
+- Query 1: "Wien's displacement law introduction youtube tutorial" [type: introduction]
+- Query 2: "Wien's law calculation step by step youtube" [type: tutorial]  
+- Query 3: "Wien's displacement law example problems solved youtube" [type: example]
 
-BAD EXAMPLE (all same type - DO NOT DO THIS):
-- Query 1: "Wien's displacement law simple introduction" [type: introduction]
-- Query 2: "Wien's law basics explained" [type: introduction]
-- Query 3: "Introduction to Wien's displacement law" [type: introduction]
+BAD EXAMPLE (missing "youtube" keyword):
+- Query 1: "Wien's displacement law simple introduction" [WRONG - needs "youtube"]
+- Query 2: "Wien's law basics explained" [WRONG - needs "youtube"]
+- Query 3: "Introduction to Wien's displacement law" [WRONG - needs "youtube"]
+
+SELECTION CRITERIA - MERIT-BASED:
+- Find the BEST video for the topic regardless of who created it
+- Do NOT favor any specific channels - any YouTube creator can be included
+- Judge videos by: clarity of explanation, relevance to the topic, depth of coverage
+- Big channels and small channels are equally valid - quality matters, not fame
 
 QUERY OPTIMIZATION TIPS:
-- ALWAYS include "video" or "tutorial video" in queries to prioritize video content (80% of results should be videos)
-- Include keywords like "tutorial", "explained", "walkthrough", "step by step", "for beginners"
+- ALWAYS include "youtube" in every single query
+- Include keywords like "tutorial", "explained", "walkthrough", "step by step"
 - Add subject context: "engineering", "physics", "calculus", etc.
-- Be specific about what type of content: "video tutorial", "lecture", "solved problems"
-- Target known quality sources: Add channel names if appropriate (Khan Academy, Professor Leonard, MIT, etc.)
 - For problem-solving topics, include "how to solve", "example", "practice"
 
 OUTPUT STRUCTURE:
@@ -237,19 +243,22 @@ OUTPUT STRUCTURE:
   ]
 }
 
-EXAMPLE SEARCH QUERIES (note: exactly 3 queries with 3 DIFFERENT types):
+EXAMPLE SEARCH QUERIES (note: exactly 3 queries with 3 DIFFERENT types, ALL targeting YouTube):
 
 For a prerequisite on "View Factors in Radiation Heat Transfer":
-1. { "query": "what are view factors radiation heat transfer video tutorial", "query_type": "introduction", "priority": 1 }
-2. { "query": "how to calculate view factors step by step tutorial video", "query_type": "tutorial", "priority": 2 }
-3. { "query": "view factor geometry examples solved problems video", "query_type": "example", "priority": 3 }
+1. { "query": "view factors radiation heat transfer youtube tutorial", "query_type": "introduction", "priority": 1 }
+2. { "query": "how to calculate view factors step by step youtube", "query_type": "tutorial", "priority": 2 }
+3. { "query": "view factor geometry examples solved youtube", "query_type": "example", "priority": 3 }
 
 For a problem section on "Stefan-Boltzmann Law calculations":
-1. { "query": "Stefan-Boltzmann law explained simple introduction video", "query_type": "introduction", "priority": 1 }
-2. { "query": "Stefan-Boltzmann law step by step calculation tutorial video", "query_type": "tutorial", "priority": 2 }
-3. { "query": "Stefan-Boltzmann law example problems solved walkthrough", "query_type": "example", "priority": 3 }
+1. { "query": "Stefan-Boltzmann law explained youtube tutorial", "query_type": "introduction", "priority": 1 }
+2. { "query": "Stefan-Boltzmann law calculation step by step youtube", "query_type": "tutorial", "priority": 2 }
+3. { "query": "Stefan-Boltzmann law example problems youtube", "query_type": "example", "priority": 3 }
 
-CRITICAL: Each topic gets EXACTLY 3 queries with 3 DIFFERENT query_types. Never repeat the same query_type!`,
+CRITICAL: 
+- Each topic gets EXACTLY 3 queries with 3 DIFFERENT query_types
+- EVERY query MUST include "youtube" to ensure we get video results only
+- NO Wikipedia, NO articles - we ONLY want YouTube videos!`,
 
     user: (input: any, inputType: 'document_analysis' | 'custom' = 'document_analysis') => `Generate a comprehensive learning structure with search queries based on the following ${inputType === 'document_analysis' ? 'document analysis' : 'input'}.
 
@@ -274,15 +283,16 @@ INSTRUCTIONS:
    - Do NOT use the same query_type multiple times per topic!
    - This gives students a complete A-Z learning path, not repetitive resources
 
-4. VIDEO-FIRST APPROACH:
-   - Always include "video" or "tutorial video" in your search queries
-   - 80% of resources should be video content
-   - Prioritize YouTube, Khan Academy, educational video platforms
+4. YOUTUBE VIDEOS ONLY - THIS IS CRITICAL:
+   - EVERY query MUST include the word "youtube" to target YouTube videos
+   - We do NOT want Wikipedia articles, blog posts, or text resources
+   - 100% of resources should be YouTube videos
+   - NO exceptions - every result must be a YouTube video
 
 5. Be CREATIVE and SPECIFIC with search queries:
-   - Don't just repeat the topic name - craft queries that will find great content
-   - Include "video tutorial" to prioritize video content over articles
-   - Target known quality educators (Khan Academy, Professor Leonard, 3Blue1Brown, etc.)
+   - Don't just repeat the topic name - craft queries that will find great YouTube content
+   - Always include "youtube" and words like "tutorial", "explained", "step by step"
+   - Find the BEST video for the job - any channel, big or small, is valid
 
 Output valid JSON only, no markdown.`
   },
@@ -296,10 +306,10 @@ Output valid JSON only, no markdown.`
     system: `You are an expert at finding high-quality educational resources. Given an analysis of what a student needs to learn, suggest specific resources that would help them.
 
 Focus on:
-- YouTube videos from reputable educators (Khan Academy, Professor Leonard, 3Blue1Brown, MIT OpenCourseWare, etc.)
+- YouTube videos with clear, well-explained content
 - Interactive tools and calculators
 - Practice problem repositories
-- Clear, well-explained tutorials
+- Any creator is valid - find the BEST resource for the topic regardless of channel
 
 OUTPUT FORMAT (JSON only):
 {
