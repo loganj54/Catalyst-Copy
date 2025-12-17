@@ -207,8 +207,16 @@ const Create = () => {
     }
   };
 
+  // Background Patterns
+  const pageBackground = `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8a29e' fill-opacity='0.25'%3E%3Ccircle cx='5' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='5' r='1.5'/%3E%3Ccircle cx='45' cy='5' r='1.5'/%3E%3Ccircle cx='65' cy='5' r='1.5'/%3E%3Ccircle cx='85' cy='5' r='1.5'/%3E%3Ccircle cx='5' cy='25' r='1.5'/%3E%3Ccircle cx='25' cy='25' r='1.5'/%3E%3Ccircle cx='45' cy='25' r='1.5'/%3E%3Ccircle cx='65' cy='25' r='1.5'/%3E%3Ccircle cx='85' cy='25' r='1.5'/%3E%3Ccircle cx='5' cy='45' r='1.5'/%3E%3Ccircle cx='25' cy='45' r='1.5'/%3E%3Ccircle cx='85' cy='45' r='1.5'/%3E%3Ccircle cx='5' cy='65' r='1.5'/%3E%3Ccircle cx='25' cy='65' r='1.5'/%3E%3Ccircle cx='45' cy='65' r='1.5'/%3E%3Ccircle cx='65' cy='65' r='1.5'/%3E%3Ccircle cx='85' cy='65' r='1.5'/%3E%3Ccircle cx='5' cy='85' r='1.5'/%3E%3Ccircle cx='25' cy='85' r='1.5'/%3E%3Ccircle cx='45' cy='85' r='1.5'/%3E%3Ccircle cx='65' cy='85' r='1.5'/%3E%3Ccircle cx='85' cy='85' r='1.5'/%3E%3Ccircle cx='15' cy='15' r='1' opacity='0.5'/%3E%3Ccircle cx='55' cy='55' r='1' opacity='0.5'/%3E%3Ccircle cx='35' cy='75' r='1' opacity='0.5'/%3E%3C/g%3E%3C/svg%3E")`;
+  
+  const cardBackground = `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8a29e' fill-opacity='0.05'%3E%3Ccircle cx='10' cy='10' r='1'/%3E%3C/g%3E%3C/svg%3E")`;
+
   return (
-    <div className="min-h-screen bg-white pt-24 pb-12 px-4 sm:px-6">
+    <div 
+      className="min-h-screen bg-white pt-24 pb-12 px-4 sm:px-6"
+      style={{ backgroundImage: pageBackground }}
+    >
       <div className="max-w-3xl mx-auto">
         
           {/* Header */}
@@ -222,7 +230,10 @@ const Create = () => {
           </div>
 
         {/* Main Input Card */}
-        <div className="bg-white rounded-2xl shadow-xl border border-stone-300 overflow-hidden">
+        <div 
+          className="rounded-2xl shadow-xl border border-stone-300 overflow-hidden"
+          style={{ backgroundImage: cardBackground, backgroundColor: 'white' }}
+        >
           
           <div className="p-4 space-y-4">
             
@@ -230,7 +241,7 @@ const Create = () => {
               
               {/* Left Side: Upload Area (Only in Classwork Mode) */}
               {mode === 'classwork' && (
-                <div className="w-1/3 shrink-0">
+                <div className="flex-1">
                   {!formData.fileUpload ? (
                     <div
                       onDragEnter={handleDragEnter}
