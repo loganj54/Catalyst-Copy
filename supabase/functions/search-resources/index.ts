@@ -93,6 +93,8 @@ interface ResourceResult {
   transcript_source?: 'auto_generated' | 'manual' | 'metadata_only' | 'failed' | 'none';
   content_analysis?: ContentAnalysis;
   analysis_confidence?: number;
+  // AI-generated contextual explanation for this resource
+  resource_explanation?: string;
 }
 
 // ============================================================================
@@ -552,6 +554,135 @@ function extractChannelFromUrl(url: string): string | null {
 }
 
 // ============================================================================
+// RESOURCE EXPLANATION GENERATION
+// ============================================================================
+
+/**
+ * Generate contextual explanations for found resources in a batch
+ * Explains what each resource covers and how it helps achieve the learning objective
+ */
+async function generateResourceExplanations(
+  topic: string,
+  description: string | undefined,
+  learningObjective: string | undefined,
+  resources: ResourceResult[]
+): Promise<ResourceResult[]> {
+  if (!ANTHROPIC_API_KEY || resources.length === 0) {
+    return resources;
+  }
+
+  console.log(`[search-resources] Generating explanations for ${resources.length} resources...`);
+
+  const systemPrompt = `You are an expert educational tutor helping students understand why specific learning resources are helpful for their studies.
+
+Your task is to generate brief, contextual explanations for each educational resource (video) that:
+1. Explains what the resource covers and its main teaching approach
+2. Connects the resource to the student's specific learning objective
+3. Describes how watching this resource will help them understand the topic
+
+Write each explanation in 2-3 sentences, speaking directly to the student using "you" and "your".
+Be encouraging and specific - don't just repeat the video title.
+
+OUTPUT FORMAT (JSON only):
+{
+  "explanations": [
+    {
+      "url": "the resource URL",
+      "explanation": "2-3 sentence explanation of what this resource covers and how it helps the student"
+    }
+  ]
+}`;
+
+  // Build resource summaries for the prompt
+  const resourceSummaries = resources.map((r, idx) => ({
+    index: idx + 1,
+    url: r.url,
+    title: r.title,
+    channel: r.channel_name || 'Unknown',
+    description: r.description?.substring(0, 200) || '',
+    concepts: r.concepts_covered?.slice(0, 3) || [],
+    difficulty: r.difficulty_level,
+  }));
+
+  const userPrompt = `Generate contextual explanations for these educational resources:
+
+LEARNING TOPIC: ${topic}
+${description ? `TOPIC DESCRIPTION: ${description}` : ''}
+${learningObjective ? `LEARNING OBJECTIVE: ${learningObjective}` : ''}
+
+RESOURCES TO EXPLAIN:
+${JSON.stringify(resourceSummaries, null, 2)}
+
+For each resource, write a 2-3 sentence explanation that:
+- Describes what the resource will teach
+- Explains how it connects to the learning topic
+- Tells the student what they'll gain from watching it
+
+Output valid JSON only, no markdown.`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 2048,
+        temperature: 0.4,
+        system: systemPrompt,
+        messages: [
+          { role: 'user', content: userPrompt }
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[search-resources] Claude explanation API error:', response.status, errorText);
+      return resources; // Return resources without explanations on error
+    }
+
+    const data = await response.json();
+    
+    // Extract text content from response
+    const textContent = data.content?.find((block: any) => block.type === 'text')?.text || '';
+    
+    // Parse JSON from response
+    let explanations: Array<{ url: string; explanation: string }> = [];
+    
+    // Try to extract JSON from the response
+    const jsonMatch = textContent.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        explanations = parsed.explanations || [];
+        console.log(`[search-resources] Parsed ${explanations.length} resource explanations`);
+      } catch (parseError) {
+        console.error('[search-resources] Failed to parse explanation JSON:', parseError);
+      }
+    }
+
+    // Map explanations back to resources
+    for (const resource of resources) {
+      const matchingExplanation = explanations.find(e => e.url === resource.url);
+      if (matchingExplanation) {
+        resource.resource_explanation = matchingExplanation.explanation;
+      }
+    }
+
+    console.log('[search-resources] Resource explanations generated successfully');
+    return resources;
+
+  } catch (error) {
+    console.error('[search-resources] Error generating resource explanations:', error);
+    return resources; // Return resources without explanations on error
+  }
+}
+
+// ============================================================================
 // MAIN HANDLER
 // ============================================================================
 
@@ -969,6 +1100,32 @@ serve(async (req) => {
       }, {
         onConflict: 'blueprint_id,unit_id',
       });
+
+    // =========================================================================
+    // STEP 7: Generate contextual explanations for resources (batch AI call)
+    // =========================================================================
+    
+    if (results.length > 0) {
+      results = await generateResourceExplanations(
+        topic,
+        description,
+        body.learning_objective,
+        results
+      );
+      
+      // Update junction table with resource explanations
+      console.log('[search-resources] Updating junction table with resource explanations...');
+      for (const resource of results) {
+        if (resource.id && resource.resource_explanation) {
+          await supabase
+            .from('blueprint_topic_resources')
+            .update({ resource_explanation: resource.resource_explanation })
+            .eq('blueprint_id', blueprint_id)
+            .eq('unit_id', unit_id)
+            .eq('resource_id', resource.id);
+        }
+      }
+    }
 
     // Calculate analysis stats
     const analyzedCount = results.filter(r => r.transcript_analyzed).length;

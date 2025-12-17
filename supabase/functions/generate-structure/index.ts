@@ -22,6 +22,7 @@ import {
   callClaudeJSON,
 } from '../_shared/supabase-client.ts';
 import { PROMPTS } from '../_shared/prompts.ts';
+import { generateEmbedding } from '../_shared/embeddings.ts';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -44,17 +45,30 @@ interface SearchQuery {
   priority: number;
 }
 
+// Equation definition for LaTeX rendering
+interface Equation {
+  index: number;
+  name: string;
+  latex: string;
+  variables: Record<string, string>;
+  when_to_use: string;
+}
+
 // Learning unit within a section
 interface LearningUnit {
   unit_id: string;
+  unit_type: 'prerequisite' | 'problem' | 'topic'; // Type of learning unit
   topic: string;
   description?: string;
   learning_objective?: string;
+  tutor_guidance: string; // AI-generated tutor explanation (3-5 sentences) explaining WHY this topic matters and the approach
   category?: string;
   difficulty?: string;
   priority?: string;
   estimated_time_minutes: number;
-  search_queries: SearchQuery[];
+  equations?: Equation[]; // LaTeX equations for this learning unit (when applicable)
+  search_queries: SearchQuery[]; // For topic explanation videos
+  problem_solving_queries?: SearchQuery[]; // For problem walkthrough videos (only for unit_type: 'problem')
 }
 
 // Prerequisite section structure
@@ -180,6 +194,215 @@ function countStructureMetrics(structure: LearningStructure) {
     total_learning_units: totalLearningUnits,
     total_search_queries: totalSearchQueries,
   };
+}
+
+// ============================================================================
+// EQUATION CACHING FUNCTIONS
+// ============================================================================
+
+interface CachedEquation {
+  id: string;
+  name: string;
+  latex: string;
+  variables: Record<string, string>;
+  when_to_use: string;
+  from_cache: boolean;
+}
+
+/**
+ * Try to find an existing equation by exact name match (case-insensitive)
+ */
+async function findEquationByName(
+  supabase: any, 
+  name: string
+): Promise<CachedEquation | null> {
+  const { data, error } = await supabase
+    .from('curated_equations')
+    .select('*')
+    .ilike('name', name)
+    .order('times_used', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  
+  if (error || !data) {
+    return null;
+  }
+  
+  return {
+    id: data.id,
+    name: data.name,
+    latex: data.latex,
+    variables: data.variables || {},
+    when_to_use: data.when_to_use || '',
+    from_cache: true,
+  };
+}
+
+/**
+ * Create a new equation in the database and return it
+ */
+async function createEquation(
+  supabase: any,
+  equation: Equation,
+  subjectArea: string,
+  userId: string | null
+): Promise<CachedEquation | null> {
+  try {
+    // Generate embedding for the equation name + context for future similarity matching
+    const embeddingText = `${equation.name}: ${equation.when_to_use || ''} ${Object.keys(equation.variables || {}).join(' ')}`;
+    
+    let embedding: number[] | null = null;
+    try {
+      const result = await generateEmbedding(embeddingText);
+      embedding = result.embedding;
+    } catch (embError) {
+      console.log('[generate-structure] Could not generate equation embedding:', embError);
+      // Continue without embedding - we can add it later
+    }
+
+    const insertData: any = {
+      name: equation.name,
+      latex: equation.latex,
+      variables: equation.variables || {},
+      when_to_use: equation.when_to_use || '',
+      subject_area: subjectArea,
+      topic_tags: Object.keys(equation.variables || {}),
+      times_used: 1,
+      created_by: userId,
+    };
+
+    if (embedding) {
+      insertData.name_embedding = embedding;
+    }
+
+    const { data, error } = await supabase
+      .from('curated_equations')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (error) {
+      // If it's a unique constraint violation, try to fetch the existing one
+      if (error.code === '23505') {
+        console.log('[generate-structure] Equation already exists, fetching...');
+        return await findEquationByName(supabase, equation.name);
+      }
+      console.error('[generate-structure] Error creating equation:', error);
+      return null;
+    }
+
+    return {
+      id: data.id,
+      name: data.name,
+      latex: data.latex,
+      variables: data.variables || {},
+      when_to_use: data.when_to_use || '',
+      from_cache: false,
+    };
+  } catch (err) {
+    console.error('[generate-structure] Exception creating equation:', err);
+    return null;
+  }
+}
+
+/**
+ * Process all equations in a learning unit - cache new ones, reuse existing
+ */
+async function processUnitEquations(
+  supabase: any,
+  blueprintId: string | null,
+  unitId: string,
+  equations: Equation[] | undefined,
+  subjectArea: string,
+  userId: string | null
+): Promise<{ processedEquations: CachedEquation[]; cachedCount: number; newCount: number }> {
+  if (!equations || equations.length === 0) {
+    return { processedEquations: [], cachedCount: 0, newCount: 0 };
+  }
+
+  const processedEquations: CachedEquation[] = [];
+  let cachedCount = 0;
+  let newCount = 0;
+
+  for (const equation of equations) {
+    // Try to find existing equation by name
+    let cached = await findEquationByName(supabase, equation.name);
+    
+    if (cached) {
+      console.log(`[generate-structure] Found cached equation: ${equation.name}`);
+      cachedCount++;
+      
+      // Increment usage counter using the RPC function we created
+      await supabase.rpc('increment_equation_usage', { equation_uuid: cached.id });
+        
+    } else {
+      // Create new equation
+      console.log(`[generate-structure] Creating new equation: ${equation.name}`);
+      cached = await createEquation(supabase, equation, subjectArea, userId);
+      if (cached) {
+        newCount++;
+      }
+    }
+
+    if (cached) {
+      processedEquations.push(cached);
+      
+      // Link equation to this blueprint/unit if we have a blueprint
+      if (blueprintId) {
+        await supabase
+          .from('blueprint_unit_equations')
+          .upsert({
+            blueprint_id: blueprintId,
+            unit_id: unitId,
+            equation_id: cached.id,
+            display_index: equation.index || processedEquations.length,
+            from_cache: cached.from_cache,
+          }, {
+            onConflict: 'blueprint_id,unit_id,equation_id',
+          });
+      }
+    }
+  }
+
+  return { processedEquations, cachedCount, newCount };
+}
+
+/**
+ * Process all equations in the structure - cache and link them
+ */
+async function processStructureEquations(
+  supabase: any,
+  structure: LearningStructure,
+  blueprintId: string | null,
+  subjectArea: string,
+  userId: string | null
+): Promise<{ totalCached: number; totalNew: number }> {
+  let totalCached = 0;
+  let totalNew = 0;
+
+  // Process prerequisite equations
+  if (structure.prerequisites_section?.learning_units) {
+    for (const unit of structure.prerequisites_section.learning_units) {
+      const result = await processUnitEquations(
+        supabase, blueprintId, unit.unit_id, unit.equations, subjectArea, userId
+      );
+      totalCached += result.cachedCount;
+      totalNew += result.newCount;
+    }
+  }
+
+  // Process content section equations
+  for (const section of structure.content_sections || []) {
+    for (const unit of section.learning_units || []) {
+      const result = await processUnitEquations(
+        supabase, blueprintId, unit.unit_id, unit.equations, subjectArea, userId
+      );
+      totalCached += result.cachedCount;
+      totalNew += result.newCount;
+    }
+  }
+
+  return { totalCached, totalNew };
 }
 
 // ============================================================================
@@ -406,6 +629,22 @@ serve(async (req) => {
     // Calculate metrics
     const metrics = countStructureMetrics(structure);
 
+    // Process and cache equations from the structure
+    const subjectArea = analysisData?.subject_area || analysisData?.specific_topic || 'general';
+    console.log('[generate-structure] Processing equations for caching...');
+    
+    const equationResults = await processStructureEquations(
+      supabase,
+      structure,
+      blueprint_id,
+      subjectArea,
+      userId
+    );
+    
+    console.log(`[generate-structure] Equations processed:`);
+    console.log(`  - Cached (reused): ${equationResults.totalCached}`);
+    console.log(`  - New (created): ${equationResults.totalNew}`);
+
     // Store the learning structure in the database
     const insertData = {
       blueprint_id: blueprint_id,
@@ -455,7 +694,12 @@ serve(async (req) => {
         structure: structure,
         metrics: metrics,
         search_queries_count: allSearchQueries.length,
-        message: `Learning structure generated with ${allSearchQueries.length} search queries. Ready for Step 3 (Search Resources).`,
+        equations: {
+          cached: equationResults.totalCached,
+          new: equationResults.totalNew,
+          total: equationResults.totalCached + equationResults.totalNew,
+        },
+        message: `Learning structure generated with ${allSearchQueries.length} search queries and ${equationResults.totalCached + equationResults.totalNew} equations. Ready for Step 3 (Search Resources).`,
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

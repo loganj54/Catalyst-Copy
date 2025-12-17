@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import EquationDisplay from '../components/EquationDisplay';
 
 // Generation status display configuration
 const STATUS_CONFIG = {
@@ -71,6 +72,7 @@ const TopicCard = ({
   blueprintId, 
   topicResponse, 
   topicResources,
+  topicEquations,
   topicSearchMetadata,
   onComfortSelect,
   onGenerateBlueprint,
@@ -79,6 +81,11 @@ const TopicCard = ({
   const hasResources = topicResources && topicResources.length > 0;
   const isComfortable = topicResponse?.response === 'comfortable';
   const needsHelp = topicResponse?.response === 'needs_help';
+  
+  // Use equations from database if available, fallback to structure data
+  const equations = topicEquations && topicEquations.length > 0 
+    ? topicEquations 
+    : unit.equations;
 
   return (
     <div className={`bg-white rounded-xl border-2 transition-all duration-300 ${
@@ -121,6 +128,30 @@ const TopicCard = ({
           )}
         </div>
 
+        {/* Tutor Guidance - AI-generated explanation */}
+        {unit.tutor_guidance && (
+          <div className="mt-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+            <div className="flex items-start gap-3">
+              <div className="p-1.5 bg-blue-100 rounded-lg shrink-0">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">
+                  Your Tutor Says
+                </p>
+                <p className="text-stone-700 text-sm leading-relaxed">
+                  {unit.tutor_guidance}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Key Equations - LaTeX rendered equations for this learning unit */}
+        {equations && equations.length > 0 && (
+          <EquationDisplay equations={equations} />
+        )}
+
         {/* Comfort Check Buttons */}
         {!isComfortable && !hasResources && (
           <div className="flex flex-wrap gap-2 mt-4">
@@ -133,24 +164,46 @@ const TopicCard = ({
               <Check className="w-4 h-4" />
               I'm Comfortable
             </button>
-            <button
-              onClick={() => onGenerateBlueprint(unit)}
-              disabled={isSearching}
-              className="flex items-center gap-2 px-4 py-2 bg-[#FF4A1C] text-white rounded-lg 
-                         hover:bg-black transition-colors font-medium text-sm disabled:opacity-50"
-            >
-              {isSearching ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Searching...
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4" />
-                  Generate Full Blueprint
-                </>
-              )}
-            </button>
+            {/* Show different button based on unit type */}
+            {unit.unit_type === 'problem' ? (
+              <button
+                onClick={() => onGenerateBlueprint(unit)}
+                disabled={isSearching}
+                className="flex items-center gap-2 px-4 py-2 bg-[#FF4A1C] text-white rounded-lg 
+                           hover:bg-black transition-colors font-medium text-sm disabled:opacity-50"
+              >
+                {isSearching ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Searching...
+                  </>
+                ) : (
+                  <>
+                    <BookOpen className="w-4 h-4" />
+                    Find Problem Walkthrough
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={() => onGenerateBlueprint(unit)}
+                disabled={isSearching}
+                className="flex items-center gap-2 px-4 py-2 bg-[#FF4A1C] text-white rounded-lg 
+                           hover:bg-black transition-colors font-medium text-sm disabled:opacity-50"
+              >
+                {isSearching ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Searching...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4" />
+                    Generate Full Blueprint
+                  </>
+                )}
+              </button>
+            )}
           </div>
         )}
 
@@ -342,6 +395,16 @@ const ResourceCard = ({ resource }) => {
             </p>
           </div>
         )}
+
+        {/* AI-generated resource explanation */}
+        {resource.resource_explanation && (
+          <div className="mt-2 p-2 bg-gradient-to-r from-purple-50 to-indigo-50 rounded border border-purple-100">
+            <p className="text-xs text-purple-800 leading-relaxed">
+              <span className="font-semibold text-purple-600">💡 Why this helps: </span>
+              {resource.resource_explanation}
+            </p>
+          </div>
+        )}
       </div>
 
       <ExternalLink className="w-4 h-4 text-stone-400 group-hover:text-[#FF4A1C] shrink-0 self-center" />
@@ -360,6 +423,7 @@ const SectionDisplay = ({
   blueprintId,
   topicResponses,
   topicResources,
+  topicEquations,
   topicSearchMetadata,
   onComfortSelect,
   onGenerateBlueprint,
@@ -427,6 +491,7 @@ const SectionDisplay = ({
               blueprintId={blueprintId}
               topicResponse={topicResponses[unit.unit_id]}
               topicResources={topicResources[unit.unit_id]}
+              topicEquations={topicEquations?.[unit.unit_id]}
               topicSearchMetadata={topicSearchMetadata?.[unit.unit_id]}
               onComfortSelect={onComfortSelect}
               onGenerateBlueprint={onGenerateBlueprint}
@@ -462,6 +527,7 @@ const Blueprint = () => {
   // Topic comfort and resources state
   const [topicResponses, setTopicResponses] = useState({});
   const [topicResources, setTopicResources] = useState({});
+  const [topicEquations, setTopicEquations] = useState({}); // Equations per unit_id
   const [searchingTopics, setSearchingTopics] = useState(new Set());
   const [searchMetadata, setSearchMetadata] = useState({}); // Track search info per topic
 
@@ -595,6 +661,7 @@ const Blueprint = () => {
               relevance_score: r.relevance_score,
               from_cache: r.from_cache,
               similarity: r.relevance_score,
+              resource_explanation: r.resource_explanation, // Include explanation from junction table
             });
           }
         });
@@ -602,6 +669,45 @@ const Blueprint = () => {
         setTopicResources(resourcesMap);
       } else {
         console.log('[Blueprint] No topic resources found in database');
+      }
+
+      // Fetch equations for this blueprint from the database
+      console.log('[Blueprint] Fetching equations for blueprint:', id);
+      const { data: equationsData, error: equationsError } = await supabase
+        .from('blueprint_unit_equations')
+        .select(`
+          *,
+          curated_equations (*)
+        `)
+        .eq('blueprint_id', id)
+        .order('display_index', { ascending: true });
+      
+      if (equationsError) {
+        console.log('[Blueprint] Error fetching equations (table may not exist yet):', equationsError);
+      }
+      
+      if (equationsData && equationsData.length > 0) {
+        // Group equations by unit_id
+        const equationsMap = {};
+        equationsData.forEach(e => {
+          if (!equationsMap[e.unit_id]) {
+            equationsMap[e.unit_id] = [];
+          }
+          if (e.curated_equations) {
+            equationsMap[e.unit_id].push({
+              index: e.display_index,
+              name: e.curated_equations.name,
+              latex: e.curated_equations.latex,
+              variables: e.curated_equations.variables || {},
+              when_to_use: e.curated_equations.when_to_use,
+              from_cache: e.from_cache,
+            });
+          }
+        });
+        console.log('[Blueprint] Loaded equations from database:', equationsMap);
+        setTopicEquations(equationsMap);
+      } else {
+        console.log('[Blueprint] No equations found in database, will use structure data');
       }
       
       return data;
@@ -654,20 +760,37 @@ const Blueprint = () => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       
-      const response = await fetch(`${supabaseUrl}/functions/v1/search-resources`, {
+      // Determine which endpoint to call based on unit_type
+      const isProblem = unit.unit_type === 'problem';
+      const endpoint = isProblem ? 'search-problem-walkthroughs' : 'search-resources';
+      
+      // Prepare request body based on unit type
+      const requestBody = isProblem ? {
+        blueprint_id: id,
+        unit_id: unitId,
+        topic: unit.topic,
+        description: unit.description,
+        learning_objective: unit.learning_objective,
+        problem_solving_queries: unit.problem_solving_queries || [],
+        problem_details: unit.problem_details || {},
+      } : {
+        blueprint_id: id,
+        unit_id: unitId,
+        topic: unit.topic,
+        description: unit.description,
+        learning_objective: unit.learning_objective,
+        search_queries: unit.search_queries || [],
+      };
+      
+      console.log(`[Blueprint] Calling ${endpoint} for unit:`, unitId, 'type:', unit.unit_type);
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          blueprint_id: id,
-          unit_id: unitId,
-          topic: unit.topic,
-          description: unit.description,
-          learning_objective: unit.learning_objective,
-          search_queries: unit.search_queries || [],
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
@@ -998,6 +1121,7 @@ const Blueprint = () => {
                       blueprintId={id}
                       topicResponse={topicResponses[unit.unit_id]}
                       topicResources={topicResources[unit.unit_id]}
+                      topicEquations={topicEquations[unit.unit_id]}
                       topicSearchMetadata={searchMetadata[unit.unit_id]}
                       onComfortSelect={handleComfortSelect}
                       onGenerateBlueprint={handleGenerateBlueprint}
@@ -1023,6 +1147,7 @@ const Blueprint = () => {
                     blueprintId={id}
                     topicResponses={topicResponses}
                     topicResources={topicResources}
+                    topicEquations={topicEquations}
                     topicSearchMetadata={searchMetadata}
                     onComfortSelect={handleComfortSelect}
                     onGenerateBlueprint={handleGenerateBlueprint}

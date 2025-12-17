@@ -90,11 +90,11 @@ OUTPUT STRUCTURE:
   ],
   
   "key_equations": [
-    // Master list of important equations across all problems
+    // Master list of important equations across all problems - USE LATEX FORMAT
     {
       "name": "Equation name (e.g., 'Stefan-Boltzmann Law')",
-      "formula": "The equation in text form",
-      "variables": {"T": "Temperature in Kelvin", "σ": "Stefan-Boltzmann constant"},
+      "latex": "The equation in LaTeX notation (e.g., 'E = \\\\sigma T^4' or '\\\\lambda_{max} = \\\\frac{b}{T}')",
+      "variables": {"T": "Temperature in Kelvin", "\\\\sigma": "Stefan-Boltzmann constant"},
       "when_to_use": "When to apply this equation"
     }
   ],
@@ -142,6 +142,59 @@ CRITICAL RULES:
 5. All output must be valid JSON with no markdown formatting.
 6. Keep descriptions BRIEF (1-2 sentences max) - focus on search queries, not lengthy explanations.
 7. COMPLETE THE JSON - ensure all brackets are closed. If running long, reduce detail rather than truncating.
+8. ALWAYS include "tutor_guidance" for EVERY learning unit - this is REQUIRED.
+9. ALWAYS set "unit_type" for EVERY learning unit - this is REQUIRED.
+10. For problem units, generate BOTH search_queries AND problem_solving_queries.
+
+TUTOR GUIDANCE - REQUIRED FOR EVERY LEARNING UNIT:
+For each learning unit, you MUST write a "tutor_guidance" field (3-5 sentences) that:
+- Explains WHY this topic matters in the context of the student's learning goals
+- Describes the key concepts the student will encounter
+- Outlines the recommended approach to learning this material
+- Connects to prior knowledge or upcoming topics when relevant
+
+Write tutor_guidance as if you are a friendly expert tutor speaking directly to the student. Use "you" and "your" - make it personal and encouraging. This guidance will be shown BEFORE the student sees any resources, so it should prepare them mentally for what they're about to learn.
+
+CRITICAL - EQUATIONS IN TUTOR GUIDANCE:
+- Do NOT write out equations as inline text in tutor_guidance (e.g., "E = σT^4" is WRONG)
+- Instead, REFERENCE equations by name or index: "You'll use the Stefan-Boltzmann Law (Equation 1 below) to calculate..."
+- Say things like "see the equation displayed below" or "using the formula shown in Equation 2"
+- The actual equations will be rendered separately with proper LaTeX formatting
+- This keeps the guidance readable and the equations beautiful
+
+TUTOR GUIDANCE EXAMPLES:
+
+For a prerequisite on "View Factors":
+"Before diving into radiation heat transfer problems, you need to understand view factors - they tell you what fraction of radiation leaving one surface actually reaches another. Think of it like a geometry problem: if two surfaces can 'see' each other, they can exchange heat by radiation. You'll learn how to calculate these factors using tables and simple formulas, which will be essential for solving the main problems in this assignment."
+
+For a problem unit on "Wien's Displacement Law":
+"This topic is the key to understanding why hot objects change color as they heat up - from red to orange to white. Wien's Law gives you a simple equation connecting temperature to the peak wavelength of emitted radiation. Once you understand this relationship, you'll be able to predict emission spectra and solve the wavelength calculations in this problem set. Focus on understanding the inverse relationship between temperature and wavelength."
+
+UNIT TYPE - REQUIRED FOR EVERY LEARNING UNIT:
+Every learning unit MUST have a "unit_type" field set to one of:
+- "prerequisite": Foundational knowledge needed before main content (in prerequisites_section)
+- "problem": A specific problem from the document that needs solving (in content_sections with section_type: "problem")
+- "topic": A general concept or topic to learn (in content_sections with section_type: "topic" or "chapter")
+
+PROBLEM SOLVING QUERIES - REQUIRED FOR PROBLEM UNITS:
+For learning units with unit_type: "problem", you MUST generate TWO sets of queries:
+
+1. "search_queries": 3 queries for learning the CONCEPTS (theory, explanations)
+   - Example: "Wien's displacement law introduction youtube tutorial"
+   - Example: "Wien's law explained youtube video"
+   - Example: "blackbody radiation basics youtube"
+
+2. "problem_solving_queries": 3 queries for finding PROBLEM WALKTHROUGH videos
+   - Example: "how to solve Wien's law problems step by step youtube"
+   - Example: "Wien's displacement law example problems solved youtube"
+   - Example: "blackbody radiation wavelength calculation walkthrough youtube"
+
+The problem_solving_queries should specifically target videos that DEMONSTRATE solving similar problems, not just explaining theory. Use keywords like:
+- "how to solve [concept] problems"
+- "[equation] example problems solved"
+- "[concept] problem walkthrough"
+- "[concept] calculation step by step"
+- "solving [concept] problems youtube"
 
 SEARCH QUERY STRATEGY - YOUTUBE VIDEOS ONLY:
 Generate exactly 3 queries per topic. EVERY query should be designed to find YouTube videos.
@@ -193,11 +246,23 @@ OUTPUT STRUCTURE:
     "learning_units": [
       {
         "unit_id": "prereq_1",
+        "unit_type": "prerequisite",
         "topic": "The prerequisite topic name",
         "description": "Why this prerequisite is needed and what the student should learn",
+        "tutor_guidance": "3-5 sentences explaining WHY this topic matters, what the student will learn, and the recommended approach. Write as a friendly tutor speaking to the student. DO NOT write equations inline - reference them by name/index instead.",
         "category": "math" | "physics" | "chemistry" | "engineering" | "other",
         "difficulty": "beginner" | "intermediate" | "advanced",
         "estimated_time_minutes": number,
+        "equations": [
+          // Include when this prerequisite involves learning specific equations
+          {
+            "index": 1,
+            "name": "Equation name",
+            "latex": "LaTeX notation",
+            "variables": {"symbol": "description"},
+            "when_to_use": "When to apply this equation"
+          }
+        ],
         "search_queries": [
           {
             "query": "The actual search query string to use",
@@ -220,15 +285,37 @@ OUTPUT STRUCTURE:
       "learning_units": [
         {
           "unit_id": "section_1_unit_1",
+          "unit_type": "problem" | "topic",
           "topic": "Specific topic within this section",
           "learning_objective": "What the student will be able to do after this unit",
+          "tutor_guidance": "3-5 sentences explaining WHY this topic matters, what the student will learn, and the recommended approach. Write as a friendly tutor speaking to the student. DO NOT write equations inline - reference them by name/index instead.",
           "priority": "essential" | "recommended" | "supplementary",
           "estimated_time_minutes": number,
+          "equations": [
+            // REQUIRED when this unit focuses on learning/applying specific equations
+            // Include equations that are central to this learning unit
+            {
+              "index": 1,
+              "name": "Equation name (e.g., 'Stefan-Boltzmann Law')",
+              "latex": "LaTeX notation (e.g., 'E = \\\\sigma T^4')",
+              "variables": {"T": "Temperature in Kelvin", "\\\\sigma": "Stefan-Boltzmann constant (5.67×10⁻⁸ W/m²K⁴)"},
+              "when_to_use": "Brief description of when to apply this equation"
+            }
+          ],
           "search_queries": [
             {
               "query": "The search query string",
               "query_type": "introduction" | "concept" | "tutorial" | "example" | "practice",
               "target_content": "Description of expected search results",
+              "priority": 1-5
+            }
+          ],
+          "problem_solving_queries": [
+            // ONLY for unit_type: "problem" - queries to find problem walkthrough videos
+            {
+              "query": "The search query string targeting problem-solving videos",
+              "query_type": "walkthrough" | "example" | "practice",
+              "target_content": "Description of expected problem-solving videos",
               "priority": 1-5
             }
           ]
@@ -258,7 +345,8 @@ For a problem section on "Stefan-Boltzmann Law calculations":
 CRITICAL: 
 - Each topic gets EXACTLY 3 queries with 3 DIFFERENT query_types
 - EVERY query MUST include "youtube" to ensure we get video results only
-- NO Wikipedia, NO articles - we ONLY want YouTube videos!`,
+- NO Wikipedia, NO articles - we ONLY want YouTube videos!
+- EVERY learning unit MUST have a tutor_guidance field (3-5 sentences)`,
 
     user: (input: any, inputType: 'document_analysis' | 'custom' = 'document_analysis') => `Generate a comprehensive learning structure with search queries based on the following ${inputType === 'document_analysis' ? 'document analysis' : 'input'}.
 
@@ -269,30 +357,57 @@ ${JSON.stringify(input, null, 2)}
 
 INSTRUCTIONS:
 1. Create a PREREQUISITES SECTION with learning units for each prerequisite concept
+   - Set unit_type: "prerequisite" for all units in this section
    - Generate exactly 3 search queries for each prerequisite
    - CRITICAL: Each query MUST be a DIFFERENT type (introduction, tutorial, example)
+   - REQUIRED: Include tutor_guidance for each learning unit
    
 2. Create CONTENT SECTIONS organized by problem or topic
    - For problem sets: One section per problem
    - For study guides/notes: One section per major topic
    - Each section should have learning units covering the key concepts
+   - Set unit_type: "problem" for units that teach how to solve a specific problem
+   - Set unit_type: "topic" for units that teach general concepts
    - Generate exactly 3 search queries per learning unit with DIFFERENT types
+   - REQUIRED: Include tutor_guidance for each learning unit
    
-3. DIVERSITY IS MANDATORY for search queries:
+3. PROBLEM UNITS REQUIRE TWO SETS OF QUERIES:
+   - For unit_type: "problem", generate BOTH:
+     a) search_queries: 3 queries for learning the concepts/theory
+     b) problem_solving_queries: 3 queries for finding problem walkthrough videos
+   - problem_solving_queries should target videos that DEMONSTRATE solving similar problems
+   - Use keywords like "how to solve", "example problems solved", "walkthrough", "calculation step by step"
+   
+4. TUTOR GUIDANCE IS MANDATORY for every learning unit:
+   - Write 3-5 sentences as a friendly tutor speaking to the student
+   - Explain WHY this topic matters for their learning goals
+   - Describe the key concepts they will encounter
+   - Outline the recommended approach to learning the material
+   - This prepares the student BEFORE they see any resources
+   
+5. DIVERSITY IS MANDATORY for search queries:
    - Each topic gets 3 queries: one introduction, one tutorial, one example
    - Do NOT use the same query_type multiple times per topic!
    - This gives students a complete A-Z learning path, not repetitive resources
 
-4. YOUTUBE VIDEOS ONLY - THIS IS CRITICAL:
+6. YOUTUBE VIDEOS ONLY - THIS IS CRITICAL:
    - EVERY query MUST include the word "youtube" to target YouTube videos
    - We do NOT want Wikipedia articles, blog posts, or text resources
    - 100% of resources should be YouTube videos
    - NO exceptions - every result must be a YouTube video
 
-5. Be CREATIVE and SPECIFIC with search queries:
+7. Be CREATIVE and SPECIFIC with search queries:
    - Don't just repeat the topic name - craft queries that will find great YouTube content
    - Always include "youtube" and words like "tutorial", "explained", "step by step"
    - Find the BEST video for the job - any channel, big or small, is valid
+
+8. EQUATIONS - INCLUDE WHEN APPLICABLE:
+   - When a learning unit focuses on teaching or applying specific equations, include an "equations" array
+   - Each equation MUST have: index, name, latex, variables, when_to_use
+   - Use proper LaTeX notation (e.g., "E = \\sigma T^4" for Stefan-Boltzmann Law)
+   - Common LaTeX symbols: \\sigma, \\lambda, \\epsilon, \\pi, \\alpha, \\beta, \\Delta, \\frac{a}{b}, ^{exp}, _{sub}
+   - In tutor_guidance, NEVER write equations as text - instead reference by name: "You'll apply the Stefan-Boltzmann Law (Equation 1 below)..."
+   - This ensures equations render beautifully with proper mathematical formatting
 
 Output valid JSON only, no markdown.`
   },
@@ -405,5 +520,66 @@ Create a clear, step-by-step learning path that:
 4. Includes checkpoints to verify understanding
 
 Output valid JSON only.`
+  },
+
+  // ==========================================================================
+  // RESOURCE EXPLANATION GENERATION
+  // ==========================================================================
+  // Generates contextual explanations for found resources
+  // Explains what each resource covers and how it helps the student
+  // ==========================================================================
+  resourceExplanation: {
+    system: `You are an expert educational tutor helping students understand why specific learning resources are helpful for their studies.
+
+Your task is to generate brief, contextual explanations for each educational resource (video) that:
+1. Explains what the resource covers and its main teaching approach
+2. Connects the resource to the student's specific learning objective
+3. Describes how watching this resource will help them understand the topic
+
+Write each explanation in 2-3 sentences, speaking directly to the student using "you" and "your".
+Be encouraging and specific - don't just repeat the video title.
+
+OUTPUT FORMAT (JSON only):
+{
+  "explanations": [
+    {
+      "url": "the resource URL",
+      "explanation": "2-3 sentence explanation of what this resource covers and how it helps the student"
+    }
+  ]
+}`,
+
+    user: (
+      topic: string, 
+      description: string | undefined, 
+      learningObjective: string | undefined,
+      resources: Array<{ url: string; title: string; channel_name?: string; description?: string; concepts_covered?: string[]; difficulty_level?: string }>
+    ) => {
+      const resourceSummaries = resources.map((r, idx) => ({
+        index: idx + 1,
+        url: r.url,
+        title: r.title,
+        channel: r.channel_name || 'Unknown',
+        description: r.description?.substring(0, 200) || '',
+        concepts: r.concepts_covered?.slice(0, 3) || [],
+        difficulty: r.difficulty_level,
+      }));
+
+      return `Generate contextual explanations for these educational resources:
+
+LEARNING TOPIC: ${topic}
+${description ? `TOPIC DESCRIPTION: ${description}` : ''}
+${learningObjective ? `LEARNING OBJECTIVE: ${learningObjective}` : ''}
+
+RESOURCES TO EXPLAIN:
+${JSON.stringify(resourceSummaries, null, 2)}
+
+For each resource, write a 2-3 sentence explanation that:
+- Describes what the resource will teach
+- Explains how it connects to the learning topic
+- Tells the student what they'll gain from watching it
+
+Output valid JSON only, no markdown.`;
+    }
   }
 };
