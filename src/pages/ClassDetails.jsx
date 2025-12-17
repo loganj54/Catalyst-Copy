@@ -21,6 +21,7 @@ import {
   Eye
 } from 'lucide-react';
 import BlueprintModal from '../components/BlueprintModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -37,6 +38,7 @@ const ClassDetails = () => {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'documents'); // documents, blueprints, help
   const [isBlueprintModalOpen, setIsBlueprintModalOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', itemId: null, itemPath: null });
 
   useEffect(() => {
     if (user && id) {
@@ -111,21 +113,13 @@ const ClassDetails = () => {
       if (checkError) {
         console.error('Error checking for duplicates:', checkError);
       } else if (existingDocs && existingDocs.length > 0) {
-        // Found duplicate - ask user what to do
-        const shouldContinue = window.confirm(
+        // Found duplicate - show custom confirmation dialog
+        alert(
           `⚠️ A document with the same name and size already exists in this class:\n\n` +
           `"${file.name}" (${(file.size / 1024).toFixed(1)} KB)\n\n` +
-          `Do you want to upload it anyway as a new version?`
+          `The upload will continue with a new version.`
         );
-        
-        if (!shouldContinue) {
-          setUploadingDocument(false);
-          // Reset file input
-          if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-          }
-          return;
-        }
+        // Continue with upload
       }
 
       // Upload file to Supabase Storage
@@ -211,13 +205,23 @@ const ClassDetails = () => {
 
   const handleDeleteDocument = async (e, documentId, filePath) => {
     e.stopPropagation();
+    setConfirmDialog({
+      isOpen: true,
+      type: 'document',
+      itemId: documentId,
+      itemPath: filePath
+    });
+  };
+
+  const confirmDelete = async () => {
+    const { type, itemId, itemPath } = confirmDialog;
     
-    if (window.confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
-      try {
+    try {
+      if (type === 'document') {
         // Delete from storage
         const { error: storageError } = await supabase.storage
           .from('class-documents')
-          .remove([filePath]);
+          .remove([itemPath]);
 
         if (storageError) console.error('Storage delete error:', storageError);
 
@@ -225,38 +229,37 @@ const ClassDetails = () => {
         const { error: dbError } = await supabase
           .from('class_documents')
           .delete()
-          .eq('id', documentId);
+          .eq('id', itemId);
 
         if (dbError) throw dbError;
 
-        setDocuments(documents.filter(doc => doc.id !== documentId));
+        setDocuments(documents.filter(doc => doc.id !== itemId));
         setOpenDropdownId(null);
-      } catch (error) {
-        console.error('Error deleting document:', error);
-        alert('Failed to delete document');
+      } else if (type === 'blueprint') {
+        const { error } = await supabase
+          .from('blueprints')
+          .delete()
+          .eq('id', itemId);
+
+        if (error) throw error;
+
+        setBlueprints(blueprints.filter(bp => bp.id !== itemId));
+        setOpenDropdownId(null);
       }
+    } catch (error) {
+      console.error(`Error deleting ${type}:`, error);
+      alert(`Failed to delete ${type}`);
     }
   };
 
   const handleDeleteBlueprint = async (e, blueprintId) => {
     e.stopPropagation();
-    
-    if (window.confirm('Are you sure you want to delete this blueprint? This action cannot be undone.')) {
-      try {
-        const { error } = await supabase
-          .from('blueprints')
-          .delete()
-          .eq('id', blueprintId);
-
-        if (error) throw error;
-
-        setBlueprints(blueprints.filter(bp => bp.id !== blueprintId));
-        setOpenDropdownId(null);
-      } catch (error) {
-        console.error('Error deleting blueprint:', error);
-        alert('Failed to delete blueprint');
-      }
-    }
+    setConfirmDialog({
+      isOpen: true,
+      type: 'blueprint',
+      itemId: blueprintId,
+      itemPath: null
+    });
   };
 
   const toggleDropdown = (e, blueprintId) => {
@@ -292,6 +295,18 @@ const ClassDetails = () => {
           professorName={classData.professor}
         />
       )}
+      
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ isOpen: false, type: '', itemId: null, itemPath: null })}
+        onConfirm={confirmDelete}
+        title="Are you sure?"
+        message={`Are you sure you want to delete this ${confirmDialog.type}? This action cannot be undone.`}
+        confirmText="Yes"
+        cancelText="No"
+        type="danger"
+      />
+      
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col gap-6 mb-12">

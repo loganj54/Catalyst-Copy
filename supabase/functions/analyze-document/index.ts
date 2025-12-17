@@ -30,48 +30,66 @@ interface AnalyzeRequest {
   force_reanalyze?: boolean; // If true, re-analyze even if analysis exists
 }
 
-// Clean analysis result - each problem is separate with full details
+// Content classification - determines if document is problems, lecture, or hybrid
+interface ContentClassification {
+  primary_type: 'problem_set' | 'lecture' | 'hybrid' | 'textbook' | 'study_guide';
+  has_assigned_problems: boolean;
+  has_instructional_content: boolean;
+  problem_ratio: number; // 0.0 to 1.0 - what % is problems vs instruction
+  classification_confidence: number; // 0.0 to 1.0
+  reasoning: string;
+  inferred_student_goal: string; // What the student likely needs to do
+}
+
+// Section can be either a Problem or a Topic depending on document type
+interface Section {
+  section_id: string; // "Problem 1" or "Topic 1"
+  section_type: 'problem' | 'topic';
+  
+  // FOR PROBLEMS (section_type: "problem"):
+  problem_statement?: string;
+  figure_description?: string | null;
+  given_variables?: Array<{
+    symbol: string;
+    description: string;
+    value: string;
+    unit: string;
+  }>;
+  unknown_variables?: Array<{
+    symbol: string;
+    description: string;
+  }>;
+  assumptions?: string[];
+  solving_approach?: string[];
+  
+  // FOR TOPICS (section_type: "topic"):
+  topic_summary?: string;
+  key_concepts?: string[];
+  learning_objectives?: string[];
+  
+  // COMMON FIELDS FOR BOTH:
+  concepts_tested: string[];
+  equations_needed: string[];
+  difficulty: number; // 1-10
+  estimated_minutes: number;
+  common_mistakes: string[];
+}
+
+// Clean analysis result - supports both problems and topics
 interface AnalysisResult {
-  document_type: 'problem_set' | 'study_guide' | 'lecture_notes' | 'textbook' | 'other';
+  document_type: 'problem_set' | 'lecture' | 'hybrid' | 'textbook' | 'study_guide';
   subject_area: string;
   specific_topic: string;
   course_level: 'introductory' | 'intermediate' | 'advanced' | 'graduate';
   
-  // Each problem analyzed separately with complete details
-  problems: Array<{
-    problem_id: string;
-    
-    // Complete problem restatement (paraphrased but with all details)
-    problem_statement: string;
-    
-    // Description of any associated figures/diagrams (null if none)
-    figure_description: string | null;
-    
-    // All known quantities from the problem
-    given_variables: Array<{
-      symbol: string;      // e.g., "T", "λ", "ε"
-      description: string; // e.g., "Filament temperature"
-      value: string;       // e.g., "2300"
-      unit: string;        // e.g., "°C"
-    }>;
-    
-    // Everything we need to solve for
-    unknown_variables: Array<{
-      symbol: string;      // e.g., "λ_max" (can be empty if no symbol)
-      description: string; // Complete description of what we're finding
-    }>;
-    
-    // All stated or implied assumptions
-    assumptions: string[];
-    
-    // Analysis fields
-    concepts_tested: string[];
-    equations_needed: string[];
-    solving_approach: string[];
-    difficulty: number; // 1-10
-    estimated_minutes: number;
-    common_mistakes: string[];
-  }>;
+  // Content classification - determines how to handle the document
+  content_classification: ContentClassification;
+  
+  // Sections can be Problems OR Topics depending on document type
+  sections: Section[];
+  
+  // Legacy support: map sections to problems for backward compatibility
+  problems?: Section[];
   
   // Prerequisites needed before attempting the material
   prerequisites: Array<{
@@ -81,10 +99,11 @@ interface AnalysisResult {
     difficulty: 'beginner' | 'intermediate' | 'advanced';
   }>;
   
-  // Master equation list (not duplicated per problem)
+  // Master equation list
   key_equations: Array<{
     name: string;
-    formula: string;
+    formula?: string;
+    latex?: string;
     variables: Record<string, string>;
     when_to_use: string;
   }>;
@@ -441,13 +460,17 @@ serve(async (req) => {
 
     console.log('[analyze-document] Analysis complete:');
     console.log('  - Document type:', analysis.document_type);
-    console.log('  - Problems found:', analysis.problems?.length || 0);
+    console.log('  - Content classification:', analysis.content_classification?.primary_type || 'unknown');
+    console.log('  - Sections found:', analysis.sections?.length || 0);
+    console.log('  - Problems:', analysis.sections?.filter(s => s.section_type === 'problem').length || 0);
+    console.log('  - Topics:', analysis.sections?.filter(s => s.section_type === 'topic').length || 0);
     console.log('  - Prerequisites found:', analysis.prerequisites?.length || 0);
     console.log('  - Course level:', analysis.course_level);
+    console.log('  - Inferred goal:', analysis.content_classification?.inferred_student_goal || 'Master this material');
 
     // Calculate total estimated time
     const totalTimeMinutes = analysis.study_recommendations?.total_time_minutes || 
-      analysis.problems?.reduce((sum, p) => sum + (p.estimated_minutes || 0), 0) || 60;
+      analysis.sections?.reduce((sum, s) => sum + (s.estimated_minutes || 0), 0) || 60;
 
     // Map course_level to difficulty_level
     const difficultyMap: Record<string, string> = {

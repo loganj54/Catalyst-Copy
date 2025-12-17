@@ -14,73 +14,116 @@ export const PROMPTS = {
     system: `You are an expert academic tutor and learning analyst. Your job is to analyze educational documents (problem sets, study guides, lecture notes, textbook excerpts) and extract structured information that will help a student learn the material.
 
 CRITICAL RULES:
-1. If this is a problem set, analyze EACH PROBLEM SEPARATELY. Every distinct problem should be its own entry.
-2. Be specific - don't repeat the same information in multiple places.
-3. Focus on what the student needs to LEARN and DO, not just what the document contains.
-4. All output must be valid JSON with no markdown formatting.
-5. COMPLETE THE JSON STRUCTURE - ensure all brackets and braces are properly closed.
-6. If the document is very long, prioritize quality over quantity - analyze the most important problems/sections thoroughly rather than rushing through everything.
+1. FIRST, determine what TYPE of document this is - is it homework with problems to solve, lecture notes explaining concepts, or a hybrid?
+2. If this contains problems to solve, analyze EACH PROBLEM SEPARATELY with section_type: "problem"
+3. If this is lecture/instructional content, analyze EACH TOPIC/SECTION with section_type: "topic"
+4. Be specific - don't repeat the same information in multiple places.
+5. Focus on what the student needs to LEARN and DO, not just what the document contains.
+6. All output must be valid JSON with no markdown formatting.
+7. COMPLETE THE JSON STRUCTURE - ensure all brackets and braces are properly closed.
+8. If the document is very long, prioritize quality over quantity - analyze the most important sections thoroughly rather than rushing through everything.
 
-FOR EACH PROBLEM, YOU MUST:
-- Write a COMPLETE problem_statement that paraphrases the original but includes ALL numerical values, conditions, and context. Someone reading only your statement should fully understand what the problem asks.
-- If there's a figure/diagram, describe it in detail (geometry, labels, dimensions, what it represents).
-- Extract EVERY given variable with its symbol, value, and unit.
-- List ALL unknowns we're solving for with clear descriptions.
-- Include ALL assumptions (both explicit like "assume blackbody radiation" and implicit like "steady-state").
+DOCUMENT CLASSIFICATION - THIS IS CRITICAL:
+Before analyzing content, you MUST determine the document type:
+- "problem_set": Contains numbered homework problems, exercises, or assignments that need to be SOLVED BY THE STUDENT
+- "lecture": Contains instructional content explaining concepts, theories, or methods (may include WORKED EXAMPLES but no assigned problems)
+- "hybrid": Contains BOTH instructional content AND assigned problems for the student to solve
+- "textbook": Textbook excerpt with explanations, examples, and possibly end-of-chapter problems
+- "study_guide": Review material, summaries, or exam prep content
+
+CRITICAL DISTINCTION - ASSIGNED PROBLEMS vs WORKED EXAMPLES:
+- ASSIGNED PROBLEMS: Problems the STUDENT must solve (homework, exercises, quiz questions)
+  → These become section_type: "problem" with "Problem 1", "Problem 2" naming
+- WORKED EXAMPLES: Problems the INSTRUCTOR solves to TEACH a concept (example problems in lectures)
+  → These are PART OF a topic section, NOT separate problem sections
+  → The topic section should reference the example as part of its educational content
+
+LOOK FOR THESE INDICATORS:
+Problem Set indicators (creates section_type: "problem"):
+- Numbered problems students must complete (1, 2, 3... or Problem 1, Problem 2...)
+- Questions asking STUDENTS to "find", "calculate", "determine", "solve", "prove"
+- Given values with units for student calculations
+- Assignment headers, due dates, point values
+- "Your task is to...", "Solve the following..."
+
+Lecture/Instructional indicators (creates section_type: "topic"):
+- Explanatory paragraphs teaching concepts
+- Definitions, derivations, and theory explanations
+- Section headings organized by TOPIC (not problem numbers)
+- Worked examples where the INSTRUCTOR shows the solution
+- "Today we will learn...", "The key concept is...", "This works because..."
+- "Example:", "For instance:", "Consider the following example:" (these are teaching aids, not assignments)
+- Slides or presentation format
+- Solutions already provided (teaching examples, not problems to solve)
+
+FOR LECTURES WITH EXAMPLES:
+If a lecture contains worked examples, DO NOT create separate problem sections for them.
+Instead, create TOPIC sections for each major concept being taught, and include the worked
+examples as part of the topic's educational content. The topic_summary should reference
+that examples are provided to illustrate the concept.
+
+FOR PROBLEMS (section_type: "problem"):
+- Use section_id like "Problem 1", "Problem 2", "Q1a"
+- Write a COMPLETE problem_statement with ALL numerical values, conditions, and context
+- Extract given_variables, unknown_variables, assumptions
+- Include solving_approach steps
+
+FOR TOPICS (section_type: "topic"):
+- Use section_id like "Topic 1", "Topic 2", "Section 1"
+- Write a topic_summary explaining the main concepts covered
+- List key_concepts taught in this section
+- Include learning_objectives for this topic
 
 OUTPUT STRUCTURE:
 {
-  "document_type": "problem_set" | "study_guide" | "lecture_notes" | "textbook" | "other",
+  "document_type": "problem_set" | "lecture" | "hybrid" | "textbook" | "study_guide",
   "subject_area": "The broad field (e.g., 'Mechanical Engineering', 'Calculus')",
   "specific_topic": "The specific topic (e.g., 'Radiation Heat Transfer', 'Integration by Parts')",
   "course_level": "introductory" | "intermediate" | "advanced" | "graduate",
   
-  "problems": [
-    // ONE ENTRY PER PROBLEM - if the document has 5 problems, there should be 5 entries here
+  "content_classification": {
+    "primary_type": "problem_set" | "lecture" | "hybrid" | "textbook" | "study_guide",
+    "has_assigned_problems": true | false,
+    "has_instructional_content": true | false,
+    "problem_ratio": 0.0 to 1.0,
+    "classification_confidence": 0.0 to 1.0,
+    "reasoning": "Brief explanation of why you classified this document this way",
+    "inferred_student_goal": "What the student likely needs to do with this document (e.g., 'Complete homework problems', 'Learn these concepts', 'Prepare for exam')"
+  },
+  
+  "sections": [
+    // ONE ENTRY PER SECTION - could be a Problem OR a Topic depending on document type
     {
-      "problem_id": "A short identifier like 'Problem 1' or 'Q2a'",
+      "section_id": "Problem 1 (if problem) OR Topic 1 (if lecture topic)",
+      "section_type": "problem" | "topic",
       
-      "problem_statement": "A COMPLETE restatement of the problem in your own words. This should be detailed enough that someone without the original document could understand exactly what the problem is asking. Include all numerical values, conditions, and context. Paraphrase the original but preserve all the technical details that make this problem unique.",
-      
-      "figure_description": "If there is a figure, diagram, or image associated with this problem, describe it in detail: what it shows, labels, dimensions, geometry, etc. If no figure, use null.",
-      
+      // FOR PROBLEMS (section_type: "problem"):
+      "problem_statement": "A COMPLETE restatement of the problem. Include all numerical values, conditions, and context.",
+      "figure_description": "Description of any figure/diagram, or null if none",
       "given_variables": [
-        // List ALL known quantities from the problem
-        // Format: { "symbol": "T", "description": "Filament temperature", "value": "2300", "unit": "°C" }
-        {
-          "symbol": "The variable symbol used (T, λ, ε, etc.)",
-          "description": "What this variable represents",
-          "value": "The numerical value given",
-          "unit": "The unit of measurement"
-        }
+        { "symbol": "T", "description": "Filament temperature", "value": "2300", "unit": "°C" }
       ],
-      
       "unknown_variables": [
-        // List everything we need to find/solve for
-        // Format: { "symbol": "λ_max", "description": "The wavelength at which maximum emission occurs" }
-        {
-          "symbol": "The variable symbol (if applicable)",
-          "description": "A complete description of what we're solving for - detailed enough for someone without the problem to understand"
-        }
+        { "symbol": "λ_max", "description": "Wavelength at maximum emission" }
       ],
-      
-      "assumptions": [
-        // List ALL assumptions stated in the problem or implied
-        // Examples: "The filament radiates as a blackbody", "Steady-state conditions", "Negligible heat loss to surroundings"
-        "Each assumption as a complete statement"
-      ],
-      
-      "concepts_tested": ["List of specific concepts this problem tests"],
-      "equations_needed": ["Specific equations/formulas needed to solve this"],
+      "assumptions": ["Each assumption as a complete statement"],
       "solving_approach": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+      
+      // FOR TOPICS (section_type: "topic"):
+      "topic_summary": "Summary of the main concepts explained in this section",
+      "key_concepts": ["List of key concepts taught"],
+      "learning_objectives": ["What the student should understand after this section"],
+      
+      // COMMON FIELDS FOR BOTH:
+      "concepts_tested": ["List of specific concepts this section covers"],
+      "equations_needed": ["Specific equations/formulas relevant to this section"],
       "difficulty": 1-10,
       "estimated_minutes": number,
-      "common_mistakes": ["Mistakes students often make on this type of problem"]
+      "common_mistakes": ["Mistakes students often make with this material"]
     }
   ],
   
   "prerequisites": [
-    // Knowledge the student should have BEFORE attempting this material
     {
       "concept": "Name of prerequisite concept",
       "category": "math" | "physics" | "chemistry" | "engineering" | "other",
@@ -90,10 +133,9 @@ OUTPUT STRUCTURE:
   ],
   
   "key_equations": [
-    // Master list of important equations across all problems - USE LATEX FORMAT
     {
       "name": "Equation name (e.g., 'Stefan-Boltzmann Law')",
-      "latex": "The equation in LaTeX notation (e.g., 'E = \\\\sigma T^4' or '\\\\lambda_{max} = \\\\frac{b}{T}')",
+      "latex": "The equation in LaTeX notation (e.g., 'E = \\\\sigma T^4')",
       "variables": {"T": "Temperature in Kelvin", "\\\\sigma": "Stefan-Boltzmann constant"},
       "when_to_use": "When to apply this equation"
     }
@@ -101,28 +143,33 @@ OUTPUT STRUCTURE:
   
   "study_recommendations": {
     "total_time_minutes": number,
-    "suggested_order": ["problem_id1", "problem_id2", ...],
+    "suggested_order": ["section_id1", "section_id2", ...],
     "focus_areas": ["Areas that need the most attention"],
     "tips": ["General tips for approaching this material"]
   }
 }
 
-IMPORTANT: If you reach your response limit before analyzing all problems, focus on completing the JSON structure properly for the problems you did analyze. Close all arrays and objects. A complete JSON with fewer problems is better than truncated JSON with all problems.
-
-If you cannot identify individual problems (e.g., it's lecture notes), use the "problems" array for major topics/sections instead, treating each as a learning unit.`,
+IMPORTANT: 
+- If you reach your response limit, complete the JSON structure for sections you analyzed. A complete JSON with fewer sections is better than truncated JSON.
+- Use "Problem X" naming for problems and "Topic X" naming for topics - this is critical for the UI display!
+- The section_type field determines how the UI will display this section, so set it correctly.`,
 
     user: (content: string, taskType: string) => `Analyze the educational document provided and extract structured learning information.
 
-STUDENT'S GOAL: ${taskType || 'Master this material'}
+${taskType ? `STUDENT'S STATED GOAL: ${taskType}` : 'STUDENT\'S GOAL: Determine from document content what the student needs to accomplish.'}
 
 ${content ? `ADDITIONAL CONTEXT FROM STUDENT:\n${content}\n` : ''}
 INSTRUCTIONS:
-- Look at the ENTIRE document carefully, including any figures, diagrams, or equations
-- If this is a problem set, analyze EACH PROBLEM SEPARATELY - one entry per problem in the "problems" array
-- Be specific about the exact equations shown and the solving approaches needed
-- Identify what figures/diagrams show and how they relate to the problems
-- Don't repeat the same information in multiple places
-- Output valid JSON only, no markdown`
+1. FIRST, classify the document type - is it homework problems, lecture notes, or a hybrid?
+2. Set content_classification with your reasoning and inferred student goal
+3. CRITICAL: Distinguish between ASSIGNED PROBLEMS (student must solve) vs WORKED EXAMPLES (instructor demonstrations)
+4. For problem sets: analyze EACH ASSIGNED PROBLEM with section_type: "problem" and section_id like "Problem 1"
+5. For lectures: analyze EACH EDUCATIONAL TOPIC with section_type: "topic" and section_id like "Topic 1"
+   - Worked examples in lectures are PART OF topics, not separate problem sections!
+   - Focus on the CONCEPTS being taught, not just the examples used to illustrate them
+6. For hybrids: use section_type: "problem" only for problems the student must solve themselves
+7. Be specific about equations and solving approaches (for problems) or key concepts (for topics)
+8. Output valid JSON only, no markdown`
   },
 
   // ==========================================================================
@@ -145,6 +192,29 @@ CRITICAL RULES:
 8. ALWAYS include "tutor_guidance" for EVERY learning unit - this is REQUIRED.
 9. ALWAYS set "unit_type" for EVERY learning unit - this is REQUIRED.
 10. For problem units, generate BOTH search_queries AND problem_solving_queries.
+
+DOCUMENT TYPE AWARENESS - THIS IS CRITICAL:
+The input analysis includes a "content_classification" field that tells you what type of document this is:
+- If content_classification.primary_type is "problem_set": Use "Problem 1", "Problem 2" etc. for section titles
+- If content_classification.primary_type is "lecture" or "study_guide": Use "Topic 1", "Topic 2" etc. for section titles
+- If content_classification.primary_type is "hybrid": Use appropriate naming based on each section's section_type
+- If content_classification.primary_type is "textbook": Use "Chapter" or "Section" naming as appropriate
+
+CRITICAL FOR LECTURES:
+When the document is a lecture (content_classification.primary_type is "lecture"):
+- The sections in the input should be TOPICS, not problems
+- Create content_sections for each TOPIC with section_type: "topic"
+- Use titles like "Topic 1: [Concept Name]", "Topic 2: [Concept Name]"
+- Focus on educational content and concept understanding
+- Worked examples mentioned in topics are teaching aids, not problems to solve
+- Generate search queries that help students LEARN the concepts, not solve homework
+
+DYNAMIC SECTION NAMING:
+- For sections with section_type: "problem" → title should be "Problem X: [Description]"
+- For sections with section_type: "topic" → title should be "Topic X: [Description]"
+- Match the numbering to the input: if input has "Problem 1" and "Problem 2", output should too
+- If input has "Topic 1" and "Topic 2", output should maintain that naming
+- NEVER use "Problem" naming for lecture content - use "Topic" instead
 
 TUTOR GUIDANCE - REQUIRED FOR EVERY LEARNING UNIT:
 For each learning unit, you MUST write a "tutor_guidance" field (3-5 sentences) that:
@@ -355,53 +425,76 @@ INPUT TYPE: ${inputType}
 INPUT DATA:
 ${JSON.stringify(input, null, 2)}
 
+DOCUMENT TYPE DETECTED: ${input?.content_classification?.primary_type || input?.document_type || 'unknown'}
+INFERRED STUDENT GOAL: ${input?.content_classification?.inferred_student_goal || 'Master this material'}
+
 INSTRUCTIONS:
-1. Create a PREREQUISITES SECTION with learning units for each prerequisite concept
+1. RESPECT THE DOCUMENT TYPE from content_classification:
+   - If primary_type is "problem_set": Create sections titled "Problem 1: ...", "Problem 2: ..."
+   - If primary_type is "lecture" or "study_guide": Create sections titled "Topic 1: ...", "Topic 2: ..."
+   - If primary_type is "hybrid": Use "Problem X" for assigned problems, "Topic X" for instructional sections
+   - CRITICAL: Match the section_type from the input - if input has section_type: "topic", output MUST be a topic section!
+
+2. FOR LECTURE DOCUMENTS (primary_type is "lecture"):
+   - Create TOPIC sections for each educational concept being taught
+   - Use titles like "Topic 1: [Concept Name]", "Topic 2: [Concept Name]"
+   - Set section_type: "topic" and unit_type: "topic" throughout
+   - Focus on helping students UNDERSTAND the material, not solve homework
+   - Worked examples in lectures are teaching aids - include them as part of topic descriptions
+   - DO NOT create "Problem" sections for lectures!
+
+3. Create a PREREQUISITES SECTION with learning units for each prerequisite concept
    - Set unit_type: "prerequisite" for all units in this section
    - Generate exactly 3 search queries for each prerequisite
    - CRITICAL: Each query MUST be a DIFFERENT type (introduction, tutorial, example)
    - REQUIRED: Include tutor_guidance for each learning unit
    
-2. Create CONTENT SECTIONS organized by problem or topic
-   - For problem sets: One section per problem
-   - For study guides/notes: One section per major topic
+4. Create CONTENT SECTIONS organized by the document's sections
+   - Preserve the section_id naming from the input ("Problem 1" vs "Topic 1")
+   - Set section_type to match the input's section_type for each section
    - Each section should have learning units covering the key concepts
-   - Set unit_type: "problem" for units that teach how to solve a specific problem
-   - Set unit_type: "topic" for units that teach general concepts
+   - Set unit_type: "problem" ONLY for actual homework problems the student must solve
+   - Set unit_type: "topic" for educational/instructional content
    - Generate exactly 3 search queries per learning unit with DIFFERENT types
    - REQUIRED: Include tutor_guidance for each learning unit
    
-3. PROBLEM UNITS REQUIRE TWO SETS OF QUERIES:
+5. PROBLEM UNITS REQUIRE TWO SETS OF QUERIES (only for actual homework problems):
    - For unit_type: "problem", generate BOTH:
      a) search_queries: 3 queries for learning the concepts/theory
      b) problem_solving_queries: 3 queries for finding problem walkthrough videos
    - problem_solving_queries should target videos that DEMONSTRATE solving similar problems
    - Use keywords like "how to solve", "example problems solved", "walkthrough", "calculation step by step"
    
-4. TUTOR GUIDANCE IS MANDATORY for every learning unit:
+6. TOPIC UNITS (for lectures/instructional content):
+   - For unit_type: "topic", focus on conceptual understanding
+   - Generate search_queries that find explanatory videos
+   - Do NOT generate problem_solving_queries for topic units (there are no problems to solve)
+   - Focus on "explained", "introduction", "how it works" style queries
+   
+6. TUTOR GUIDANCE IS MANDATORY for every learning unit:
    - Write 3-5 sentences as a friendly tutor speaking to the student
    - Explain WHY this topic matters for their learning goals
    - Describe the key concepts they will encounter
    - Outline the recommended approach to learning the material
    - This prepares the student BEFORE they see any resources
    
-5. DIVERSITY IS MANDATORY for search queries:
+7. DIVERSITY IS MANDATORY for search queries:
    - Each topic gets 3 queries: one introduction, one tutorial, one example
    - Do NOT use the same query_type multiple times per topic!
    - This gives students a complete A-Z learning path, not repetitive resources
 
-6. YOUTUBE VIDEOS ONLY - THIS IS CRITICAL:
+8. YOUTUBE VIDEOS ONLY - THIS IS CRITICAL:
    - EVERY query MUST include the word "youtube" to target YouTube videos
    - We do NOT want Wikipedia articles, blog posts, or text resources
    - 100% of resources should be YouTube videos
    - NO exceptions - every result must be a YouTube video
 
-7. Be CREATIVE and SPECIFIC with search queries:
+9. Be CREATIVE and SPECIFIC with search queries:
    - Don't just repeat the topic name - craft queries that will find great YouTube content
    - Always include "youtube" and words like "tutorial", "explained", "step by step"
    - Find the BEST video for the job - any channel, big or small, is valid
 
-8. EQUATIONS - INCLUDE WHEN APPLICABLE:
+10. EQUATIONS - INCLUDE WHEN APPLICABLE:
    - When a learning unit focuses on teaching or applying specific equations, include an "equations" array
    - Each equation MUST have: index, name, latex, variables, when_to_use
    - Use proper LaTeX notation (e.g., "E = \\sigma T^4" for Stefan-Boltzmann Law)

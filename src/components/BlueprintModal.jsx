@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Upload, FileText, Trash2, CheckCircle } from 'lucide-react';
+import { X, Upload, FileText, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -15,10 +15,6 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
     className: className,
     professorName: professorName,
     blueprintName: '',
-    currentTask: '',
-    customTask: '',
-    goal: '',
-    customGoal: '',
     textInput: '',
     fileUpload: null
   });
@@ -112,21 +108,6 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
     handleFileSelection(file);
   };
 
-  const taskOptions = [
-    'Understanding a concept',
-    'Solving some homework problems',
-    'Studying for an upcoming quiz/exam',
-    'Just build me a full course outline for this class',
-    'Something else'
-  ];
-
-  const goalOptions = [
-    'Understand the concept deeply',
-    'Get a step-by-step walk-through of this problem',
-    'See a lot of similar practice problems',
-    'Create a summary/cheat sheet',
-    'Something else'
-  ];
 
   const removeFile = () => {
     setUploadedFile(null);
@@ -166,11 +147,6 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
       return;
     }
 
-    if (!formData.currentTask) {
-      alert('Please select what you need help with');
-      return;
-    }
-
     // If no classId provided (creating from homepage/classes page), require class name
     if (!classId && !formData.className.trim()) {
       alert('Please enter a class name');
@@ -198,15 +174,8 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
         finalClassId = newClass.id;
       }
 
-      // Determine the final task type (use custom if "Something else" was selected)
-      const finalTaskType = formData.currentTask === 'Something else' 
-        ? formData.customTask 
-        : formData.currentTask;
-
-      // Determine the final goal type (use custom if "Something else" was selected)
-      const finalGoalType = formData.goal === 'Something else' 
-        ? formData.customGoal 
-        : formData.goal;
+      // Task type will be inferred by AI during document analysis
+      // User can optionally provide context in the text input field
 
       // Upload file to Supabase Storage if present (only if it's a new upload, not existing document)
       let fileUrl = null;
@@ -315,6 +284,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
       };
 
       // Insert into blueprints table with the class_id and document_id
+      // Task type and goal will be inferred by AI during document analysis
       const { data, error } = await supabase
         .from('blueprints')
         .insert([{
@@ -323,8 +293,8 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
           document_id: documentId, // Link to the class_document for analysis reuse
           title: formData.blueprintName,
           description: formData.textInput,
-          task_type: finalTaskType,
-          goal_type: finalGoalType || 'Not specified',
+          task_type: 'Auto-detect from document', // AI will infer the actual task type
+          goal_type: 'Auto-detect from document', // AI will infer the goal
           file_metadata: formData.fileUpload ? {
             name: formData.fileUpload.name,
             size: formData.fileUpload.size,
@@ -402,31 +372,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
             />
           </div>
 
-          {/* Current Task Dropdown */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-stone-600">What do you need help with right now?</label>
-            <select 
-              value={formData.currentTask}
-              onChange={(e) => setFormData({...formData, currentTask: e.target.value})}
-              className="w-full p-3 rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all bg-white"
-            >
-              <option value="">Select an option...</option>
-              {taskOptions.map(option => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-            {formData.currentTask === 'Something else' && (
-              <input 
-                type="text"
-                value={formData.customTask}
-                onChange={(e) => setFormData({...formData, customTask: e.target.value})}
-                className="w-full mt-2 p-3 rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
-                placeholder="Please describe..."
-              />
-            )}
-          </div>
-
-          {/* Middle Section */}
+          {/* Document Upload Section */}
           <div className="space-y-4 pt-4 border-t border-stone-100">
             <label className="block text-center text-sm font-medium text-stone-600">Show me what you're looking at.</label>
             
@@ -566,12 +512,12 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
                 </div>
               </div>
               
-              {/* Text Input */}
+              {/* Text Input - Optional context */}
               <textarea 
                 value={formData.textInput}
                 onChange={(e) => setFormData({...formData, textInput: e.target.value})}
                 className="w-full h-full min-h-[160px] p-3 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all resize-none text-sm"
-                placeholder="Paste problem text, notes, or describe context here..."
+                placeholder="Optional: Paste problem text, add notes, or describe what you're trying to learn..."
               />
             </div>
           </div>

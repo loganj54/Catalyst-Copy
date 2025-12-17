@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, BookOpen, MoreVertical, Calendar, TrendingUp, Edit2, Trash2, Loader2, Briefcase, GraduationCap, Trophy } from 'lucide-react';
 import CreateClassModal from '../components/CreateClassModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -16,6 +17,7 @@ const Dashboard = () => {
   
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, classId: null });
 
   // Fetch classes on load
   useEffect(() => {
@@ -110,23 +112,26 @@ const Dashboard = () => {
 
   const handleDeleteClass = async (id, e) => {
     e.stopPropagation(); // Prevent card click
-    if (window.confirm('Are you sure you want to delete this class?')) {
-      try {
-        const { error } = await supabase
-          .from('classes')
-          .delete()
-          .eq('id', id)
-          .eq('user_id', user.id);
-
-        if (error) throw error;
-        
-        setClasses(classes.filter(c => c.id !== id));
-      } catch (error) {
-        console.error('Error deleting class:', error);
-        alert('Error deleting class');
-      }
-    }
+    setConfirmDialog({ isOpen: true, classId: id });
     setActiveDropdown(null);
+  };
+
+  const confirmDeleteClass = async () => {
+    const { classId } = confirmDialog;
+    try {
+      const { error } = await supabase
+        .from('classes')
+        .delete()
+        .eq('id', classId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      setClasses(classes.filter(c => c.id !== classId));
+    } catch (error) {
+      console.error('Error deleting class:', error);
+      alert('Error deleting class');
+    }
   };
 
   const toggleDropdown = (id, e) => {
@@ -165,6 +170,17 @@ const Dashboard = () => {
         onClose={handleCloseModal} 
         onSubmit={handleCreateOrUpdateClass}
         initialData={editingClass}
+      />
+      
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ isOpen: false, classId: null })}
+        onConfirm={confirmDeleteClass}
+        title="Are you sure?"
+        message="Are you sure you want to delete this class? This action cannot be undone."
+        confirmText="Yes"
+        cancelText="No"
+        type="danger"
       />
       
       <div className="max-w-7xl mx-auto space-y-16">
