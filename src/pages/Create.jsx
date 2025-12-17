@@ -220,13 +220,17 @@ const Create = () => {
       <div className="max-w-3xl mx-auto">
         
           {/* Header */}
-          <div className="text-center mb-10">
-            <h1 className="text-6xl text-stone-900 mb-5 tracking-tight pt-20">
-              What are we learning today?
-            </h1>
-            <p className="text-stone-500 text-lg pb-10 pt-10 max-w-2xl mx-auto">
-              Transform PDFs and ideas into structured engineering roadmaps.
-            </p>
+          <div className="text-center mb-10 pt-20">
+            <div className="mb-8">
+              <h1 className="inline-block text-6xl text-stone-900 tracking-tight bg-white/90 backdrop-blur-sm px-8 py-6 rounded-3xl ">
+                What are we learning today?
+              </h1>
+            </div>
+            <div className="mb-10">
+              <p className="inline-block text-stone-500 text-lg bg-white/90 backdrop-blur-sm px-8 py-4 rounded-2xl max-w-2xl mx-auto leading-relaxed">
+                Transform PDFs and ideas into structured engineering roadmaps.
+              </p>
+            </div>
           </div>
 
         {/* Main Input Card */}
