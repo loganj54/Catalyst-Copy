@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Inter Tight', 'Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
         stone: {
@@ -27,7 +27,3 @@ export default {
   },
   plugins: [],
 }
-
-
-
-

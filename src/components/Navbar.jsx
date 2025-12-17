@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Layers, ArrowRight, LogOut, ChevronDown } from 'lucide-react';
+import { Layers, ArrowRight, LogOut, ChevronDown, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -29,29 +29,47 @@ const Navbar = () => {
   }, []);
 
   return (
-    <nav className="lg:px-12 flex sticky z-50 bg-[#F8F4E3]/80 w-full border-stone-100 border-b pt-6 pr-6 pb-6 pl-6 top-0 backdrop-blur-sm items-center justify-between">
-      <Link to="/" className="flex gap-3 items-center">
-        <div className="flex text-[#FF4A1C] bg-[#FF4A1C]/10 w-10 h-10 rounded-full items-center justify-center">
-          <Layers className="w-5 h-5" />
+    <nav className="lg:px-12 flex sticky z-50 bg-white/90 w-full border-stone-200 border-b pt-6 pr-6 pb-6 pl-6 top-0 backdrop-blur-sm items-center">
+      <Link to="/" className="flex items-center gap-2 flex-1">
+        <img 
+          src="/catalyst-logo-2.png" 
+          alt="Catalyst" 
+          className="h-8 w-auto object-contain"
+          onError={(e) => {
+            e.target.style.display = 'none';
+            e.target.nextSibling.style.display = 'flex';
+          }}
+        />
+        <span className="text-xl font-bold text-black tracking-widest uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>Catalyst</span>
+        {/* Fallback if image fails to load */}
+        <div className="hidden flex gap-3 items-center">
+           <div className="flex text-[#FF4A1C] bg-[#FF4A1C]/10 w-10 h-10 rounded-full items-center justify-center">
+             <Layers className="w-5 h-5" />
+           </div>
+           <span className="text-xl font-semibold text-black tracking-tight">Catalyst Engineering Ed</span>
         </div>
-        <span className="text-xl font-semibold text-[#2A2B2A] tracking-tight">Catalyst Engineering Ed</span>
       </Link>
-      <div className="hidden lg:flex items-center gap-10 text-sm font-medium text-stone-500">
-        <Link to="/classes" className="hover:text-[#2A2B2A] transition-colors">Classes</Link>
-        <a href="#" className="hover:text-[#2A2B2A] transition-colors">Projects </a>
-        <a href="#" className="hover:text-[#2A2B2A] transition-colors">Career</a>
-        <a href="#" className="hover:text-[#2A2B2A] transition-colors">Misc</a>
+      
+      <div className="hidden lg:flex items-center justify-center gap-12 text-sm font-medium text-black/60 flex-1">
+        <Link to="/create" className="hover:text-black transition-colors">
+          Create
+        </Link>
+        <Link to="/classes" className="hover:text-black transition-colors">Classes</Link>
+        <a href="#" className="hover:text-black transition-colors">Projects</a>
+        <a href="#" className="hover:text-black transition-colors">Career</a>
+        <a href="#" className="hover:text-black transition-colors">Misc</a>
       </div>
-      <div className="flex items-center gap-4">
+
+      <div className="flex items-center justify-end gap-4 flex-1">
         {user ? (
           <>
-            <Link to="/dashboard" className="text-sm font-medium text-stone-500 hover:text-[#2A2B2A] transition-colors pr-6">
+            <Link to="/dashboard" className="text-sm font-medium text-black/60 hover:text-black transition-colors pr-6">
               Dashboard
             </Link>
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="flex items-center gap-2 text-sm font-medium text-stone-600 hover:text-[#2A2B2A] transition-colors focus:outline-none"
+                className="flex items-center gap-2 text-sm font-medium text-black hover:text-black transition-colors focus:outline-none"
               >
                 <span className="pr-4 max-w-[150px] truncate hidden sm:block">{user.email?.split('@')[0]}</span>
               </button>
@@ -71,10 +89,10 @@ const Navbar = () => {
           </>
         ) : (
           <>
-            <Link to="/auth" className="hidden sm:flex items-center gap-2 px-5 py-2 bg-white border border-stone-200 rounded-full text-sm font-medium hover:bg-stone-50 hover:border-stone-300 transition-all text-[#2A2B2A]">
+            <Link to="/auth" className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white border border-stone-300 rounded-lg text-sm font-medium hover:bg-stone-50 hover:border-stone-400 transition-all text-black">
               Log in
             </Link>
-            <Link to="/auth" className="flex items-center gap-2 px-5 py-2 bg-[#2A2B2A] text-white rounded-full text-sm font-medium hover:bg-[#FF4A1C] transition-all shadow-lg shadow-stone-200/50">
+            <Link to="/auth" className="flex items-center gap-2 px-4 py-2 bg-white text-black border border-stone-300 rounded-lg text-sm font-medium hover:bg-stone-50 transition-all shadow-sm">
               Get Started
               <ArrowRight className="w-4 h-4" />
             </Link>

@@ -9,6 +9,7 @@ import Classes from './pages/Classes';
 import Dashboard from './pages/Dashboard';
 import Auth from './pages/Auth';
 import Blueprint from './pages/Blueprint';
+import Create from './pages/Create';
 import ClassDetails from './pages/ClassDetails';
 
 function App() {
@@ -21,6 +22,14 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/classes" element={<Classes />} />
+            <Route 
+              path="/create" 
+              element={
+                <ProtectedRoute>
+                  <Create />
+                </ProtectedRoute>
+              } 
+            />
             <Route 
               path="/dashboard" 
               element={
