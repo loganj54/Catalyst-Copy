@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Upload, FileText, Trash2, Sparkles, BookOpen, Briefcase, 
-  ArrowRight, Layers, Command, Loader2, Paperclip, Plus, Check, X
+  ArrowRight, Layers, Command, Loader2, Paperclip, Plus, Check, X,
+  Grid, Layout, Circle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -17,6 +18,7 @@ const Create = () => {
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
+  const [bgMode, setBgMode] = useState('dots'); // 'default', 'white', 'dots' (Defaulting to dots as it was original default)
 
   // Class Selection State
   const [classes, setClasses] = useState([]);
@@ -339,10 +341,43 @@ const Create = () => {
 
   return (
     <div 
-      className="min-h-screen bg-white pt-24 pb-12 px-4 sm:px-6"
-      style={{ backgroundImage: pageBackground }}
+      className="min-h-screen bg-white pt-24 pb-12 px-4 sm:px-6 relative"
+      style={{ backgroundImage: bgMode === 'dots' ? pageBackground : 'none' }}
     >
-      <div className="max-w-3xl mx-auto">
+      {/* Background Toggle - Development Only */}
+      <div className="fixed bottom-4 right-4 z-50 bg-white p-2 rounded-xl border border-stone-200 shadow-lg flex items-center gap-2">
+        <button
+          onClick={() => setBgMode('default')}
+          className={`p-2 rounded-lg transition-colors ${bgMode === 'default' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
+          title="Default Grid"
+        >
+          <Grid className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => setBgMode('white')}
+          className={`p-2 rounded-lg transition-colors ${bgMode === 'white' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
+          title="Pure White"
+        >
+          <Layout className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => setBgMode('dots')}
+          className={`p-2 rounded-lg transition-colors ${bgMode === 'dots' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
+          title="Dot Matrix"
+        >
+          <Circle className="w-5 h-5" />
+        </button>
+      </div>
+
+       {/* Backgrounds */}
+       {bgMode === 'default' && (
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white"></div>
+          </div>
+        )}
+
+      <div className="max-w-3xl mx-auto relative z-10">
         
           {/* Header */}
           <div className="text-center mb-10 pt-20">

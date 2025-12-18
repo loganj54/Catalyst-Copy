@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, BookOpen, MoreVertical, Edit2, Trash2, Loader2, FileText, Zap, Search } from 'lucide-react';
+import { 
+  Plus, BookOpen, MoreVertical, Edit2, Trash2, Loader2, FileText, Zap, Search,
+  Grid, Layout, Circle
+} from 'lucide-react';
 import CreateClassModal from '../components/CreateClassModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Sidebar from '../components/Sidebar';
@@ -10,6 +13,7 @@ import { supabase } from '../lib/supabase';
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [bgMode, setBgMode] = useState('dots'); // 'default', 'white', 'dots'
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
@@ -188,16 +192,49 @@ const Dashboard = () => {
 
   return (
     <div 
-      className="min-h-screen bg-white flex text-outline"
-      style={{ backgroundImage: pageBackground }}
+      className="min-h-screen bg-white flex text-outline relative"
+      style={{ backgroundImage: bgMode === 'dots' ? pageBackground : 'none' }}
     >
+      {/* Background Toggle - Development Only */}
+      <div className="fixed bottom-4 right-4 z-50 bg-white p-2 rounded-xl border border-stone-200 shadow-lg flex items-center gap-2">
+        <button
+          onClick={() => setBgMode('default')}
+          className={`p-2 rounded-lg transition-colors ${bgMode === 'default' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
+          title="Default Grid"
+        >
+          <Grid className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => setBgMode('white')}
+          className={`p-2 rounded-lg transition-colors ${bgMode === 'white' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
+          title="Pure White"
+        >
+          <Layout className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => setBgMode('dots')}
+          className={`p-2 rounded-lg transition-colors ${bgMode === 'dots' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
+          title="Dot Matrix"
+        >
+          <Circle className="w-5 h-5" />
+        </button>
+      </div>
+
+       {/* Backgrounds */}
+       {bgMode === 'default' && (
+          <div className="absolute inset-0 pointer-events-none z-0">
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white"></div>
+          </div>
+        )}
+
       {/* Sidebar - Fixed Position */}
       <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-30 hidden lg:block w-64">
         <Sidebar />
       </div>
 
       {/* Main Content Area - Pushed right by sidebar width */}
-      <div className="flex-1 min-w-0 lg:ml-64">
+      <div className="flex-1 min-w-0 lg:ml-64 relative z-10">
         <div className="pt-8 pb-12 px-6 lg:px-12 max-w-7xl mx-auto space-y-12">
           
           <CreateClassModal 
@@ -236,14 +273,14 @@ const Dashboard = () => {
               </div>
               <button 
                 onClick={() => navigate('/create')}
-                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-xl hover:bg-stone-200 transition-all text-[#2A2B2A]"
+                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-lg hover:bg-stone-200 transition-all text-[#2A2B2A]"
               >
                 <Plus className="w-5 h-5" />
                 <span className="font-medium text-sm">New Blueprint</span>
               </button>
             </div>
 
-            <div className="bg-white rounded-3xl border border-stone-300 overflow-hidden shadow-sm">
+            <div className="bg-white rounded-lg border border-stone-300 overflow-hidden shadow-sm">
               {recentBlueprints.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -304,12 +341,12 @@ const Dashboard = () => {
           {/* Classes Section */}
           <section>
             <div className="flex items-center justify-between mb-6">
-              <div className="inline-block bg-white/90 backdrop-blur-sm rounded-3xl">
+              <div className="inline-block bg-white/90 backdrop-blur-sm rounded-lg">
                 <h2 className="text-3xl font-normal text-[#2A2B2A] tracking-tight mb-2">All Classes</h2>
               </div>
               <button 
                 onClick={() => { setEditingClass(null); setIsModalOpen(true); }}
-                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-xl hover:bg-stone-200 transition-all text-[#2A2B2A]"
+                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-lg hover:bg-stone-200 transition-all text-[#2A2B2A]"
               >
                 <Plus className="w-5 h-5" />
                 <span className="font-medium text-sm">New Class</span>
@@ -322,7 +359,7 @@ const Dashboard = () => {
                 <div 
                   key={course.id}
                   onClick={() => navigate(`/class/${course.id}`)}
-                  className="aspect-square bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-stone-300 hover:border-stone-400"
+                  className="aspect-square bg-white rounded-xl p-6 shadow-sm hover:shadow-xl transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-stone-300 hover:border-stone-400"
                 >
                   {/* Card Header */}
                   <div className="flex justify-between items-start z-10 relative">

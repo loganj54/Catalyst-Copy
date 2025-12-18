@@ -1,17 +1,53 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Check, Zap, Globe, Shield } from 'lucide-react';
+import { ArrowRight, Check, Zap, Globe, Shield, Grid, Layout, Circle } from 'lucide-react';
 import Navbar from '../components/Navbar';
 
 const Home = () => {
+  const [bgMode, setBgMode] = useState('default'); // 'default', 'white', 'dots'
+
+  const pageBackground = `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8a29e' fill-opacity='0.25'%3E%3Ccircle cx='5' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='5' r='1.5'/%3E%3Ccircle cx='65' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='25' r='1.5'/%3E%3Ccircle cx='45' cy='25' r='1.5'/%3E%3Ccircle cx='85' cy='25' r='1.5'/%3E%3Ccircle cx='5' cy='45' r='1.5'/%3E%3Ccircle cx='45' cy='45' r='1.5'/%3E%3Ccircle cx='65' cy='45' r='1.5'/%3E%3Ccircle cx='25' cy='65' r='1.5'/%3E%3Ccircle cx='65' cy='65' r='1.5'/%3E%3Ccircle cx='85' cy='65' r='1.5'/%3E%3Ccircle cx='5' cy='85' r='1.5'/%3E%3Ccircle cx='25' cy='85' r='1.5'/%3E%3Ccircle cx='85' cy='85' r='1.5'/%3E%3C/g%3E%3C/svg%3E")`;
+
   return (
-    <div className="min-h-screen bg-white font-sans text-stone-900 selection:bg-[#FF4A1C]/20">
+    <div 
+      className="min-h-screen bg-white font-sans text-stone-900 selection:bg-[#FF4A1C]/20 relative"
+      style={{ backgroundImage: bgMode === 'dots' ? pageBackground : 'none' }}
+    >
       
+      {/* Background Toggle - Development Only */}
+      <div className="fixed bottom-4 right-4 z-50 bg-white p-2 rounded-xl border border-stone-200 shadow-lg flex items-center gap-2">
+        <button
+          onClick={() => setBgMode('default')}
+          className={`p-2 rounded-lg transition-colors ${bgMode === 'default' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
+          title="Default Grid"
+        >
+          <Grid className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => setBgMode('white')}
+          className={`p-2 rounded-lg transition-colors ${bgMode === 'white' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
+          title="Pure White"
+        >
+          <Layout className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => setBgMode('dots')}
+          className={`p-2 rounded-lg transition-colors ${bgMode === 'dots' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
+          title="Dot Matrix"
+        >
+          <Circle className="w-5 h-5" />
+        </button>
+      </div>
+
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 overflow-hidden">
-        {/* Grid Background */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white"></div>
+        {/* Backgrounds */}
+        {bgMode === 'default' && (
+          <>
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white"></div>
+          </>
+        )}
 
         <div className="relative max-w-7xl mx-auto px-6 lg:px-8 text-center">
           
@@ -24,13 +60,17 @@ const Home = () => {
 
           {/* Headline */}
           <h1 className="text-5xl md:text-7xl tracking-tight text-stone-900 mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100 max-w-4xl mx-auto leading-[1.1]">
-            The learn <span className="text-[#FF4A1C]">engineering</span> app
+            <span className="bg-white/90 backdrop-blur-sm px-4 rounded-2xl decoration-clone leading-[1.4] box-decoration-clone">
+              The learn <span className="text-[#FF4A1C]">engineering</span> app
+            </span>
           </h1>
 
           {/* Subheadline */}
           <p className="text-xl text-stone-500 mb-10 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200 leading-relaxed">
-            Catalyst is the modern learning platform for engineering students. 
-            Create study blueprints, track your projects, and master your coursework with AI-powered guidance.
+            <span className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-2xl decoration-clone box-decoration-clone">
+              Catalyst is the modern learning platform for engineering students. 
+              Create study blueprints, track your projects, and master your coursework with AI-powered guidance.
+            </span>
           </p>
 
           {/* Buttons */}
@@ -105,7 +145,7 @@ const Home = () => {
       </section>
 
       {/* Feature Grid Section */}
-      <section className="py-24 bg-white">
+      <section className="py-24">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl mb-4">
@@ -154,7 +194,7 @@ const Home = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-white border-t border-stone-300">
+      <section className="py-24 border-t border-stone-300">
         <div className="max-w-4xl mx-auto px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl mb-6">
             Ready to transform your engineering education?

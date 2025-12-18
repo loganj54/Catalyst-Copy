@@ -49,7 +49,7 @@ const Sidebar = () => {
 
   return (
     <div 
-      className="h-[calc(100vh-80px)] bg-stone-50 border-r border-stone-100 flex flex-col pt-6 pb-6 w-64"
+      className="h-[calc(100vh-80px)] bg-stone-50 border-r border-stone-100 flex flex-col pt-6 pb-6 w-56"
     >
       {/* Main Navigation */}
       <div className="flex-1 px-3 space-y-2">
