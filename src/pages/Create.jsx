@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Upload, FileText, Trash2, Sparkles, BookOpen, Briefcase, 
-  ArrowRight, Layers, Command, Loader2, Paperclip
+  ArrowRight, Layers, Command, Loader2, Paperclip, Plus, Check, X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -17,6 +17,55 @@ const Create = () => {
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
+
+  // Class Selection State
+  const [classes, setClasses] = useState([]);
+  const [selectedClassId, setSelectedClassId] = useState(null);
+  const [isCreatingClass, setIsCreatingClass] = useState(false);
+  const [newClassName, setNewClassName] = useState('');
+  const [isCreatingClassLoading, setIsCreatingClassLoading] = useState(false);
+
+  const wrapperRef = useRef(null);
+
+  // Reset state on mode change or unmount
+  useEffect(() => {
+    return () => {
+       setSelectedClassId(null);
+       setIsCreatingClass(false);
+       setNewClassName('');
+    };
+  }, []);
+
+  // Handle clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsCreatingClass(false);
+        setNewClassName('');
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [wrapperRef]);
+
+  useEffect(() => {
+     if (mode !== 'classwork') {
+       setSelectedClassId(null);
+       setIsCreatingClass(false);
+       setNewClassName('');
+     } else {
+        // Re-fetch or re-establish default logic if needed
+        // but 'classes' state is preserved, just selection resets or stays?
+        // User said: "refresh... switching... clicking off... reset that entire box back to initial state"
+        // If we switch back to classwork, we probably want it clear or default.
+        // Let's clear selection on mode switch TO classwork too? 
+        // Actually, user said "reset that entire... box back to initial state".
+        // Initial state is no selection? Or default selection?
+        // Previous logic had no default selection.
+     }
+  }, [mode]);
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -86,6 +135,65 @@ const Create = () => {
     }
   };
 
+  // Fetch Classes
+  useEffect(() => {
+    if (user && mode === 'classwork') {
+      fetchClasses();
+    }
+  }, [user, mode]);
+
+  const fetchClasses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setClasses(data || []);
+      
+      // Select the most recent class by default if none selected
+      if (data && data.length > 0 && !selectedClassId) {
+        // Optional: default select? Or leave empty? 
+        // User didn't specify default, but "General Engineering" fallback exists.
+        // Let's leave it unselected to force choice or fallback.
+      }
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+    }
+  };
+
+  const handleCreateClass = async () => {
+    if (!newClassName.trim() || !user) return;
+    
+    setIsCreatingClassLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('classes')
+        .insert([{
+          user_id: user.id,
+          name: newClassName.trim(),
+          professor: null // User only asked for name
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add to list and select it
+      setClasses(prev => [data, ...prev]);
+      setSelectedClassId(data.id);
+      setNewClassName('');
+      setIsCreatingClass(false);
+    } catch (error) {
+      console.error('Error creating class:', error);
+      alert('Failed to create class');
+    } finally {
+      setIsCreatingClassLoading(false);
+    }
+  };
+
   // Submit Handler
   const handleSubmit = async () => {
     if (!user) {
@@ -93,79 +201,86 @@ const Create = () => {
       return;
     }
 
-    // Default name if empty
-    const finalBlueprintName = formData.blueprintName.trim() || `Session ${new Date().toLocaleDateString()}`;
+    // Blueprint name is optional - AI will generate during analyze-document if empty
+    const finalBlueprintName = formData.blueprintName.trim() || 'Untitled Blueprint';
 
-    // Auto-generate class name if empty in classwork mode
-    let finalClassName = formData.className.trim();
-    if (mode === 'classwork' && !finalClassName) {
-       finalClassName = "General Engineering"; // Default fallback
+    // Class selection is optional - selectedClassId can be null for unorganized blueprints
+    let finalClassId = selectedClassId;
+    let finalClassName = '';
+    
+    if (selectedClassId) {
+      const selectedClass = classes.find(c => c.id === selectedClassId);
+      if (selectedClass) {
+        finalClassName = selectedClass.name;
+      }
     }
 
     setLoading(true);
 
     try {
-      let finalClassId = null;
-
-      // 1. Create Class (if Classwork mode)
-      if (mode === 'classwork') {
-        // Try to find existing class or create new one (simplified for now to just create/use)
-        // In a real app we might want a dropdown to select existing classes
-        const { data: newClass, error: classError } = await supabase
-          .from('classes')
-          .insert([{
-            user_id: user.id,
-            name: finalClassName,
-            professor: formData.professorName.trim() || null
-          }])
-          .select()
-          .single();
-
-        if (classError) throw classError;
-        finalClassId = newClass.id;
-      }
-
-      // 2. Upload File (if present)
+      // Upload File (if present)
       let fileUrl = null;
       let documentId = null;
 
       if (formData.fileUpload) {
-        // Simple logic for now - check duplicates later if needed
-        const fileExt = formData.fileUpload.name.split('.').pop();
-        const fileName = `${user.id}/${finalClassId || 'projects'}/${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('class-documents')
-          .upload(fileName, formData.fileUpload);
+        // Check for duplicate document if we have a class
+        if (finalClassId) {
+          console.log('Checking for duplicate document...');
+          const { data: existingDocs, error: checkError } = await supabase
+            .from('class_documents')
+            .select('*')
+            .eq('class_id', finalClassId)
+            .eq('user_id', user.id)
+            .eq('name', formData.fileUpload.name)
+            .eq('file_size', formData.fileUpload.size);
 
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage
+          if (!checkError && existingDocs && existingDocs.length > 0) {
+            // Found duplicate - reuse existing file
+            console.log('✅ Duplicate found - reusing existing document');
+            const existingDoc = existingDocs[0];
+            fileUrl = existingDoc.file_url;
+            documentId = existingDoc.id;
+          }
+        }
+
+        // Only upload if no duplicate was found
+        if (!fileUrl) {
+          const fileExt = formData.fileUpload.name.split('.').pop();
+          const fileName = `${user.id}/${finalClassId || 'unorganized'}/${Date.now()}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
             .from('class-documents')
-            .getPublicUrl(fileName);
-          fileUrl = urlData.publicUrl;
+            .upload(fileName, formData.fileUpload);
 
-          // Save metadata
-          if (finalClassId) {
-            const { data: newDocData } = await supabase
-              .from('class_documents')
-              .insert([{
-                class_id: finalClassId,
-                user_id: user.id,
-                name: formData.fileUpload.name,
-                file_path: fileName,
-                file_url: fileUrl,
-                file_size: formData.fileUpload.size,
-                file_type: formData.fileUpload.type
-              }])
-              .select()
-              .single();
-            
-            if (newDocData) documentId = newDocData.id;
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage
+              .from('class-documents')
+              .getPublicUrl(fileName);
+            fileUrl = urlData.publicUrl;
+
+            // Save metadata only if we have a class
+            if (finalClassId) {
+              const { data: newDocData } = await supabase
+                .from('class_documents')
+                .insert([{
+                  class_id: finalClassId,
+                  user_id: user.id,
+                  name: formData.fileUpload.name,
+                  file_path: fileName,
+                  file_url: fileUrl,
+                  file_size: formData.fileUpload.size,
+                  file_type: formData.fileUpload.type
+                }])
+                .select()
+                .single();
+              
+              if (newDocData) documentId = newDocData.id;
+            }
           }
         }
       }
 
-      // 3. Create Blueprint
+      // Create Blueprint
       const content = {
         className: finalClassName,
         professorName: formData.professorName,
@@ -184,24 +299,34 @@ const Create = () => {
         .from('blueprints')
         .insert([{
           user_id: user.id,
-          class_id: finalClassId, // null for project mode
+          class_id: finalClassId, // Can be null for unorganized blueprints
           document_id: documentId,
           title: finalBlueprintName,
           description: formData.textInput,
           task_type: mode === 'project' ? 'project' : 'Auto-detect',
+          goal_type: 'Auto-detect from document', // Required field
           file_metadata: content.fileUpload,
           content: content
         }])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw error;
+      }
 
       navigate(`/blueprint/${data.id}`);
 
     } catch (error) {
       console.error('Error creating blueprint:', error);
-      alert('Failed to create session. Please try again.');
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      alert(`Failed to create blueprint: ${error.message || 'Please try again.'}`);
     } finally {
       setLoading(false);
     }
@@ -270,7 +395,7 @@ const Create = () => {
                          <Paperclip className="w-5 h-5" />
                       </div>
                       <p className="text-sm font-medium text-stone-900">Upload file</p>
-                      <p className="text-[10px] text-stone-500 mt-1">PDF, IMG, DOC (10MB)</p>
+                      
                     </div>
                   ) : (
                     <div className="h-full border border-stone-300 rounded-lg p-4 bg-stone-50 flex flex-col items-center justify-center text-center relative group">
@@ -357,6 +482,116 @@ const Create = () => {
 
           </div>
         </div>
+
+          {/* Class Selection Card (Classwork Mode Only) */}
+        {mode === 'classwork' && (formData.fileUpload || formData.textInput.trim().length > 0 || selectedClassId || isCreatingClass) && (
+          <div className="mt-6 flex gap-6 items-start">
+            <div className="rounded-2xl shadow-xl border border-stone-300 overflow-hidden bg-white max-w-[300px] w-full animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="p-5">
+                <h3 className="text-sm font-bold text-stone-900 mb-4 flex items-center gap-2">
+                  What class is this for?
+                </h3>
+                
+                <div className="flex flex-col gap-3">
+                  {/* Existing Classes */}
+                  {classes.map((cls) => (
+                    <button
+                      key={cls.id}
+                      onClick={() => setSelectedClassId(cls.id)}
+                      className="group flex items-center gap-3 w-full text-left"
+                    >
+                      <div className={`
+                        w-3 h-3 rounded-full border flex items-center justify-center transition-all flex-shrink-0
+                        ${selectedClassId === cls.id 
+                          ? 'border-[#FF4A1C] bg-[#FF4A1C]' 
+                          : 'border-stone-300 bg-white group-hover:border-stone-400'
+                        }
+                      `}>
+                         {/* No inner dot needed if we fill the background */}
+                      </div>
+                      <span className={`text-sm transition-colors truncate ${
+                        selectedClassId === cls.id ? 'text-stone-900 font-medium' : 'text-stone-600 group-hover:text-stone-900'
+                      }`}>
+                        {cls.name}
+                      </span>
+                    </button>
+                  ))}
+
+                  {/* Create New Class UI */}
+                  {isCreatingClass ? (
+                    <div ref={wrapperRef} className="flex items-center gap-3 pl-[0px] w-full animate-in fade-in slide-in-from-left-2">
+                      <div className="w-3 h-3 rounded-full border border-stone-300 flex-shrink-0 bg-white" />
+                      <div className="flex-1 flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newClassName}
+                          onChange={(e) => setNewClassName(e.target.value)}
+                          placeholder="Enter Class Name"
+                          autoFocus
+                          className="bg-white  border-stone-300 focus:border-[#FF4A1C] focus:ring-0 text-sm text-stone-900 placeholder:text-stone-600 placeholder:font-normal w-full px-0 py-1 outline-none transition-all"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleCreateClass();
+                            if (e.key === 'Escape') {
+                              setIsCreatingClass(false);
+                              setNewClassName('');
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={handleCreateClass}
+                          disabled={!newClassName.trim() || isCreatingClassLoading}
+                          className="p-1 rounded-full bg-[#FF4A1C] text-white hover:bg-[#e03e15] disabled:opacity-50 transition-colors flex-shrink-0"
+                        >
+                          {isCreatingClassLoading ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Check className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                          e.stopPropagation();
+                          setIsCreatingClass(true);
+                          setSelectedClassId(null);
+                      }}
+                      className="group flex items-center gap-3 w-full text-left mt-1"
+                    >
+                      <div className="w-3 h-3 rounded-full border border-stone-200 flex items-center justify-center transition-all flex-shrink-0 bg-white group-hover:border-[#FF4A1C]/50">
+                      </div>
+                      <span className="text-sm text-stone-600 group-hover:text-[#FF4A1C] transition-colors">
+                        Create a Class
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Name This Blueprint (Progressive Disclosure) */}
+            {(selectedClassId || isCreatingClass) && (
+              <div className="rounded-2xl shadow-xl border border-stone-300 overflow-hidden bg-white flex-1 animate-in fade-in slide-in-from-left-4 duration-500">
+                <div className="p-5">
+                  <h3 className="text-sm font-bold text-stone-900 mb-4">
+                    Name This Blueprint
+                  </h3>
+                  <div className="flex items-center gap-3 pl-[0px] w-full">
+                    
+                    <input
+                      type="text"
+                      value={formData.blueprintName}
+                      onChange={(e) => setFormData(prev => ({ ...prev, blueprintName: e.target.value }))}
+                      placeholder="Enter Blueprint Name"
+                      className=" pl-4 bg-white border-stone-300 focus:border-[#FF4A1C] focus:ring-0 text-sm text-stone-900 placeholder:text-stone-600 placeholder:font-normal w-full px-0 py-1 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
     </div>

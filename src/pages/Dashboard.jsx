@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, BookOpen, MoreVertical, Calendar, TrendingUp, Edit2, Trash2, Loader2, Briefcase, GraduationCap, Trophy } from 'lucide-react';
+import { Plus, BookOpen, MoreVertical, Calendar, TrendingUp, Edit2, Trash2, Loader2, Briefcase, GraduationCap, Trophy, FileText, Zap } from 'lucide-react';
 import CreateClassModal from '../components/CreateClassModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useAuth } from '../context/AuthContext';
@@ -16,13 +16,15 @@ const Dashboard = () => {
   const dropdownRef = useRef(null);
   
   const [classes, setClasses] = useState([]);
+  const [unorganizedBlueprints, setUnorganizedBlueprints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, classId: null });
 
-  // Fetch classes on load
+  // Fetch classes and unorganized blueprints on load
   useEffect(() => {
     if (user) {
       fetchClasses();
+      fetchUnorganizedBlueprints();
     }
   }, [user]);
 
@@ -53,6 +55,24 @@ const Dashboard = () => {
       console.error('Error fetching classes:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUnorganizedBlueprints = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('blueprints')
+        .select('*')
+        .is('class_id', null)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      
+      setUnorganizedBlueprints(data || []);
+    } catch (error) {
+      console.error('Error fetching unorganized blueprints:', error);
     }
   };
 
@@ -192,6 +212,73 @@ const Dashboard = () => {
           </div>
           
         </div>
+
+        {/* Quick Access / Recent Blueprints Section */}
+        {unorganizedBlueprints.length > 0 && (
+          <section>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
+                <Zap className="w-6 h-6" />
+              </div>
+              <h2 className="text-2xl font-bold text-[#2A2B2A]">Quick Access</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {unorganizedBlueprints.map((blueprint) => (
+                <div 
+                  key={blueprint.id}
+                  onClick={() => navigate(`/blueprint/${blueprint.id}`)}
+                  className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-transparent hover:border-stone-100"
+                >
+                  {/* Card Header */}
+                  <div className="flex justify-between items-start z-10 relative">
+                    <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center text-white shadow-md">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                  </div>
+
+                  {/* Card Content */}
+                  <div className="z-10 mt-4">
+                    <h3 className="text-xl font-bold text-[#2A2B2A] mb-1 leading-tight group-hover:text-[#FF4A1C] transition-colors line-clamp-2">
+                      {blueprint.title || 'Untitled Blueprint'}
+                    </h3>
+                    {blueprint.description && (
+                      <p className="text-stone-500 text-sm line-clamp-2 mt-1">
+                        {blueprint.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Card Footer */}
+                  <div className="z-10 mt-auto pt-4 border-t border-stone-100">
+                    <div className="flex justify-between items-center text-sm">
+                      <div className="flex flex-col">
+                        <span className="text-stone-400 text-xs font-bold uppercase">Created</span>
+                        <span className="font-bold text-[#2A2B2A]">
+                          {new Date(blueprint.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      {blueprint.file_metadata && (
+                        <>
+                          <div className="h-8 w-[1px] bg-stone-100"></div>
+                          <div className="flex flex-col items-end">
+                            <span className="text-stone-400 text-xs font-bold uppercase">File</span>
+                            <span className="font-bold text-[#2A2B2A] truncate max-w-[80px]" title={blueprint.file_metadata.name}>
+                              {blueprint.file_metadata.name?.split('.').pop()?.toUpperCase() || 'DOC'}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Decorative Background Blob */}
+                  <div className="absolute -bottom-16 -right-16 w-48 h-48 bg-orange-500 opacity-5 rounded-full blur-3xl group-hover:opacity-10 transition-opacity"></div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Classes Section */}
         <section>

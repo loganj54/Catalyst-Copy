@@ -23,9 +23,8 @@ const Home = () => {
           </div>
 
           {/* Headline */}
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-stone-900 mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100 max-w-4xl mx-auto leading-[1.1]">
-            Turn complex topics <br className="hidden md:block" />
-            into <span className="text-[#FF4A1C]">mastered skills</span>
+          <h1 className="text-5xl md:text-7xl tracking-tight text-stone-900 mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100 max-w-4xl mx-auto leading-[1.1]">
+            The learn <span className="text-[#FF4A1C]">engineering</span> app
           </h1>
 
           {/* Subheadline */}

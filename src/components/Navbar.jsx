@@ -71,7 +71,7 @@ const Navbar = () => {
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center gap-2 text-sm font-medium text-black hover:text-black transition-colors focus:outline-none"
               >
-                <span className="pr-4 max-w-[150px] truncate hidden sm:block">{user.email?.split('@')[0]}</span>
+                <span className="pr-4 max-w-[150px] truncate hidden sm:block hidden lg:flex items-center justify-center gap-12 text-sm font-medium text-black/60 flex-1">{user.email?.split('@')[0]}</span>
               </button>
 
               {isDropdownOpen && (

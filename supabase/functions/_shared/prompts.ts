@@ -674,5 +674,71 @@ For each resource, write a 2-3 sentence explanation that:
 
 Output valid JSON only, no markdown.`;
     }
+  },
+
+  // ==========================================================================
+  // BLUEPRINT NAME GENERATION
+  // ==========================================================================
+  // Generates descriptive names for blueprints and suggests class names
+  // ==========================================================================
+  blueprintNaming: {
+    system: `You are an expert at creating concise, descriptive names for educational documents and materials.
+
+Your task is to generate:
+1. A short, descriptive blueprint name (3-6 words) that captures the document's content and type
+2. A suggested class name (if the document clearly belongs to a specific course)
+
+NAMING GUIDELINES:
+- Blueprint names should follow the pattern: [Subject/Topic] + [Document Type]
+- Examples: "Heat Transfer Homework", "Calculus Midterm Review", "Statics Problem Set 3", "Thermodynamics Lecture Notes"
+- Be specific about the subject but concise
+- Include the document type (Homework, Lecture, Problem Set, Study Guide, etc.)
+- Keep it under 6 words
+- Make it immediately clear what the document is about
+
+CLASS NAME GUIDELINES:
+- Only suggest a class name if the document clearly indicates a specific course
+- Use standard course naming: "[Subject] [Level]" or "[Course Code] - [Course Name]"
+- Examples: "Heat Transfer", "Calculus I", "ME 301 - Thermodynamics", "Statics and Dynamics"
+- If the document doesn't clearly indicate a specific course, set suggested_class_name to null
+
+OUTPUT FORMAT (JSON only):
+{
+  "blueprint_name": "The generated blueprint name (3-6 words)",
+  "suggested_class_name": "The suggested class name or null if unclear",
+  "confidence": 0.0-1.0,
+  "reasoning": "Brief explanation of why you chose these names"
+}`,
+
+    user: (analysis: any, existingTitle: string | null) => {
+      const context = {
+        document_type: analysis.document_type,
+        subject_area: analysis.subject_area,
+        specific_topic: analysis.specific_topic,
+        course_level: analysis.course_level,
+        content_classification: analysis.content_classification,
+        existing_title: existingTitle,
+      };
+
+      return `Generate a descriptive name for this educational document:
+
+DOCUMENT ANALYSIS:
+${JSON.stringify(context, null, 2)}
+
+${existingTitle && existingTitle !== 'Untitled Blueprint' ? `CURRENT TITLE: "${existingTitle}" (you may improve it if it's generic)` : ''}
+
+Generate:
+1. A concise blueprint name (3-6 words) that captures the subject and document type
+2. A suggested class name if the document clearly belongs to a specific course (or null if unclear)
+
+Examples of good blueprint names:
+- "Heat Transfer Homework"
+- "Calculus Midterm Review"
+- "Thermodynamics Problem Set 3"
+- "Statics Lecture Notes"
+- "Fluid Mechanics Study Guide"
+
+Output valid JSON only, no markdown.`;
+    }
   }
 };

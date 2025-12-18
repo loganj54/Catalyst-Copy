@@ -520,15 +520,69 @@ serve(async (req) => {
 
     console.log('[analyze-document] Analysis saved with ID:', newAnalysis?.id);
 
-    // Update blueprint with document_id and status
+    // =========================================================================
+    // STEP 5: Generate blueprint name and class suggestion using AI
+    // =========================================================================
+    console.log('[analyze-document] Generating blueprint name...');
+    
+    interface NamingResult {
+      blueprint_name: string;
+      suggested_class_name: string | null;
+      confidence: number;
+      reasoning: string;
+    }
+
+    let generatedName = blueprint.title;
+    let suggestedClassName: string | null = null;
+
+    try {
+      const namingResult = await callClaudeJSON<NamingResult>(
+        PROMPTS.blueprintNaming.system,
+        PROMPTS.blueprintNaming.user(analysis, blueprint.title),
+        { temperature: 0.5, maxTokens: 500 }
+      );
+
+      console.log('[analyze-document] Name generation result:');
+      console.log('  - Generated name:', namingResult.blueprint_name);
+      console.log('  - Suggested class:', namingResult.suggested_class_name || '(none)');
+      console.log('  - Confidence:', namingResult.confidence);
+      console.log('  - Reasoning:', namingResult.reasoning);
+
+      // Use generated name if it's better than the existing one
+      if (namingResult.blueprint_name && 
+          (blueprint.title === 'Untitled Blueprint' || namingResult.confidence > 0.7)) {
+        generatedName = namingResult.blueprint_name;
+      }
+
+      suggestedClassName = namingResult.suggested_class_name;
+
+    } catch (namingError) {
+      console.error('[analyze-document] Name generation failed:', namingError);
+      // Continue with existing name if generation fails
+    }
+
+    // Update blueprint with document_id, status, and generated name
+    const blueprintUpdate: any = {
+      generation_status: 'analyzed',
+      document_id: documentId,
+      title: generatedName,
+    };
+
+    // Store suggested class name in content for user to optionally create later
+    if (suggestedClassName && !blueprint.class_id) {
+      const updatedContent = {
+        ...(blueprint.content || {}),
+        suggested_class_name: suggestedClassName,
+      };
+      blueprintUpdate.content = updatedContent;
+    }
+
     await supabase
       .from('blueprints')
-      .update({ 
-        generation_status: 'analyzed',
-        document_id: documentId,
-      })
+      .update(blueprintUpdate)
       .eq('id', blueprint_id);
 
+    console.log('[analyze-document] Blueprint updated with generated name:', generatedName);
     console.log('[analyze-document] Complete!');
 
     return new Response(
