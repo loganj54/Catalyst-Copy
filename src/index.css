@@ -5,6 +5,9 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-padding-top: 100px;
+  }
   body {
     @apply antialiased min-h-screen text-[#2A2B2A] bg-[#F8F4E3] font-sans;
   }
@@ -45,4 +48,17 @@
 
 .animate-fade-in-up {
   animation: fade-in-up 0.5s ease-out forwards;
+}
+
+.bg-dot-pattern {
+  background-image: radial-gradient(#a8a29e 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.text-outline {
+  text-shadow: 
+    -2px -2px 0 #fff,  
+    2px -2px 0 #fff,
+    -2px  2px 0 #fff,
+    2px  2px 0 #fff;
 }

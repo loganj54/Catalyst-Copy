@@ -543,6 +543,15 @@ const Blueprint = () => {
 
       if (error) throw error;
       setBlueprint(data);
+
+      // Update last_viewed_at
+      supabase.from('blueprints')
+        .update({ last_viewed_at: new Date().toISOString() })
+        .eq('id', id)
+        .then(({ error }) => {
+           if (error) console.error('Error updating last_viewed_at:', error);
+        });
+
       setGenerationStatus(data.generation_status || 'pending');
       setGenerationError(data.generation_error);
       

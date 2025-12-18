@@ -347,7 +347,7 @@ const Create = () => {
           {/* Header */}
           <div className="text-center mb-10 pt-20">
             <div className="mb-8">
-              <h1 className="inline-block text-6xl text-stone-900 tracking-tight bg-white/90 backdrop-blur-sm px-8 py-6 rounded-3xl ">
+              <h1 className="inline-block text-6xl text-stone-900 tracking-tight bg-white/90 backdrop-blur-sm px-8 py-62 rounded-3xl ">
                 What are we learning today?
               </h1>
             </div>

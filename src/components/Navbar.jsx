@@ -29,7 +29,7 @@ const Navbar = () => {
   }, []);
 
   return (
-    <nav className="lg:px-12 flex sticky z-50 bg-white/90 w-full border-stone-200 border-b pt-6 pr-6 pb-6 pl-6 top-0 backdrop-blur-sm items-center">
+    <nav className="lg:px-12 flex fixed z-50 bg-white/90 w-full border-stone-200 border-b pt-6 pr-6 pb-6 pl-6 top-0 backdrop-blur-sm items-center">
       <Link to="/" className="flex items-center gap-2 flex-1">
         <img 
           src="/catalyst-logo-2.png" 
@@ -63,7 +63,7 @@ const Navbar = () => {
       <div className="flex items-center justify-end gap-4 flex-1">
         {user ? (
           <>
-            <Link to="/dashboard" className="text-sm font-medium text-black/60 hover:text-black transition-colors pr-6">
+            <Link to="/classes" className="text-sm font-medium text-black/60 hover:text-black transition-colors pr-6">
               Dashboard
             </Link>
             <div className="relative" ref={dropdownRef}>

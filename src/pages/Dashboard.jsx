@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, BookOpen, MoreVertical, Calendar, TrendingUp, Edit2, Trash2, Loader2, Briefcase, GraduationCap, Trophy, FileText, Zap } from 'lucide-react';
+import { Plus, BookOpen, MoreVertical, Edit2, Trash2, Loader2, FileText, Zap, Search } from 'lucide-react';
 import CreateClassModal from '../components/CreateClassModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -16,15 +17,15 @@ const Dashboard = () => {
   const dropdownRef = useRef(null);
   
   const [classes, setClasses] = useState([]);
-  const [unorganizedBlueprints, setUnorganizedBlueprints] = useState([]);
+  const [recentBlueprints, setRecentBlueprints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, classId: null });
 
-  // Fetch classes and unorganized blueprints on load
+  // Fetch classes and recent blueprints on load
   useEffect(() => {
     if (user) {
       fetchClasses();
-      fetchUnorganizedBlueprints();
+      fetchRecentBlueprints();
     }
   }, [user]);
 
@@ -58,21 +59,20 @@ const Dashboard = () => {
     }
   };
 
-  const fetchUnorganizedBlueprints = async () => {
+  const fetchRecentBlueprints = async () => {
     try {
       const { data, error } = await supabase
         .from('blueprints')
-        .select('*')
-        .is('class_id', null)
+        .select('*, classes(name)')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('last_viewed_at', { ascending: false })
+        .limit(5);
 
       if (error) throw error;
       
-      setUnorganizedBlueprints(data || []);
+      setRecentBlueprints(data || []);
     } catch (error) {
-      console.error('Error fetching unorganized blueprints:', error);
+      console.error('Error fetching recent blueprints:', error);
     }
   };
 
@@ -175,6 +175,9 @@ const Dashboard = () => {
     setEditingClass(null);
   };
 
+  // Background Patterns
+  const pageBackground = `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8a29e' fill-opacity='0.25'%3E%3Ccircle cx='5' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='5' r='1.5'/%3E%3Ccircle cx='65' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='25' r='1.5'/%3E%3Ccircle cx='45' cy='25' r='1.5'/%3E%3Ccircle cx='85' cy='25' r='1.5'/%3E%3Ccircle cx='5' cy='45' r='1.5'/%3E%3Ccircle cx='45' cy='45' r='1.5'/%3E%3Ccircle cx='65' cy='45' r='1.5'/%3E%3Ccircle cx='25' cy='65' r='1.5'/%3E%3Ccircle cx='65' cy='65' r='1.5'/%3E%3Ccircle cx='85' cy='65' r='1.5'/%3E%3Ccircle cx='5' cy='85' r='1.5'/%3E%3Ccircle cx='25' cy='85' r='1.5'/%3E%3Ccircle cx='85' cy='85' r='1.5'/%3E%3C/g%3E%3C/svg%3E")`;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F8F4E3] flex items-center justify-center">
@@ -184,234 +187,183 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F4E3] pt-24 pb-12 px-6 lg:px-12">
-      <CreateClassModal 
-        isOpen={isModalOpen} 
-        onClose={handleCloseModal} 
-        onSubmit={handleCreateOrUpdateClass}
-        initialData={editingClass}
-      />
-      
-      <ConfirmDialog
-        isOpen={confirmDialog.isOpen}
-        onClose={() => setConfirmDialog({ isOpen: false, classId: null })}
-        onConfirm={confirmDeleteClass}
-        title="Are you sure?"
-        message="Are you sure you want to delete this class? This action cannot be undone."
-        confirmText="Yes"
-        cancelText="No"
-        type="danger"
-      />
-      
-      <div className="max-w-7xl mx-auto space-y-16">
-        {/* Header */}
-        <div className="flex justify-between items-end">
-          <div>
-            <h1 className="text-4xl font-bold text-[#2A2B2A] mb-2">My Dashboard</h1>
-            <p className="text-stone-500 text-lg">Track your academic journey and career progress.</p>
-          </div>
-          
-        </div>
+    <div 
+      className="min-h-screen bg-white flex text-outline"
+      style={{ backgroundImage: pageBackground }}
+    >
+      {/* Sidebar - Fixed Position */}
+      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-30 hidden lg:block w-64">
+        <Sidebar />
+      </div>
 
-        {/* Quick Access / Recent Blueprints Section */}
-        {unorganizedBlueprints.length > 0 && (
-          <section>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
-                <Zap className="w-6 h-6" />
+      {/* Main Content Area - Pushed right by sidebar width */}
+      <div className="flex-1 min-w-0 lg:ml-64">
+        <div className="pt-8 pb-12 px-6 lg:px-12 max-w-7xl mx-auto space-y-12">
+          
+          <CreateClassModal 
+            isOpen={isModalOpen} 
+            onClose={handleCloseModal} 
+            onSubmit={handleCreateOrUpdateClass}
+            initialData={editingClass}
+          />
+          
+          <ConfirmDialog
+            isOpen={confirmDialog.isOpen}
+            onClose={() => setConfirmDialog({ isOpen: false, classId: null })}
+            onConfirm={confirmDeleteClass}
+            title="Are you sure?"
+            message="Are you sure you want to delete this class? This action cannot be undone."
+            confirmText="Yes"
+            cancelText="No"
+            type="danger"
+          />
+          
+          {/* Header */}
+          <div className="flex justify-between items-end">
+            <div>
+              <div className="inline-block text-6xl text-stone-900 tracking-tight bg-white/90 backdrop-blur-sm  rounded-3xl ">
+                <h1 className="text-4xl font-normal text-[#2A2B2A] tracking-tight mb-2">My Classes</h1>
+                </div>
+                <br />
+                <div className="inline-block  bg-white/90 backdrop-blur-sm rounded-3xl mb-4 ">
+                <p className="text-stone-500 text-lg">Track your academic journey and career progress.</p>
               </div>
-              <h2 className="text-2xl font-bold text-[#2A2B2A]">Quick Access</h2>
+            </div>
+          </div>
+
+          {/* Recent Blueprints Section (Table View) */}
+          <section>
+            <div className="flex items-center justify-between mb-6">
+              <div className="inline-block text-6xl text-stone-900 tracking-tight bg-white/90 backdrop-blur-sm  rounded-3xl ">
+                <h2 className="text-3xl font-normal text-[#2A2B2A] tracking-tight mb-2">Recent Blueprints</h2>
+              </div>
+              
+            </div>
+
+            <div className="bg-white rounded-3xl border border-stone-300 overflow-hidden shadow-sm">
+              {recentBlueprints.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                      <thead>
+                        <tr className="bg-stone-50 border-b border-stone-300 text-left">
+                          <th className="py-2 px-6 font-normal text-stone-500 text-sm w-full">Blueprint </th>
+                          <th className="py-2 px-6 font-normal text-stone-500 text-sm whitespace-nowrap text-left w-1">Last Viewed</th>
+                          
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-300">
+                        {recentBlueprints.map((blueprint) => (
+                          <tr 
+                            key={blueprint.id} 
+                            onClick={() => navigate(`/blueprint/${blueprint.id}`)}
+                            className="hover:bg-stone-50/50 cursor-pointer transition-colors group"
+                          >
+                            <td className="py-2 px-6">
+                              <div className="flex items-center gap-4">
+                                <div>
+                                  <h3 className="font-normal text-[#2A2B2A] transition-colors">
+                                    {blueprint.title || 'Untitled Blueprint'}
+                                  </h3>
+                                  <p className="text-stone-400 text-sm line-clamp-1 max-w-xs">
+                                    {blueprint.classes?.name || 'Unassigned'}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-2 px-6 text-stone-500 font-normal text-left whitespace-nowrap">
+                              {new Date(blueprint.last_viewed_at || blueprint.created_at).toLocaleDateString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-12 text-center">
+                 
+                  <h3 className="text-lg font-bold text-[#2A2B2A] mb-1">No blueprints found</h3>
+                  <p className="text-stone-500 mb-6">Create your first blueprint to get started.</p>
+                  <button 
+                    onClick={() => navigate('/create')}
+                    className="px-6 py-2 bg-[#2A2B2A] text-white rounded-xl hover:bg-black transition-colors font-medium"
+                  >
+                    Create Blueprint
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Classes Section */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <div className="inline-block bg-white/90 backdrop-blur-sm rounded-3xl">
+                <h2 className="text-3xl font-normal text-[#2A2B2A] tracking-tight mb-2">My Classes</h2>
+              </div>
+              <button 
+                onClick={() => { setEditingClass(null); setIsModalOpen(true); }}
+                className="flex items-center gap-2 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-xl hover:bg-stone-200 transition-all text-[#2A2B2A]"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="font-medium">Add New Class</span>
+              </button>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {unorganizedBlueprints.map((blueprint) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Class Cards */}
+              {classes.map((course) => (
                 <div 
-                  key={blueprint.id}
-                  onClick={() => navigate(`/blueprint/${blueprint.id}`)}
-                  className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-transparent hover:border-stone-100"
+                  key={course.id}
+                  onClick={() => navigate(`/class/${course.id}`)}
+                  className="aspect-square bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-stone-300 hover:border-stone-400"
                 >
                   {/* Card Header */}
                   <div className="flex justify-between items-start z-10 relative">
-                    <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center text-white shadow-md">
-                      <FileText className="w-6 h-6" />
+                    <div className="w-12 h-12 rounded-2xl bg-stone-100 flex items-center justify-center text-stone-500 shadow-md">
+                      <BookOpen className="w-6 h-6" />
                     </div>
+                    
+                    {/* Dropdown Menu Button */}
+                    <button 
+                      onClick={(e) => toggleDropdown(course.id, e)}
+                      className="p-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-[#2A2B2A] transition-colors relative z-10"
+                    >
+                      <MoreVertical className="w-5 h-5" />
+                    </button>
                   </div>
 
                   {/* Card Content */}
                   <div className="z-10 mt-4">
-                    <h3 className="text-xl font-bold text-[#2A2B2A] mb-1 leading-tight group-hover:text-[#FF4A1C] transition-colors line-clamp-2">
-                      {blueprint.title || 'Untitled Blueprint'}
+                    <h3 className="text-2xl font-normal text-[#2A2B2A] mb-1 leading-tight  transition-colors line-clamp-2">
+                      {course.name}
                     </h3>
-                    {blueprint.description && (
-                      <p className="text-stone-500 text-sm line-clamp-2 mt-1">
-                        {blueprint.description}
-                      </p>
-                    )}
+                    <p className="text-stone-500 font-normal truncate">{course.professor}</p>
                   </div>
 
-                  {/* Card Footer */}
-                  <div className="z-10 mt-auto pt-4 border-t border-stone-100">
+                  {/* Card Footer / Stats */}
+                  <div className="z-10 mt-auto pt-6 border-t border-stone-300">
                     <div className="flex justify-between items-center text-sm">
-                      <div className="flex flex-col">
-                        <span className="text-stone-400 text-xs font-bold uppercase">Created</span>
-                        <span className="font-bold text-[#2A2B2A]">
-                          {new Date(blueprint.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      {blueprint.file_metadata && (
-                        <>
-                          <div className="h-8 w-[1px] bg-stone-100"></div>
-                          <div className="flex flex-col items-end">
-                            <span className="text-stone-400 text-xs font-bold uppercase">File</span>
-                            <span className="font-bold text-[#2A2B2A] truncate max-w-[80px]" title={blueprint.file_metadata.name}>
-                              {blueprint.file_metadata.name?.split('.').pop()?.toUpperCase() || 'DOC'}
-                            </span>
-                          </div>
-                        </>
-                      )}
+                       <div className="flex flex-col">
+                         <span className="text-stone-400 text-xs font-normal uppercase">Next Exam</span>
+                         <span className="font-normal text-[#2A2B2A]">{course.nextExam}</span>
+                       </div>
+                       <div className="h-8 w-[1px] bg-stone-300"></div>
+                       <div className="flex flex-col items-end">
+                         <span className="text-stone-400 text-xs font-normal uppercase">Progress</span>
+                         <span className="font-normal text-green-600">On Track</span>
+                       </div>
                     </div>
                   </div>
-
-                  {/* Decorative Background Blob */}
-                  <div className="absolute -bottom-16 -right-16 w-48 h-48 bg-orange-500 opacity-5 rounded-full blur-3xl group-hover:opacity-10 transition-opacity"></div>
                 </div>
               ))}
             </div>
           </section>
-        )}
 
-        {/* Classes Section */}
-        <section>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-              <BookOpen className="w-6 h-6" />
-            </div>
-            <h2 className="text-2xl font-bold text-[#2A2B2A]">Classes</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {/* Create New Class Card (Always First) */}
-            <button 
-              onClick={() => { setEditingClass(null); setIsModalOpen(true); }}
-              className="aspect-square bg-transparent border-3 border-dashed border-stone-300 rounded-3xl flex flex-col items-center justify-center gap-4 text-stone-400 hover:text-[#FF4A1C] hover:border-[#FF4A1C] hover:bg-[#FF4A1C]/5 transition-all group"
-            >
-              <div className="w-16 h-16 rounded-full bg-stone-100 group-hover:bg-[#FF4A1C]/10 flex items-center justify-center transition-colors">
-                <Plus className="w-8 h-8" />
-              </div>
-              <span className="font-bold text-lg">Create New Class</span>
-            </button>
-
-            {/* Class Cards */}
-            {classes.map((course) => (
-              <div 
-                key={course.id}
-                onClick={() => navigate(`/class/${course.id}`)}
-                className="aspect-square bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-transparent hover:border-stone-100"
-              >
-                {/* Card Header */}
-                <div className="flex justify-between items-start z-10 relative">
-                  <div className={`w-12 h-12 rounded-2xl ${course.color} flex items-center justify-center text-white shadow-md`}>
-                    <BookOpen className="w-6 h-6" />
-                  </div>
-                  
-                  {/* Dropdown Menu Button */}
-                  <button 
-                    onClick={(e) => toggleDropdown(course.id, e)}
-                    className="p-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-[#2A2B2A] transition-colors relative z-10"
-                  >
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Card Content */}
-                <div className="z-10 mt-4">
-                  <h3 className="text-2xl font-bold text-[#2A2B2A] mb-1 leading-tight group-hover:text-[#FF4A1C] transition-colors line-clamp-2">
-                    {course.name}
-                  </h3>
-                  <p className="text-stone-500 font-medium truncate">{course.professor}</p>
-                </div>
-
-                {/* Card Footer / Stats */}
-                <div className="z-10 mt-auto pt-6 border-t border-stone-100">
-                  <div className="flex justify-between items-center text-sm">
-                     <div className="flex flex-col">
-                       <span className="text-stone-400 text-xs font-bold uppercase">Next Exam</span>
-                       <span className="font-bold text-[#2A2B2A]">{course.nextExam}</span>
-                     </div>
-                     <div className="h-8 w-[1px] bg-stone-100"></div>
-                     <div className="flex flex-col items-end">
-                       <span className="text-stone-400 text-xs font-bold uppercase">Progress</span>
-                       <span className="font-bold text-green-600">On Track</span>
-                     </div>
-                  </div>
-                </div>
-
-                {/* Decorative Background Blob */}
-                <div className={`absolute -bottom-16 -right-16 w-48 h-48 ${course.color} opacity-5 rounded-full blur-3xl group-hover:opacity-10 transition-opacity`}></div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Projects Section */}
-        <section>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
-              <Briefcase className="w-6 h-6" />
-            </div>
-            <h2 className="text-2xl font-bold text-[#2A2B2A]">Projects</h2>
-          </div>
-          <div className="bg-white rounded-3xl p-8 border border-stone-100 text-center">
-            <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-4 text-stone-300">
-              <Briefcase className="w-8 h-8" />
-            </div>
-            <h3 className="text-lg font-bold text-[#2A2B2A] mb-1">No projects yet</h3>
-            <p className="text-stone-500 mb-6">Start documenting your engineering projects to showcase your skills.</p>
-            <button className="px-6 py-2 bg-[#2A2B2A] text-white rounded-xl hover:bg-black transition-colors font-medium">
-              Add Project
-            </button>
-          </div>
-        </section>
-
-        {/* Learning Skills Section */}
-        <section>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
-              <GraduationCap className="w-6 h-6" />
-            </div>
-            <h2 className="text-2xl font-bold text-[#2A2B2A]">Learning Skills</h2>
-          </div>
-          <div className="bg-white rounded-3xl p-8 border border-stone-100 text-center">
-            <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-4 text-stone-300">
-              <GraduationCap className="w-8 h-8" />
-            </div>
-            <h3 className="text-lg font-bold text-[#2A2B2A] mb-1">Track your skills</h3>
-            <p className="text-stone-500 mb-6">Keep track of new technologies and concepts you're learning.</p>
-            <button className="px-6 py-2 bg-[#2A2B2A] text-white rounded-xl hover:bg-black transition-colors font-medium">
-              Add Skill
-            </button>
-          </div>
-        </section>
-
-        {/* Career Progress Section */}
-        <section>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-green-100 rounded-lg text-green-600">
-              <Trophy className="w-6 h-6" />
-            </div>
-            <h2 className="text-2xl font-bold text-[#2A2B2A]">Career Progress</h2>
-          </div>
-          <div className="bg-white rounded-3xl p-8 border border-stone-100 text-center">
-             <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-4 text-stone-300">
-              <Trophy className="w-8 h-8" />
-            </div>
-            <h3 className="text-lg font-bold text-[#2A2B2A] mb-1">Career Timeline</h3>
-            <p className="text-stone-500 mb-6">Visualize your internships, jobs, and career milestones.</p>
-            <button className="px-6 py-2 bg-[#2A2B2A] text-white rounded-xl hover:bg-black transition-colors font-medium">
-              Update Timeline
-            </button>
-          </div>
-        </section>
+        </div>
       </div>
 
       {/* Fixed Dropdown Menu - Rendered Outside Cards */}
@@ -459,4 +411,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
