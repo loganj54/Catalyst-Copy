@@ -164,7 +164,7 @@ const Dashboard = () => {
       const rect = button.getBoundingClientRect();
       setDropdownPosition({
         top: rect.bottom + window.scrollY + 8,
-        right: window.innerWidth - rect.right - window.scrollX
+        right: document.documentElement.clientWidth - rect.right
       });
       setActiveDropdown(id);
     }
@@ -222,12 +222,9 @@ const Dashboard = () => {
           <div className="flex justify-between items-end">
             <div>
               <div className="inline-block text-6xl text-stone-900 tracking-tight bg-white/90 backdrop-blur-sm  rounded-3xl ">
-                <h1 className="text-4xl font-normal text-[#2A2B2A] tracking-tight mb-2">My Classes</h1>
+                <h1 className="text-4xl font-normal text-[#2A2B2A] tracking-tight ">My Classes</h1>
                 </div>
-                <br />
-                <div className="inline-block  bg-white/90 backdrop-blur-sm rounded-3xl mb-4 ">
-                <p className="text-stone-500 text-lg">Track your academic journey and career progress.</p>
-              </div>
+                
             </div>
           </div>
 
@@ -237,7 +234,13 @@ const Dashboard = () => {
               <div className="inline-block text-6xl text-stone-900 tracking-tight bg-white/90 backdrop-blur-sm  rounded-3xl ">
                 <h2 className="text-3xl font-normal text-[#2A2B2A] tracking-tight mb-2">Recent Blueprints</h2>
               </div>
-              
+              <button 
+                onClick={() => navigate('/create')}
+                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-xl hover:bg-stone-200 transition-all text-[#2A2B2A]"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="font-medium text-sm">New Blueprint</span>
+              </button>
             </div>
 
             <div className="bg-white rounded-3xl border border-stone-300 overflow-hidden shadow-sm">
@@ -300,16 +303,16 @@ const Dashboard = () => {
 
           {/* Classes Section */}
           <section>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-6">
               <div className="inline-block bg-white/90 backdrop-blur-sm rounded-3xl">
-                <h2 className="text-3xl font-normal text-[#2A2B2A] tracking-tight mb-2">My Classes</h2>
+                <h2 className="text-3xl font-normal text-[#2A2B2A] tracking-tight mb-2">All Classes</h2>
               </div>
               <button 
                 onClick={() => { setEditingClass(null); setIsModalOpen(true); }}
-                className="flex items-center gap-2 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-xl hover:bg-stone-200 transition-all text-[#2A2B2A]"
+                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-xl hover:bg-stone-200 transition-all text-[#2A2B2A]"
               >
                 <Plus className="w-5 h-5" />
-                <span className="font-medium">Add New Class</span>
+                <span className="font-medium text-sm">New Class</span>
               </button>
             </div>
             
@@ -319,7 +322,7 @@ const Dashboard = () => {
                 <div 
                   key={course.id}
                   onClick={() => navigate(`/class/${course.id}`)}
-                  className="aspect-square bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-stone-300 hover:border-stone-400"
+                  className="aspect-square bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-stone-300 hover:border-stone-400"
                 >
                   {/* Card Header */}
                   <div className="flex justify-between items-start z-10 relative">
@@ -330,7 +333,7 @@ const Dashboard = () => {
                     {/* Dropdown Menu Button */}
                     <button 
                       onClick={(e) => toggleDropdown(course.id, e)}
-                      className="p-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-[#2A2B2A] transition-colors relative z-10"
+                      className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:text-[#2A2B2A] hover:bg-stone-100 transition-all relative z-10"
                     >
                       <MoreVertical className="w-5 h-5" />
                     </button>
@@ -381,11 +384,10 @@ const Dashboard = () => {
           {/* Dropdown */}
           <div 
             ref={dropdownRef}
-            className="fixed bg-white rounded-xl shadow-2xl border border-stone-200 overflow-hidden z-50 w-48"
+            className="absolute bg-white rounded-xl shadow-xl border border-stone-200 overflow-hidden z-50 w-48"
             style={{ 
               top: `${dropdownPosition.top}px`,
-              right: `${dropdownPosition.right}px`,
-              backgroundColor: 'white'
+              right: `${dropdownPosition.right}px`
             }}
           >
             <button 
