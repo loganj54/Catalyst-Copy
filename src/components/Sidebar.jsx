@@ -32,12 +32,12 @@ const Sidebar = () => {
         to={item.path}
         className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-normal transition-all border ${
           isActive 
-            ? 'bg-stone-100 text-stone-900 border-stone-300 shadow-sm' 
-            : 'text-stone-500 border-transparent hover:bg-stone-50 hover:text-stone-900'
+            ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-700 shadow-sm' 
+            : 'text-stone-500 dark:text-stone-400 border-transparent hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-stone-100'
         }`}
       >
         <item.icon className={`w-5 h-5 transition-colors ${
-          isActive ? 'text-stone-900' : 'text-stone-400 group-hover:text-stone-900'
+          isActive ? 'text-stone-900 dark:text-stone-100' : 'text-stone-400 dark:text-stone-500 group-hover:text-stone-900 dark:group-hover:text-stone-100'
         }`} />
         
         <span className="whitespace-nowrap overflow-hidden transition-all duration-300">
@@ -49,7 +49,7 @@ const Sidebar = () => {
 
   return (
     <div 
-      className="h-[calc(100vh-80px)] bg-stone-50 border-r border-stone-100 flex flex-col pt-6 pb-6 w-56"
+      className="h-[calc(100vh-80px)] bg-stone-50 dark:bg-stone-900 border-r border-stone-100 dark:border-stone-800 flex flex-col pt-6 pb-6 w-56 transition-colors duration-200"
     >
       {/* Main Navigation */}
       <div className="flex-1 px-3 space-y-2">
@@ -61,7 +61,7 @@ const Sidebar = () => {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="px-3 space-y-2 pt-4 border-t border-stone-100">
+      <div className="px-3 space-y-2 pt-4 border-t border-stone-100 dark:border-stone-800">
         {bottomItems.map((item) => (
           <NavItem key={item.path} item={item} />
         ))}

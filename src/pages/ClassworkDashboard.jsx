@@ -10,7 +10,7 @@ import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 
-const Dashboard = () => {
+const ClassworkDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [bgMode, setBgMode] = useState('dots'); // 'default', 'white', 'dots'
@@ -184,15 +184,14 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8F4E3] dark:bg-stone-900 flex items-center justify-center transition-colors duration-200">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FF4A1C]" />
+      <div className="min-h-screen bg-white dark:bg-stone-900 flex items-center justify-center">
       </div>
     );
   }
 
   return (
     <div 
-      className="min-h-screen bg-white dark:bg-stone-900 flex text-outline relative transition-colors duration-200"
+      className="min-h-screen bg-white dark:bg-stone-900 flex relative transition-colors duration-200"
       style={{ backgroundImage: bgMode === 'dots' ? pageBackground : 'none' }}
     >
       {/* Background Toggle - Development Only */}
@@ -223,15 +222,10 @@ const Dashboard = () => {
        {/* Backgrounds */}
        {bgMode === 'default' && (
           <div className="absolute inset-0 pointer-events-none z-0">
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] dark:opacity-20"></div>
             <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white dark:from-stone-900 dark:via-transparent dark:to-stone-900"></div>
           </div>
         )}
-
-      {/* Sidebar - Fixed Position */}
-      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-30 hidden lg:block w-64">
-        <Sidebar />
-      </div>
 
       {/* Main Content Area - Pushed right by sidebar width */}
       <div className="flex-1 min-w-0 lg:ml-64 relative z-10">
@@ -258,8 +252,8 @@ const Dashboard = () => {
           {/* Header */}
           <div className="flex justify-between items-end">
             <div>
-              <div className="inline-block text-6xl text-stone-900 dark:text-white tracking-tight bg-white/90 dark:bg-stone-800/90 backdrop-blur-sm  rounded-3xl ">
-                <h1 className="text-4xl font-normal text-[#2A2B2A] dark:text-white tracking-tight ">My Classes</h1>
+              <div className="inline-block text-6xl text-stone-900 dark:text-white tracking-tight rounded-3xl ">
+                <h1 className="text-4xl font-normal text-[#2A2B2A] dark:text-white tracking-tight ">My Classwork</h1>
                 </div>
                 
             </div>
@@ -268,7 +262,7 @@ const Dashboard = () => {
           {/* Recent Blueprints Section (Table View) */}
           <section>
             <div className="flex items-center justify-between mb-6">
-              <div className="inline-block text-6xl text-stone-900 dark:text-white tracking-tight bg-white/90 dark:bg-stone-800/90 backdrop-blur-sm  rounded-3xl ">
+              <div className="inline-block text-6xl text-stone-900 dark:text-white tracking-tight rounded-3xl ">
                 <h2 className="text-3xl font-normal text-[#2A2B2A] dark:text-white tracking-tight mb-2">Recent Blueprints</h2>
               </div>
               <button 
@@ -280,12 +274,12 @@ const Dashboard = () => {
               </button>
             </div>
 
-            <div className="bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 overflow-hidden shadow-sm">
+            <div className="bg-white dark:bg-stone-900 rounded-lg border border-stone-300 dark:border-stone-700 overflow-hidden shadow-sm">
               {recentBlueprints.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                       <thead>
-                        <tr className="bg-stone-50 dark:bg-stone-900/50 border-b border-stone-300 dark:border-stone-700 text-left">
+                        <tr className="bg-stone-50 dark:bg-stone-800 border-b border-stone-300 dark:border-stone-700 text-left">
                           <th className="py-2 px-6 font-normal text-stone-500 dark:text-stone-400 text-sm w-full">Blueprint </th>
                           <th className="py-2 px-6 font-normal text-stone-500 dark:text-stone-400 text-sm whitespace-nowrap text-left w-1">Last Viewed</th>
                           
@@ -296,7 +290,7 @@ const Dashboard = () => {
                           <tr 
                             key={blueprint.id} 
                             onClick={() => navigate(`/blueprint/${blueprint.id}`)}
-                            className="hover:bg-stone-50/50 dark:hover:bg-stone-700/50 cursor-pointer transition-colors group"
+                            className="hover:bg-stone-50/50 dark:hover:bg-stone-800/50 cursor-pointer transition-colors group"
                           >
                             <td className="py-2 px-6">
                               <div className="flex items-center gap-4">
@@ -304,7 +298,7 @@ const Dashboard = () => {
                                   <h3 className="font-normal text-[#2A2B2A] dark:text-white transition-colors">
                                     {blueprint.title || 'Untitled Blueprint'}
                                   </h3>
-                                  <p className="text-stone-400 text-sm line-clamp-1 max-w-xs">
+                                  <p className="text-stone-400 dark:text-stone-500 text-sm line-clamp-1 max-w-xs">
                                     {blueprint.classes?.name || 'Unassigned'}
                                   </p>
                                 </div>
@@ -329,7 +323,7 @@ const Dashboard = () => {
                   <p className="text-stone-500 dark:text-stone-400 mb-6">Create your first blueprint to get started.</p>
                   <button 
                     onClick={() => navigate('/create')}
-                    className="px-6 py-2 bg-[#2A2B2A] dark:bg-white text-white dark:text-stone-900 rounded-xl hover:bg-black dark:hover:bg-stone-200 transition-colors font-medium"
+                    className="px-6 py-2 bg-[#2A2B2A] dark:bg-white text-white dark:text-black rounded-xl hover:bg-black dark:hover:bg-stone-200 transition-colors font-medium"
                   >
                     Create Blueprint
                   </button>
@@ -341,7 +335,7 @@ const Dashboard = () => {
           {/* Classes Section */}
           <section>
             <div className="flex items-center justify-between mb-6">
-              <div className="inline-block bg-white/90 dark:bg-stone-800/90 backdrop-blur-sm rounded-lg">
+              <div className="inline-block bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg">
                 <h2 className="text-3xl font-normal text-[#2A2B2A] dark:text-white tracking-tight mb-2">All Classes</h2>
               </div>
               <button 
@@ -359,18 +353,18 @@ const Dashboard = () => {
                 <div 
                   key={course.id}
                   onClick={() => navigate(`/class/${course.id}`)}
-                  className="aspect-square bg-white dark:bg-stone-800 rounded-xl p-6 shadow-sm hover:shadow-xl transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-stone-300 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-600"
+                  className="aspect-square bg-white dark:bg-stone-900 rounded-xl p-6 shadow-sm hover:shadow-xl transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-stone-300 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-600"
                 >
                   {/* Card Header */}
                   <div className="flex justify-between items-start z-10 relative">
-                    <div className="w-12 h-12 rounded-2xl bg-stone-100 dark:bg-stone-700 flex items-center justify-center text-stone-500 dark:text-stone-400 shadow-md">
+                    <div className="w-12 h-12 rounded-2xl bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-500 dark:text-stone-400 shadow-md">
                       <BookOpen className="w-6 h-6" />
                     </div>
                     
                     {/* Dropdown Menu Button */}
                     <button 
                       onClick={(e) => toggleDropdown(course.id, e)}
-                      className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:text-[#2A2B2A] dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700 transition-all relative z-10"
+                      className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 dark:text-stone-500 hover:text-[#2A2B2A] dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800 transition-all relative z-10"
                     >
                       <MoreVertical className="w-5 h-5" />
                     </button>
@@ -388,13 +382,13 @@ const Dashboard = () => {
                   <div className="z-10 mt-auto pt-6 border-t border-stone-300 dark:border-stone-700">
                     <div className="flex justify-between items-center text-sm">
                        <div className="flex flex-col">
-                         <span className="text-stone-400 text-xs font-normal uppercase">Next Exam</span>
+                         <span className="text-stone-400 dark:text-stone-500 text-xs font-normal uppercase">Next Exam</span>
                          <span className="font-normal text-[#2A2B2A] dark:text-white">{course.nextExam}</span>
                        </div>
                        <div className="h-8 w-[1px] bg-stone-300 dark:bg-stone-700"></div>
                        <div className="flex flex-col items-end">
-                         <span className="text-stone-400 text-xs font-normal uppercase">Progress</span>
-                         <span className="font-normal text-green-600 dark:text-green-400">On Track</span>
+                         <span className="text-stone-400 dark:text-stone-500 text-xs font-normal uppercase">Progress</span>
+                         <span className="font-normal text-green-600 dark:text-green-500">On Track</span>
                        </div>
                     </div>
                   </div>
@@ -438,7 +432,7 @@ const Dashboard = () => {
             </button>
             <button 
               onClick={(e) => handleDeleteClass(activeDropdown, e)}
-              className="w-full px-4 py-3 text-left hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 hover:text-red-600 flex items-center gap-2 font-medium transition-colors border-t border-stone-100 dark:border-stone-700"
+              className="w-full px-4 py-3 text-left hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 hover:text-red-600 dark:text-red-400 flex items-center gap-2 font-medium transition-colors border-t border-stone-100 dark:border-stone-700"
             >
               <Trash2 className="w-4 h-4" /> Remove Class
             </button>
@@ -449,4 +443,5 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default ClassworkDashboard;
+

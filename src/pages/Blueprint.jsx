@@ -88,22 +88,22 @@ const TopicCard = ({
     : unit.equations;
 
   return (
-    <div className={`bg-white rounded-xl border-2 transition-all duration-300 ${
+    <div className={`bg-white dark:bg-stone-800 rounded-xl border-2 transition-all duration-300 ${
       isComfortable 
-        ? 'border-green-200 bg-green-50/30' 
+        ? 'border-green-200 dark:border-green-900 bg-green-50/30 dark:bg-green-900/20' 
         : needsHelp 
-          ? 'border-orange-200 bg-orange-50/30' 
-          : 'border-stone-200 hover:border-stone-300'
+          ? 'border-orange-200 dark:border-orange-900 bg-orange-50/30 dark:bg-orange-900/20' 
+          : 'border-stone-200 dark:border-stone-700 hover:border-stone-300 dark:hover:border-stone-600'
     }`}>
       <div className="p-5">
         {/* Topic Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
-            <h4 className="font-semibold text-[#2A2B2A] text-lg leading-tight">
+            <h4 className="font-semibold text-[#2A2B2A] dark:text-white text-lg leading-tight">
               {unit.topic}
             </h4>
             {unit.description && (
-              <p className="text-stone-600 text-sm mt-1 leading-relaxed">
+              <p className="text-stone-600 dark:text-stone-400 text-sm mt-1 leading-relaxed">
                 {unit.description}
               </p>
             )}
@@ -130,16 +130,16 @@ const TopicCard = ({
 
         {/* Tutor Guidance - AI-generated explanation */}
         {unit.tutor_guidance && (
-          <div className="mt-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+          <div className="mt-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg border border-blue-100 dark:border-blue-800">
             <div className="flex items-start gap-3">
-              <div className="p-1.5 bg-blue-100 rounded-lg shrink-0">
-                <Sparkles className="w-4 h-4 text-blue-600" />
+              <div className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg shrink-0">
+                <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">
+                <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wide mb-1">
                   Your Tutor Says
                 </p>
-                <p className="text-stone-700 text-sm leading-relaxed">
+                <p className="text-stone-700 dark:text-stone-300 text-sm leading-relaxed">
                   {unit.tutor_guidance}
                 </p>
               </div>
@@ -960,7 +960,7 @@ const Blueprint = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8F4E3] flex items-center justify-center">
+      <div className="min-h-screen bg-[#F8F4E3] dark:bg-stone-900 flex items-center justify-center transition-colors duration-200">
         <Loader2 className="w-8 h-8 animate-spin text-[#FF4A1C]" />
       </div>
     );
@@ -968,9 +968,9 @@ const Blueprint = () => {
 
   if (!blueprint) {
     return (
-      <div className="min-h-screen bg-[#F8F4E3] flex items-center justify-center">
+      <div className="min-h-screen bg-[#F8F4E3] dark:bg-stone-900 flex items-center justify-center transition-colors duration-200">
         <div className="text-center">
-          <p className="text-stone-600 mb-4">Blueprint not found</p>
+          <p className="text-stone-600 dark:text-stone-400 mb-4">Blueprint not found</p>
           <button 
             onClick={() => navigate('/dashboard')}
             className="px-6 py-2 bg-[#FF4A1C] text-white rounded-xl hover:bg-black transition-colors"
@@ -992,7 +992,7 @@ const Blueprint = () => {
   const statusConfig = STATUS_CONFIG[generationStatus] || STATUS_CONFIG.pending;
 
   return (
-    <div className="min-h-screen bg-[#F8F4E3] pt-24 pb-12 px-6 lg:px-12">
+    <div className="min-h-screen bg-[#F8F4E3] dark:bg-stone-900 pt-24 pb-12 px-6 lg:px-12 transition-colors duration-200">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -1004,7 +1004,7 @@ const Blueprint = () => {
                 navigate('/dashboard');
               }
             }}
-            className="flex items-center gap-2 text-stone-600 hover:text-[#FF4A1C] transition-colors mb-6"
+            className="flex items-center gap-2 text-stone-600 dark:text-stone-400 hover:text-[#FF4A1C] dark:hover:text-[#FF4A1C] transition-colors mb-6"
           >
             <ArrowLeft className="w-5 h-5" />
             <span className="font-medium">
