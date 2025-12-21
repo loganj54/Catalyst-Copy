@@ -58,10 +58,13 @@ interface SearchRequest {
   topic: string;
   description?: string;
   learning_objective?: string;
+  problem_statement?: string; // The actual problem text from the homework
   problem_details?: {
     original_problem_id?: string;
     key_equations?: string[];
     common_mistakes?: string[];
+    given_variables?: Array<{ symbol: string; value: string; unit?: string }>;
+    unknown_variables?: Array<{ symbol: string; description: string }>;
   };
   problem_solving_queries: Array<{
     query: string;
@@ -101,7 +104,15 @@ interface ResourceResult {
 
 async function searchYouTubeForWalkthroughs(
   topic: string,
-  problemSolvingQueries: Array<{ query: string; query_type: string; priority: number }>
+  problemSolvingQueries: Array<{ query: string; query_type: string; priority: number }>,
+  description?: string,
+  problemStatement?: string,
+  problemDetails?: {
+    key_equations?: string[];
+    common_mistakes?: string[];
+    given_variables?: Array<{ symbol: string; value: string; unit?: string }>;
+    unknown_variables?: Array<{ symbol: string; description: string }>;
+  }
 ): Promise<ResourceResult[]> {
   if (!YOUTUBE_API_KEY) {
     console.log('[search-problem-walkthroughs] No YouTube API key available');
@@ -111,15 +122,75 @@ async function searchYouTubeForWalkthroughs(
   const results: ResourceResult[] = [];
   const seenVideoIds = new Set<string>();
 
-  // Use problem-solving queries (prioritize walkthrough and example types)
-  const queriesToTry = problemSolvingQueries
+  // Build search queries with priority:
+  // 1. Exact problem-based queries (if we have problem statement)
+  // 2. AI-generated problem_solving_queries
+  // 3. Enhanced queries with equations/context
+  
+  const queriesToTry: string[] = [];
+  
+  // PRIORITY 1: Create queries from the actual problem statement
+  if (problemStatement && problemStatement.length > 20) {
+    console.log('[search-problem-walkthroughs] Creating queries from problem statement');
+    
+    // Extract key numerical values and conditions from problem statement
+    const numbers = problemStatement.match(/\d+\.?\d*/g) || [];
+    const units = problemStatement.match(/\b(kg|m|s|N|J|W|°C|K|Pa|mol|A|V|Ω|Hz|rad)\b/g) || [];
+    
+    // Create a concise search string from the problem (first 100 chars + key numbers)
+    const problemSnippet = problemStatement
+      .substring(0, 100)
+      .replace(/\n/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    // Build queries that include problem specifics
+    if (problemDetails?.given_variables && problemDetails.given_variables.length > 0) {
+      const givenValues = problemDetails.given_variables
+        .slice(0, 2) // Use first 2 given values
+        .map(v => `${v.symbol}=${v.value}${v.unit || ''}`)
+        .join(' ');
+      
+      queriesToTry.push(`${topic} problem given ${givenValues} youtube`);
+    }
+    
+    if (problemDetails?.unknown_variables && problemDetails.unknown_variables.length > 0) {
+      const unknownDesc = problemDetails.unknown_variables[0].description;
+      queriesToTry.push(`find ${unknownDesc} ${topic} example youtube`);
+    }
+    
+    // Add a query with key numbers from the problem
+    if (numbers.length >= 2) {
+      const keyNumbers = numbers.slice(0, 3).join(' ');
+      queriesToTry.push(`${topic} problem ${keyNumbers} example solved youtube`);
+    }
+  }
+  
+  // PRIORITY 2: Use AI-generated problem_solving_queries
+  const aiQueries = problemSolvingQueries
     .sort((a, b) => a.priority - b.priority)
-    .slice(0, 3)
-    .map(q => q.query);
+    .slice(0, 2)
+    .map(q => {
+      let query = q.query;
+      
+      // Enhance with problem context if available
+      const hasProblemKeywords = /example|problem|solve|calculation|walkthrough|step by step|homework/i.test(query);
+      if (!hasProblemKeywords && problemDetails?.key_equations && problemDetails.key_equations.length > 0) {
+        const mainEquation = problemDetails.key_equations[0];
+        query = `${query} ${mainEquation} example problem`;
+      }
+      
+      return query;
+    });
+  
+  queriesToTry.push(...aiQueries);
+  
+  // Take top 5 queries to search
+  const finalQueries = queriesToTry.slice(0, 5);
 
-  console.log('[search-problem-walkthroughs] Searching YouTube with queries:', queriesToTry);
+  console.log('[search-problem-walkthroughs] Searching YouTube with queries:', finalQueries);
 
-  for (const query of queriesToTry) {
+  for (const query of finalQueries) {
     if (results.length >= MAX_SEARCH_RESULTS) break;
 
     try {
@@ -127,10 +198,11 @@ async function searchYouTubeForWalkthroughs(
       searchUrl.searchParams.set('part', 'snippet');
       searchUrl.searchParams.set('q', query);
       searchUrl.searchParams.set('type', 'video');
-      searchUrl.searchParams.set('maxResults', '5');
+      searchUrl.searchParams.set('maxResults', '8'); // Get more results to filter
       searchUrl.searchParams.set('relevanceLanguage', 'en');
       searchUrl.searchParams.set('safeSearch', 'strict');
       searchUrl.searchParams.set('videoCategoryId', '27'); // Education category
+      searchUrl.searchParams.set('order', 'relevance'); // Prioritize relevance over recency
       searchUrl.searchParams.set('key', YOUTUBE_API_KEY);
 
       console.log(`[search-problem-walkthroughs] YouTube search: "${query}"`);
@@ -154,28 +226,41 @@ async function searchYouTubeForWalkthroughs(
           const videoId = item.id?.videoId;
           if (!videoId || seenVideoIds.has(videoId)) continue;
           
-          seenVideoIds.add(videoId);
-          
           const snippet = item.snippet || {};
+          const title = snippet.title || 'YouTube Video';
+          const description = snippet.description || '';
+          
+          // Filter: Prioritize videos that look like problem walkthroughs
+          // Check title and description for problem-solving indicators
+          const combinedText = `${title} ${description}`.toLowerCase();
+          const problemSolvingScore = calculateProblemSolvingScore(combinedText);
+          
+          // Only include videos with a decent problem-solving score (> 0.3)
+          if (problemSolvingScore < 0.3) {
+            console.log(`[search-problem-walkthroughs] Skipping low-score video (${problemSolvingScore.toFixed(2)}): ${title}`);
+            continue;
+          }
+          
+          seenVideoIds.add(videoId);
           
           results.push({
             url: `https://www.youtube.com/watch?v=${videoId}`,
-            title: snippet.title || 'YouTube Video',
-            description: snippet.description?.substring(0, 500) || '',
+            title: title,
+            description: description.substring(0, 500),
             platform: 'YouTube',
             channel_name: snippet.channelTitle || null,
             channel_url: snippet.channelId ? `https://www.youtube.com/channel/${snippet.channelId}` : null,
             thumbnail_url: snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
             duration_seconds: null,
-            topic_signature: `Problem walkthrough video about ${topic}: ${snippet.title}. ${snippet.description?.substring(0, 200) || ''}`,
+            topic_signature: `Problem walkthrough video about ${topic}: ${title}. ${description.substring(0, 200)}`,
             concepts_covered: [topic],
             difficulty_level: 'intermediate',
-            quality_score: 0.8,
+            quality_score: problemSolvingScore,
             from_cache: false,
             query_used: query,
           });
           
-          console.log(`[search-problem-walkthroughs] Added video: ${snippet.title}`);
+          console.log(`[search-problem-walkthroughs] Added video (score: ${problemSolvingScore.toFixed(2)}): ${title}`);
         }
       }
     } catch (error) {
@@ -183,8 +268,83 @@ async function searchYouTubeForWalkthroughs(
     }
   }
 
+  // Sort by quality score (problem-solving relevance)
+  results.sort((a, b) => b.quality_score - a.quality_score);
+
   console.log(`[search-problem-walkthroughs] Found ${results.length} walkthrough videos`);
   return results;
+}
+
+/**
+ * Calculate a score (0-1) indicating how likely a video is a problem walkthrough
+ * based on keywords in title and description
+ */
+function calculateProblemSolvingScore(text: string): number {
+  let score = 0.0;
+  
+  // Strong problem-solving indicators (+0.3 each)
+  const strongKeywords = [
+    'example problem',
+    'worked example',
+    'sample problem',
+    'practice problem',
+    'homework problem',
+    'step by step',
+    'walkthrough',
+    'how to solve',
+    'solution',
+    'solving'
+  ];
+  
+  // Medium indicators (+0.2 each)
+  const mediumKeywords = [
+    'example',
+    'problem',
+    'calculation',
+    'calculate',
+    'solve',
+    'find the',
+    'determine',
+    'given'
+  ];
+  
+  // Negative indicators (-0.3 each) - theory-only videos
+  const negativeKeywords = [
+    'introduction to',
+    'basics of',
+    'what is',
+    'definition',
+    'theory',
+    'explained',
+    'understanding',
+    'concept'
+  ];
+  
+  // Check for strong keywords
+  for (const keyword of strongKeywords) {
+    if (text.includes(keyword)) {
+      score += 0.3;
+    }
+  }
+  
+  // Check for medium keywords (max 2 to avoid over-counting)
+  let mediumCount = 0;
+  for (const keyword of mediumKeywords) {
+    if (text.includes(keyword) && mediumCount < 2) {
+      score += 0.2;
+      mediumCount++;
+    }
+  }
+  
+  // Check for negative keywords
+  for (const keyword of negativeKeywords) {
+    if (text.includes(keyword)) {
+      score -= 0.3;
+    }
+  }
+  
+  // Clamp score between 0 and 1
+  return Math.max(0.0, Math.min(1.0, score));
 }
 
 // ============================================================================
@@ -207,11 +367,12 @@ serve(async (req) => {
     }
 
     const body: SearchRequest = await req.json();
-    const { blueprint_id, unit_id, topic, description, learning_objective, problem_solving_queries, problem_details } = body;
+    const { blueprint_id, unit_id, topic, description, learning_objective, problem_statement, problem_solving_queries, problem_details } = body;
 
     console.log(`[search-problem-walkthroughs] Starting search for unit: ${unit_id}`);
     console.log(`[search-problem-walkthroughs] Topic: ${topic}`);
     console.log(`[search-problem-walkthroughs] Problem solving queries: ${problem_solving_queries?.length || 0}`);
+    console.log(`[search-problem-walkthroughs] Has problem statement: ${!!problem_statement}`);
 
     if (!problem_solving_queries || problem_solving_queries.length === 0) {
       throw new Error('No problem_solving_queries provided. This endpoint requires problem-solving queries.');
@@ -227,7 +388,13 @@ serve(async (req) => {
 
     // Search YouTube for problem walkthrough videos
     console.log('[search-problem-walkthroughs] Searching YouTube for walkthrough videos...');
-    const resources = await searchYouTubeForWalkthroughs(topic, problem_solving_queries);
+    const resources = await searchYouTubeForWalkthroughs(
+      topic, 
+      problem_solving_queries,
+      description,
+      problem_statement,
+      problem_details
+    );
 
     if (resources.length === 0) {
       console.log('[search-problem-walkthroughs] No walkthrough videos found');

@@ -243,8 +243,8 @@ For a problem unit on "Wien's Displacement Law":
 UNIT TYPE - REQUIRED FOR EVERY LEARNING UNIT:
 Every learning unit MUST have a "unit_type" field set to one of:
 - "prerequisite": Foundational knowledge needed before main content (in prerequisites_section)
-- "problem": A specific problem from the document that needs solving (in content_sections with section_type: "problem")
-- "topic": A general concept or topic to learn (in content_sections with section_type: "topic" or "chapter")
+- "topic": A concept or topic to learn (in content_sections for both problems and topics)
+- "walkthrough": A dedicated unit for problem walkthrough videos (ONLY in problem sections, always appears LAST)
 
 PROBLEM SOLVING QUERIES - REQUIRED FOR PROBLEM UNITS:
 For learning units with unit_type: "problem", you MUST generate TWO sets of queries:
@@ -255,16 +255,38 @@ For learning units with unit_type: "problem", you MUST generate TWO sets of quer
    - Example: "blackbody radiation basics youtube"
 
 2. "problem_solving_queries": 3 queries for finding PROBLEM WALKTHROUGH videos
-   - Example: "how to solve Wien's law problems step by step youtube"
-   - Example: "Wien's displacement law example problems solved youtube"
-   - Example: "blackbody radiation wavelength calculation walkthrough youtube"
+   - These queries will be used in a SEPARATE "Worked Examples" unit that appears LAST
+   - Must be EXTREMELY specific to find videos solving nearly identical problems
+   - Example: "Wien's displacement law calculate wavelength from temperature example youtube"
+   - Example: "Stefan-Boltzmann law homework problem step by step youtube"
+   - Example: "blackbody radiation emissive power calculation example youtube"
 
-The problem_solving_queries should specifically target videos that DEMONSTRATE solving similar problems, not just explaining theory. Use keywords like:
-- "how to solve [concept] problems"
-- "[equation] example problems solved"
-- "[concept] problem walkthrough"
-- "[concept] calculation step by step"
-- "solving [concept] problems youtube"
+CRITICAL: problem_solving_queries must be MORE SPECIFIC than search_queries:
+- Include the exact equation name: "Stefan-Boltzmann law example problem solved"
+- Include the problem type/action: "calculate emissive power given temperature youtube"
+- Target homework/textbook problems: "blackbody radiation homework problem walkthrough"
+- Be specific about what to find: "find wavelength from temperature Wien's law example"
+- Include numerical/calculation keywords: "calculation", "solve for", "find the value"
+- NOT generic explanations: "Wien's law explained" belongs in search_queries
+
+GOOD problem_solving_queries (EXTREMELY specific, action-oriented):
+✓ "Wien's displacement law calculate wavelength from temperature example youtube"
+✓ "Stefan-Boltzmann law homework problem step by step youtube"
+✓ "blackbody radiation emissive power calculation example solved youtube"
+✓ "solve for maximum wavelength using Wien's law example problem youtube"
+✓ "heat transfer rate calculation Stefan-Boltzmann example youtube"
+
+BAD problem_solving_queries (too generic - these belong in search_queries):
+✗ "Wien's law explained youtube" (theory explanation, not problem-solving)
+✗ "blackbody radiation youtube" (no indication of problem-solving)
+✗ "heat transfer tutorial youtube" (too broad, not problem-specific)
+✗ "Wien's displacement law basics youtube" (basics, not problem walkthrough)
+
+The problem_solving_queries should specifically target videos that DEMONSTRATE solving similar problems with:
+- Step-by-step numerical calculations
+- Same equations being applied to similar scenarios
+- Worked examples with given values and unknowns
+- "Example problem", "sample problem", "homework problem", "textbook problem" in queries
 
 SEARCH QUERY STRATEGY - YOUTUBE VIDEOS ONLY:
 Generate exactly 3 queries per topic. EVERY query should be designed to find YouTube videos.
@@ -353,17 +375,18 @@ OUTPUT STRUCTURE:
       "description": "What this section covers",
       "concepts": ["List of concepts covered in this section"],
       "learning_units": [
+        // For PROBLEM sections: Multiple units per section
+        // 1. Concept units (unit_type: "topic") - one per concept
         {
           "unit_id": "section_1_unit_1",
-          "unit_type": "problem" | "topic",
-          "topic": "Specific topic within this section",
+          "unit_type": "topic",
+          "topic": "Specific concept name (e.g., 'Wien's Displacement Law')",
           "learning_objective": "What the student will be able to do after this unit",
           "tutor_guidance": "3-5 sentences explaining WHY this topic matters, what the student will learn, and the recommended approach. Write as a friendly tutor speaking to the student. DO NOT write equations inline - reference them by name/index instead.",
           "priority": "essential" | "recommended" | "supplementary",
           "estimated_time_minutes": number,
           "equations": [
             // REQUIRED when this unit focuses on learning/applying specific equations
-            // Include equations that are central to this learning unit
             {
               "index": 1,
               "name": "Equation name (e.g., 'Stefan-Boltzmann Law')",
@@ -374,18 +397,29 @@ OUTPUT STRUCTURE:
           ],
           "search_queries": [
             {
-              "query": "The search query string",
-              "query_type": "introduction" | "concept" | "tutorial" | "example" | "practice",
+              "query": "The search query string for CONCEPT learning",
+              "query_type": "introduction" | "concept" | "tutorial" | "example",
               "target_content": "Description of expected search results",
               "priority": 1-5
             }
-          ],
-          "problem_solving_queries": [
-            // ONLY for unit_type: "problem" - queries to find problem walkthrough videos
+          ]
+        },
+        // 2. Walkthrough unit (unit_type: "walkthrough") - ALWAYS LAST in problem sections
+        {
+          "unit_id": "{section_id}_walkthroughs",
+          "unit_type": "walkthrough",
+          "topic": "Worked Examples",
+          "description": "Watch step-by-step solutions to problems similar to this one",
+          "learning_objective": "See how to apply these concepts to solve actual problems",
+          "tutor_guidance": "Now that you understand the concepts, watch these videos to see them applied in practice. These walkthroughs show step-by-step problem-solving with similar setups, equations, and numerical calculations. Pay attention to the problem-solving approach and how each step builds on the previous one.",
+          "priority": "essential",
+          "estimated_time_minutes": number,
+          "search_queries": [
+            // These are the problem_solving_queries - EXTREMELY specific
             {
-              "query": "The search query string targeting problem-solving videos",
+              "query": "Search query targeting PROBLEM WALKTHROUGH videos",
               "query_type": "walkthrough" | "example" | "practice",
-              "target_content": "Description of expected problem-solving videos",
+              "target_content": "Videos showing step-by-step solutions to similar problems",
               "priority": 1-5
             }
           ]
@@ -452,18 +486,75 @@ INSTRUCTIONS:
 4. Create CONTENT SECTIONS organized by the document's sections
    - Preserve the section_id naming from the input ("Problem 1" vs "Topic 1")
    - Set section_type to match the input's section_type for each section
-   - Each section should have learning units covering the key concepts
-   - Set unit_type: "problem" ONLY for actual homework problems the student must solve
-   - Set unit_type: "topic" for educational/instructional content
-   - Generate exactly 3 search queries per learning unit with DIFFERENT types
+   
+   CRITICAL FOR PROBLEM SECTIONS (section_type: "problem"):
+   - Break the problem into SEPARATE learning units for EACH concept
+   - Each concept becomes its own learning unit with unit_type: "topic"
+   - Example: If Problem 1 involves Wien's Law and Stefan-Boltzmann Law:
+     * Unit 1: "Wien's Displacement Law" (unit_type: "topic", has search_queries)
+     * Unit 2: "Stefan-Boltzmann Law" (unit_type: "topic", has search_queries)
+     * Unit 3: "Worked Examples" (unit_type: "walkthrough", has problem_solving_queries)
+   
+   - ALWAYS add a FINAL "Worked Examples" unit at the end of problem sections:
+     * unit_id: "{section_id}_walkthroughs" (e.g., "problem_1_walkthroughs")
+     * unit_type: "walkthrough"
+     * topic: "Worked Examples"
+     * description: "Watch step-by-step solutions to problems similar to this one"
+     * tutor_guidance: Explain that this shows actual problem-solving in action
+     * search_queries: Use the problem_solving_queries here (NOT in the concept units!)
+   
+   FOR TOPIC SECTIONS (section_type: "topic" or "chapter"):
+   - Create learning units for concepts with unit_type: "topic"
+   - Generate search_queries for each (NO problem_solving_queries needed)
+   - Do NOT add a "Worked Examples" unit (only for problems)
+   
    - REQUIRED: Include tutor_guidance for each learning unit
    
-5. PROBLEM UNITS REQUIRE TWO SETS OF QUERIES (only for actual homework problems):
-   - For unit_type: "problem", generate BOTH:
-     a) search_queries: 3 queries for learning the concepts/theory
-     b) problem_solving_queries: 3 queries for finding problem walkthrough videos
-   - problem_solving_queries should target videos that DEMONSTRATE solving similar problems
-   - Use keywords like "how to solve", "example problems solved", "walkthrough", "calculation step by step"
+5. STRUCTURE FOR PROBLEM SECTIONS - BREAK INTO CONCEPT UNITS + WALKTHROUGH:
+   For problem sections, you must create MULTIPLE learning units:
+   
+   CONCEPT UNITS (one per concept involved in the problem):
+   - unit_type: "topic" (NOT "problem" - these teach concepts)
+   - Each gets its own search_queries (3 queries for theory/explanations)
+   - Focus on understanding the concept itself
+   - Examples: "Wien's Displacement Law", "Stefan-Boltzmann Law", "Heat Transfer Fundamentals"
+   
+   FINAL WALKTHROUGH UNIT (always add this last):
+   - unit_id: "{section_id}_walkthroughs" 
+   - unit_type: "walkthrough"
+   - topic: "Worked Examples"
+   - description: Brief explanation that this shows problem-solving in action
+   - tutor_guidance: Explain the value of watching similar problems being solved
+   - search_queries: Contains the 3 problem_solving_queries (NOT search_queries!)
+   - This unit finds videos solving SIMILAR problems, not explaining theory
+   
+   EXAMPLE STRUCTURE for "Problem 1: Blackbody Radiation":
+   
+   {
+     "section_id": "problem_1",
+     "section_type": "problem",
+     "title": "Problem 1: Blackbody Radiation and Wien's Law",
+     "learning_units": [
+       {
+         "unit_id": "problem_1_unit_1",
+         "unit_type": "topic",
+         "topic": "Blackbody Radiation Fundamentals",
+         "search_queries": [ /* 3 concept queries */ ]
+       },
+       {
+         "unit_id": "problem_1_unit_2",
+         "unit_type": "topic",
+         "topic": "Wien's Displacement Law",
+         "search_queries": [ /* 3 concept queries */ ]
+       },
+       {
+         "unit_id": "problem_1_walkthroughs",
+         "unit_type": "walkthrough",
+         "topic": "Worked Examples",
+         "search_queries": [ /* 3 problem_solving_queries */ ]
+       }
+     ]
+   }
    
 6. TOPIC UNITS (for lectures/instructional content):
    - For unit_type: "topic", focus on conceptual understanding
@@ -471,30 +562,30 @@ INSTRUCTIONS:
    - Do NOT generate problem_solving_queries for topic units (there are no problems to solve)
    - Focus on "explained", "introduction", "how it works" style queries
    
-6. TUTOR GUIDANCE IS MANDATORY for every learning unit:
+7. TUTOR GUIDANCE IS MANDATORY for every learning unit:
    - Write 3-5 sentences as a friendly tutor speaking to the student
    - Explain WHY this topic matters for their learning goals
    - Describe the key concepts they will encounter
    - Outline the recommended approach to learning the material
    - This prepares the student BEFORE they see any resources
    
-7. DIVERSITY IS MANDATORY for search queries:
+8. DIVERSITY IS MANDATORY for search queries:
    - Each topic gets 3 queries: one introduction, one tutorial, one example
    - Do NOT use the same query_type multiple times per topic!
    - This gives students a complete A-Z learning path, not repetitive resources
 
-8. YOUTUBE VIDEOS ONLY - THIS IS CRITICAL:
+9. YOUTUBE VIDEOS ONLY - THIS IS CRITICAL:
    - EVERY query MUST include the word "youtube" to target YouTube videos
    - We do NOT want Wikipedia articles, blog posts, or text resources
    - 100% of resources should be YouTube videos
    - NO exceptions - every result must be a YouTube video
 
-9. Be CREATIVE and SPECIFIC with search queries:
+10. Be CREATIVE and SPECIFIC with search queries:
    - Don't just repeat the topic name - craft queries that will find great YouTube content
    - Always include "youtube" and words like "tutorial", "explained", "step by step"
    - Find the BEST video for the job - any channel, big or small, is valid
 
-10. EQUATIONS - INCLUDE WHEN APPLICABLE:
+11. EQUATIONS - INCLUDE WHEN APPLICABLE:
    - When a learning unit focuses on teaching or applying specific equations, include an "equations" array
    - Each equation MUST have: index, name, latex, variables, when_to_use
    - Use proper LaTeX notation (e.g., "E = \\sigma T^4" for Stefan-Boltzmann Law)

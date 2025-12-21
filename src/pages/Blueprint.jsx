@@ -184,6 +184,7 @@ const TopicListItem = ({
 }) => {
   const hasResources = topicResources && topicResources.length > 0;
   const isComfortable = topicResponse?.response === 'comfortable';
+  const isWalkthrough = unit.unit_type === 'walkthrough';
   
   // Use equations from database if available, fallback to structure data
   const equations = topicEquations && topicEquations.length > 0 
@@ -191,7 +192,7 @@ const TopicListItem = ({
     : unit.equations;
 
   return (
-    <div className={`border-b border-stone-100 dark:border-stone-700 last:border-0 transition-colors ${isExpanded ? 'bg-stone-50/50 dark:bg-stone-800/50' : 'hover:bg-stone-50/30 dark:hover:bg-stone-800/30'}`}>
+    <div className={`border-b border-stone-100 dark:border-stone-700 last:border-0 transition-colors ${isWalkthrough ? 'bg-gradient-to-r from-purple-50/30 to-transparent dark:from-purple-900/10' : ''} ${isExpanded ? 'bg-stone-50/50 dark:bg-stone-800/50' : 'hover:bg-stone-50/30 dark:hover:bg-stone-800/30'}`}>
       <div 
         onClick={onToggle}
         className="w-full text-left py-4 px-4 flex items-start gap-3 cursor-pointer group select-none"
@@ -202,10 +203,18 @@ const TopicListItem = ({
         
         <div className="flex-1 min-w-0">
            <div className="flex items-center gap-3">
-              <h4 className="font-semibold text-lg text-[#2A2B2A] dark:text-stone-100">
+              {isWalkthrough && (
+                <Zap className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0" />
+              )}
+              <h4 className={`font-semibold text-lg ${isWalkthrough ? 'text-purple-900 dark:text-purple-300' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
                 {unit.topic}
               </h4>
-              {isComfortable && (
+              {isWalkthrough && (
+                <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs rounded-full font-medium">
+                  Problem Solving
+                </span>
+              )}
+              {isComfortable && !isWalkthrough && (
                 <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full flex items-center gap-1">
                   <Check className="w-3 h-3" />
                   Completed
@@ -227,14 +236,18 @@ const TopicListItem = ({
           
           {/* Tutor Guidance */}
           {unit.tutor_guidance && (
-            <div className="mb-6 p-4 bg-stone-50 dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-700">
+            <div className={`mb-6 p-4 rounded-lg border ${isWalkthrough ? 'bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800' : 'bg-stone-50 dark:bg-stone-900 border-stone-200 dark:border-stone-700'}`}>
               <div className="flex items-start gap-3">
-                <div className="p-1.5 bg-stone-200 dark:bg-stone-800 rounded-lg shrink-0">
-                  <Sparkles className="w-4 h-4 text-stone-600 dark:text-stone-400" />
+                <div className={`p-1.5 rounded-lg shrink-0 ${isWalkthrough ? 'bg-purple-200 dark:bg-purple-800' : 'bg-stone-200 dark:bg-stone-800'}`}>
+                  {isWalkthrough ? (
+                    <Zap className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 text-stone-600 dark:text-stone-400" />
+                  )}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-stone-700 dark:text-stone-300 uppercase tracking-wide mb-1">
-                    Core overview
+                  <p className={`text-sm font-semibold uppercase tracking-wide mb-1 ${isWalkthrough ? 'text-purple-700 dark:text-purple-300' : 'text-stone-700 dark:text-stone-300'}`}>
+                    {isWalkthrough ? 'Problem-Solving Approach' : 'Core overview'}
                   </p>
                   <p className="text-stone-700 dark:text-stone-300 text-m leading-relaxed">
                     {unit.tutor_guidance}
@@ -260,8 +273,11 @@ const TopicListItem = ({
                     onGenerateBlueprint(unit);
                   }}
                   disabled={isSearching}
-                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-stone-800 text-[#FF4A1C] border border-[#FF4A1C] rounded-lg 
-                             hover:bg-[#FF4A1C]/5 dark:hover:bg-[#FF4A1C]/10 transition-colors font-medium text-sm disabled:opacity-50"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors ${
+                    isWalkthrough
+                      ? 'bg-white dark:bg-stone-800 text-purple-600 dark:text-purple-400 border border-purple-600 dark:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10'
+                      : 'bg-white dark:bg-stone-800 text-[#FF4A1C] border border-[#FF4A1C] hover:bg-[#FF4A1C]/5 dark:hover:bg-[#FF4A1C]/10'
+                  }`}
                 >
                   {isSearching ? (
                     <>
@@ -270,32 +286,34 @@ const TopicListItem = ({
                     </>
                   ) : (
                     <>
-                      <BookOpen className="w-4 h-4" />
-                      Find Resources
+                      {isWalkthrough ? <Play className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
+                      {isWalkthrough ? 'Find Worked Examples' : 'Find Resources'}
                     </>
                   )}
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onComfortSelect(unit.unit_id, 'comfortable');
-                  }}
-                  disabled={isSearching}
-                  className="flex items-center gap-2 px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg 
-                             hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors font-medium text-sm"
-                >
-                  <Check className="w-4 h-4" />
-                  I know this
-                </button>
+                {!isWalkthrough && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onComfortSelect(unit.unit_id, 'comfortable');
+                    }}
+                    disabled={isSearching}
+                    className="flex items-center gap-2 px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg 
+                               hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors font-medium text-sm"
+                  >
+                    <Check className="w-4 h-4" />
+                    I know this
+                  </button>
+                )}
             </div>
           )}
 
           {/* Resources Table */}
           {hasResources && (
             <div className="mt-4">
-              <h5 className="text-sm font-semibold text-stone-700 dark:text-stone-300 mb-2 flex items-center gap-2">
-                <Play className="w-4 h-4 text-[#FF4A1C]" />
-                Recommended Resources
+              <h5 className={`text-sm font-semibold mb-2 flex items-center gap-2 ${isWalkthrough ? 'text-purple-700 dark:text-purple-300' : 'text-stone-700 dark:text-stone-300'}`}>
+                <Play className={`w-4 h-4 ${isWalkthrough ? 'text-purple-600 dark:text-purple-400' : 'text-[#FF4A1C]'}`} />
+                {isWalkthrough ? 'Worked Example Videos' : 'Recommended Resources'}
               </h5>
               <ResourceTable resources={topicResources} />
             </div>
@@ -339,6 +357,7 @@ const Blueprint = () => {
   // Debug State
   const [showDebug, setShowDebug] = useState(false);
   const [documentAnalysis, setDocumentAnalysis] = useState(null);
+  const [structureGenerationResult, setStructureGenerationResult] = useState(null);
 
   // Fetch blueprint data
   const fetchBlueprint = useCallback(async () => {
@@ -387,6 +406,70 @@ const Blueprint = () => {
       
       if (structureData) {
         setLearningStructure(structureData);
+        // Also set structure generation result for debug panel
+        setStructureGenerationResult({
+          success: true,
+          structure_id: structureData.id,
+          structure: structureData.structure,
+          metrics: {
+            total_prerequisites: structureData.total_prerequisites,
+            total_sections: structureData.total_sections,
+            total_learning_units: structureData.total_learning_units,
+            total_search_queries: structureData.total_search_queries,
+          },
+          equations: {
+            cached: 0, // We don't store this in the DB
+            new: 0,
+            total: 0,
+          },
+          created_at: structureData.created_at,
+        });
+      }
+
+      // Load Document Analysis (for debug panel)
+      // First try to find by document_id (multiple blueprints can share same document analysis)
+      // Then fall back to blueprint_id (legacy/backwards compatibility)
+      let analysisData = null;
+      
+      if (data.document_id) {
+        console.log('[Blueprint] Looking for document analysis by document_id:', data.document_id);
+        const { data: docAnalysis } = await supabase
+          .from('document_analyses')
+          .select('*')
+          .eq('document_id', data.document_id)
+          .maybeSingle();
+        
+        if (docAnalysis) {
+          console.log('[Blueprint] Found document analysis by document_id:', docAnalysis.id);
+          analysisData = docAnalysis;
+        }
+      }
+      
+      // Fallback: try by blueprint_id
+      if (!analysisData) {
+        console.log('[Blueprint] Looking for document analysis by blueprint_id:', id);
+        const { data: bpAnalysis } = await supabase
+          .from('document_analyses')
+          .select('*')
+          .eq('blueprint_id', id)
+          .maybeSingle();
+        
+        if (bpAnalysis) {
+          console.log('[Blueprint] Found document analysis by blueprint_id:', bpAnalysis.id);
+          analysisData = bpAnalysis;
+        }
+      }
+      
+      if (analysisData) {
+        setDocumentAnalysis({
+          success: true,
+          analysis_id: analysisData.id,
+          document_type: analysisData.raw_analysis?.document_type,
+          subject_area: analysisData.raw_analysis?.subject_area,
+          raw_analysis: analysisData.raw_analysis,
+          analyzed_at: analysisData.created_at,
+          source: analysisData.document_id ? 'document_id' : 'blueprint_id',
+        });
       }
 
       // Load Topic Responses
@@ -510,16 +593,46 @@ const Blueprint = () => {
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const isProblem = unit.unit_type === 'problem';
-      const endpoint = isProblem ? 'search-problem-walkthroughs' : 'search-resources';
       
-      const requestBody = isProblem ? {
+      // Determine endpoint based on unit_type
+      // walkthrough units should use search-problem-walkthroughs endpoint
+      const isWalkthrough = unit.unit_type === 'walkthrough';
+      const endpoint = isWalkthrough ? 'search-problem-walkthroughs' : 'search-resources';
+      
+      // For walkthrough units, try to get the problem statement from the document analysis
+      let problemStatement = null;
+      if (isWalkthrough && documentAnalysis?.raw_analysis) {
+        // Find the problem statement from the document analysis
+        // The unit should be part of a content_section, so we need to find the matching section
+        const sections = documentAnalysis.raw_analysis.sections || [];
+        
+        // Try to find a matching section by looking at the current active section
+        const currentSection = structure?.content_sections?.find(s => 
+          s.learning_units?.some(u => u.unit_id === unitId)
+        );
+        
+        if (currentSection && currentSection.section_id) {
+          // Find the corresponding section in the raw analysis
+          const analysisSection = sections.find(s => 
+            s.section_id === currentSection.section_id || 
+            s.section_id === currentSection.section_id.replace('_walkthroughs', '')
+          );
+          
+          if (analysisSection && analysisSection.problem_statement) {
+            problemStatement = analysisSection.problem_statement;
+            console.log('[Blueprint] Found problem statement for walkthrough unit:', problemStatement.substring(0, 100));
+          }
+        }
+      }
+      
+      const requestBody = isWalkthrough ? {
         blueprint_id: id,
         unit_id: unitId,
         topic: unit.topic,
         description: unit.description,
         learning_objective: unit.learning_objective,
-        problem_solving_queries: unit.problem_solving_queries || [],
+        problem_statement: problemStatement, // Include the actual problem text
+        problem_solving_queries: unit.search_queries || [], // For walkthrough units, search_queries contain the problem-solving queries
         problem_details: unit.problem_details || {},
       } : {
         blueprint_id: id,
@@ -530,7 +643,7 @@ const Blueprint = () => {
         search_queries: unit.search_queries || [],
       };
       
-      console.log(`[Blueprint] Fetching resources for unit ${unitId}...`);
+      console.log(`[Blueprint] Fetching resources for unit ${unitId} (type: ${unit.unit_type})...`);
       
       const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
         method: 'POST',
@@ -623,6 +736,7 @@ const Blueprint = () => {
       });
       let data = await response.json();
       if (!data.success) throw new Error(data.error);
+      setDocumentAnalysis(data);
 
       // Generate Structure
       setGenerationStatus('generating');
@@ -633,7 +747,71 @@ const Blueprint = () => {
       });
       data = await response.json();
       if (!data.success) throw new Error(data.error);
+      setStructureGenerationResult(data);
 
+      await fetchBlueprint();
+    } catch (error) {
+      setGenerationError(error.message);
+      setGenerationStatus('failed');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const runAnalyzeStep = async () => {
+    if (!session?.access_token) return;
+    
+    // If we already have an analysis loaded, just update the status
+    if (documentAnalysis) {
+      console.log('[Blueprint] Analysis already exists, updating status to analyzed');
+      setGenerationStatus('analyzed');
+      return;
+    }
+    
+    setGenerating(true);
+    setGenerationError(null);
+    setGenerationStatus('analyzing');
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/analyze-document`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blueprint_id: id }),
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error);
+      
+      setDocumentAnalysis(data);
+      setGenerationStatus('analyzed');
+      await fetchBlueprint();
+    } catch (error) {
+      setGenerationError(error.message);
+      setGenerationStatus('failed');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const runStructureStep = async () => {
+    if (!session?.access_token) return;
+    setGenerating(true);
+    setGenerationError(null);
+    setGenerationStatus('generating');
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/generate-structure`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blueprint_id: id }),
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error);
+      
+      setStructureGenerationResult(data);
       await fetchBlueprint();
     } catch (error) {
       setGenerationError(error.message);
@@ -742,10 +920,19 @@ const Blueprint = () => {
                 {blueprint.class_id ? `Back to ${blueprint.class?.name || 'Class'}` : 'Back to Dashboard'}
               </button>
 
-              <h1 className="text-4xl text-[#2A2B2A] mb-2 dark:text-stone-100">
-                {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
-              </h1>
-              <p className="text-stone-500 text-lg dark:text-stone-400 ">
+              <div className="flex items-center gap-3">
+                <h1 className="text-4xl text-[#2A2B2A] dark:text-stone-100">
+                  {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
+                </h1>
+                <button
+                  onClick={() => setShowDebug(!showDebug)}
+                  className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                  title="Toggle Debug Panel"
+                >
+                  <Bug className={`w-5 h-5 ${showDebug ? 'text-[#FF4A1C]' : 'text-stone-400'}`} />
+                </button>
+              </div>
+              <p className="text-stone-500 text-lg dark:text-stone-400 mt-2">
                 {blueprint.class?.name ? `${blueprint.class.name} ` : ''}
               </p>
             </div>
@@ -778,6 +965,195 @@ const Blueprint = () => {
             )}
           </div>
 
+          {/* Debug Panel */}
+          {showDebug && (
+            <div className="bg-stone-900 text-stone-100 rounded-xl p-6 shadow-lg mb-8 font-mono text-xs overflow-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-[#FF4A1C]">🐛 Debug Panel</h3>
+                <button
+                  onClick={() => setShowDebug(false)}
+                  className="text-stone-400 hover:text-stone-200 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                {/* Document Analysis Result */}
+                {documentAnalysis && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">📄 Document Analysis Result</h4>
+                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto max-h-96">
+                      {JSON.stringify(documentAnalysis, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Structure Generation Result */}
+                {structureGenerationResult && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">🏗️ Structure Generation Result</h4>
+                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto max-h-96">
+                      {JSON.stringify(structureGenerationResult, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Blueprint Info */}
+                <div>
+                  <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">📋 Blueprint Info</h4>
+                  <pre className="bg-stone-950 p-3 rounded overflow-x-auto">
+                    {JSON.stringify({
+                      id: blueprint.id,
+                      title: blueprint.title,
+                      class_id: blueprint.class_id,
+                      document_id: blueprint.document_id,
+                      generation_status: blueprint.generation_status,
+                      created_at: blueprint.created_at,
+                    }, null, 2)}
+                  </pre>
+                </div>
+
+                {/* Structure Info */}
+                {learningStructure && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">🏗️ Learning Structure</h4>
+                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto max-h-96">
+                      {JSON.stringify({
+                        structure_id: learningStructure.id,
+                        total_prerequisites: learningStructure.total_prerequisites,
+                        total_sections: learningStructure.total_sections,
+                        total_learning_units: learningStructure.total_learning_units,
+                        total_search_queries: learningStructure.total_search_queries,
+                        model_used: learningStructure.model_used,
+                        prerequisites: structure?.prerequisites_section?.learning_units?.map(u => ({
+                          unit_id: u.unit_id,
+                          unit_type: u.unit_type,
+                          topic: u.topic,
+                          search_queries_count: u.search_queries?.length || 0,
+                        })),
+                        content_sections: structure?.content_sections?.map(s => ({
+                          section_id: s.section_id,
+                          section_type: s.section_type,
+                          title: s.title,
+                          learning_units: s.learning_units?.map(u => ({
+                            unit_id: u.unit_id,
+                            unit_type: u.unit_type,
+                            topic: u.topic,
+                            search_queries_count: u.search_queries?.length || 0,
+                            has_equations: (u.equations?.length || 0) > 0,
+                          })),
+                        })),
+                      }, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Active Tab & Section */}
+                {structure && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">📑 Active Section</h4>
+                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto">
+                      {JSON.stringify({
+                        activeTab: activeTab,
+                        currentSectionTitle: currentSectionTitle,
+                        currentUnitsCount: currentUnits.length,
+                        currentUnits: currentUnits.map(u => ({
+                          unit_id: u.unit_id,
+                          unit_type: u.unit_type,
+                          topic: u.topic,
+                          has_resources: topicResources[u.unit_id]?.length || 0,
+                          is_searching: searchingTopics.has(u.unit_id),
+                          is_expanded: expandedTopics[u.unit_id] || false,
+                        })),
+                      }, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Topic Resources */}
+                {Object.keys(topicResources).length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">📚 Resources Loaded</h4>
+                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto max-h-96">
+                      {JSON.stringify(
+                        Object.entries(topicResources).map(([unitId, resources]) => ({
+                          unit_id: unitId,
+                          resource_count: resources.length,
+                          resources: resources.map(r => ({
+                            title: r.title,
+                            url: r.url,
+                            platform: r.platform,
+                            channel: r.channel_name,
+                            from_cache: r.from_cache,
+                            quality_score: r.quality_score,
+                            has_explanation: !!r.resource_explanation,
+                          })),
+                        })),
+                        null,
+                        2
+                      )}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Topic Equations */}
+                {Object.keys(topicEquations).length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">🧮 Equations Loaded</h4>
+                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto">
+                      {JSON.stringify(
+                        Object.entries(topicEquations).map(([unitId, equations]) => ({
+                          unit_id: unitId,
+                          equations_count: equations.length,
+                          equations: equations.map(eq => ({
+                            name: eq.name,
+                            latex: eq.latex,
+                          })),
+                        })),
+                        null,
+                        2
+                      )}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Topic Responses */}
+                {Object.keys(topicResponses).length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">✅ User Responses</h4>
+                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto">
+                      {JSON.stringify(topicResponses, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Searching State */}
+                {searchingTopics.size > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">🔍 Currently Searching</h4>
+                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto">
+                      {JSON.stringify(Array.from(searchingTopics), null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Generation Status */}
+                <div>
+                  <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">⚙️ Generation State</h4>
+                  <pre className="bg-stone-950 p-3 rounded overflow-x-auto">
+                    {JSON.stringify({
+                      generating: generating,
+                      generationStatus: generationStatus,
+                      generationError: generationError,
+                      tabs: tabs,
+                    }, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* No Structure State - Show Generation UI */}
           {!structure && (
             <div className="bg-white dark:bg-stone-900 rounded-3xl p-8 shadow-sm border border-stone-200 dark:border-stone-600 mt-8">
@@ -789,23 +1165,91 @@ const Blueprint = () => {
                   Analyze your document and create a personalized learning path with topics and resources.
                 </p>
                 
-                {generationStatus === 'pending' || generationStatus === 'failed' ? (
-                   <button
-                    onClick={runAllSteps}
-                    disabled={generating}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 font-medium disabled:opacity-50"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    {generating ? 'Generating...' : 'Generate Learning Structure'}
-                  </button>
-                ) : (
-                  <div className={`inline-flex items-center gap-3 p-3 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-sm`}>
-                    <StatusIcon className={`w-5 h-5 ${statusConfig.color} ${statusConfig.animate ? 'animate-pulse' : ''}`} />
-                    <span className={`font-medium ${statusConfig.color}`}>
-                      {statusConfig.label}
-                    </span>
+                <div className="flex flex-col items-center gap-4">
+                  {/* Step buttons - always visible */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={runAnalyzeStep}
+                      disabled={generating && generationStatus === 'analyzing'}
+                      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 border rounded-lg transition-all font-medium ${
+                        documentAnalysis || generationStatus === 'analyzed' || generationStatus === 'structure_generated' || generationStatus === 'completed'
+                          ? 'bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-900 dark:text-green-100'
+                          : 'bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-800/40'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {documentAnalysis || generationStatus === 'analyzed' || generationStatus === 'structure_generated' || generationStatus === 'completed' ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          1. Analyzed ✓
+                        </>
+                      ) : generating && generationStatus === 'analyzing' ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          1. Analyze Document
+                        </>
+                      )}
+                    </button>
+                    
+                    <button
+                      onClick={runStructureStep}
+                      disabled={(!documentAnalysis && generationStatus === 'pending' || generationStatus === 'analyzing' || generationStatus === 'failed') || (generating && generationStatus === 'generating')}
+                      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 border rounded-lg transition-all font-medium ${
+                        generationStatus === 'structure_generated' || generationStatus === 'completed'
+                          ? 'bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-900 dark:text-green-100'
+                          : 'bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-900 dark:text-purple-100 hover:bg-purple-200 dark:hover:bg-purple-800/40'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {generationStatus === 'structure_generated' || generationStatus === 'completed' ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          2. Generated ✓
+                        </>
+                      ) : generating && generationStatus === 'generating' ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Target className="w-4 h-4" />
+                          2. Generate Structure
+                        </>
+                      )}
+                    </button>
                   </div>
-                )}
+                  
+                  {/* Status message */}
+                  {(documentAnalysis || generationStatus === 'analyzed') && !structure && (
+                    <div className="inline-flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-900 dark:text-green-100 text-sm">
+                      <Check className="w-4 h-4" />
+                      <span>Document analyzed! Click step 2 to continue.</span>
+                    </div>
+                  )}
+                  
+                  {generationStatus === 'structure_generated' && (
+                    <div className="inline-flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-900 dark:text-green-100 text-sm">
+                      <Check className="w-4 h-4" />
+                      <span>Structure generated! Refresh to see your learning path.</span>
+                    </div>
+                  )}
+                  
+                  {/* "Run All" option */}
+                  {(generationStatus === 'pending' || generationStatus === 'failed') && (
+                    <button
+                      onClick={runAllSteps}
+                      disabled={generating}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 font-medium disabled:opacity-50 text-sm"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      {generating ? 'Running...' : 'Or Run All Steps'}
+                    </button>
+                  )}
+                </div>
                 
                 {generationError && (
                   <p className="mt-4 text-red-500 text-sm">{generationError}</p>

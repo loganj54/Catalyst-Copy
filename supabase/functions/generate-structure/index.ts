@@ -57,7 +57,7 @@ interface Equation {
 // Learning unit within a section
 interface LearningUnit {
   unit_id: string;
-  unit_type: 'prerequisite' | 'problem' | 'topic'; // Type of learning unit
+  unit_type: 'prerequisite' | 'topic' | 'walkthrough'; // Type of learning unit
   topic: string;
   description?: string;
   learning_objective?: string;
@@ -67,8 +67,8 @@ interface LearningUnit {
   priority?: string;
   estimated_time_minutes: number;
   equations?: Equation[]; // LaTeX equations for this learning unit (when applicable)
-  search_queries: SearchQuery[]; // For topic explanation videos
-  problem_solving_queries?: SearchQuery[]; // For problem walkthrough videos (only for unit_type: 'problem')
+  search_queries: SearchQuery[]; // For videos (concept videos for topic units, problem walkthroughs for walkthrough units)
+  problem_solving_queries?: SearchQuery[]; // DEPRECATED - now incorporated into walkthrough units
 }
 
 // Prerequisite section structure
