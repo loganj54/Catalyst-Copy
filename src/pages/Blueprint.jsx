@@ -211,7 +211,7 @@ const TopicListItem = ({
         
         <div className="flex-1 min-w-0">
            <div className="flex items-center gap-3">
-              <h4 className={`font-semibold text-lg ${isExpanded ? 'text-[#FF4A1C]' : 'text-[#2A2B2A]'}`}>
+              <h4 className="font-semibold text-lg text-[#2A2B2A]">
                 {unit.topic}
               </h4>
               {isComfortable && (
@@ -236,16 +236,16 @@ const TopicListItem = ({
           
           {/* Tutor Guidance */}
           {unit.tutor_guidance && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+            <div className="mb-6 p-4 bg-stone-50 rounded-lg border border-stone-200">
               <div className="flex items-start gap-3">
-                <div className="p-1.5 bg-blue-100 rounded-lg shrink-0">
-                  <Sparkles className="w-4 h-4 text-blue-600" />
+                <div className="p-1.5 bg-stone-200 rounded-lg shrink-0">
+                  <Sparkles className="w-4 h-4 text-stone-600" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">
-                    Your Tutor Says
+                  <p className="text-sm font-semibold text-stone-700 uppercase tracking-wide mb-1">
+                    Core overview
                   </p>
-                  <p className="text-stone-700 text-sm leading-relaxed">
+                  <p className="text-stone-700 text-m leading-relaxed">
                     {unit.tutor_guidance}
                   </p>
                 </div>
@@ -269,8 +269,8 @@ const TopicListItem = ({
                     onGenerateBlueprint(unit);
                   }}
                   disabled={isSearching}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#FF4A1C] text-white rounded-lg 
-                             hover:bg-black transition-colors font-medium text-sm disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-white text-[#FF4A1C] border border-[#FF4A1C] rounded-lg 
+                             hover:bg-[#FF4A1C]/5 transition-colors font-medium text-sm disabled:opacity-50"
                 >
                   {isSearching ? (
                     <>
@@ -290,8 +290,8 @@ const TopicListItem = ({
                     onComfortSelect(unit.unit_id, 'comfortable');
                   }}
                   disabled={isSearching}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg 
-                             hover:bg-green-200 transition-colors font-medium text-sm"
+                  className="flex items-center gap-2 px-4 py-2 bg-stone-100 text-stone-700 rounded-lg 
+                             hover:bg-stone-200 transition-colors font-medium text-sm"
                 >
                   <Check className="w-4 h-4" />
                   I know this

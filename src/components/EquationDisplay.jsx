@@ -66,14 +66,14 @@ const EquationCard = ({ equation, index }) => {
   };
 
   return (
-    <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 rounded-xl border border-indigo-100 overflow-hidden">
+    <div className="bg-stone-50 rounded-xl border border-stone-200 overflow-hidden">
       {/* Equation Header */}
-      <div className="px-4 py-3 bg-gradient-to-r from-indigo-100/50 to-purple-100/50 border-b border-indigo-100">
+      <div className="px-4 py-3 bg-stone-100/50 border-b border-stone-200">
         <div className="flex items-center gap-2">
-          <span className="flex items-center justify-center w-6 h-6 bg-indigo-500 text-white text-xs font-bold rounded-full">
+          <span className="flex items-center justify-center w-6 h-6 bg-stone-500 text-white text-xs font-bold rounded-full">
             {index}
           </span>
-          <h4 className="font-semibold text-indigo-900">{name || 'Equation'}</h4>
+          <h4 className="font-semibold text-stone-900">{name || 'Equation'}</h4>
         </div>
       </div>
       
@@ -86,14 +86,14 @@ const EquationCard = ({ equation, index }) => {
       
       {/* Variable Definitions */}
       {variables && Object.keys(variables).length > 0 && (
-        <div className="px-4 py-3 bg-stone-50/50 border-t border-indigo-100">
+        <div className="px-4 py-3 bg-stone-50/50 border-t border-stone-200">
           <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
             Variables
           </p>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             {Object.entries(variables).map(([symbol, description]) => (
               <div key={symbol} className="flex items-baseline gap-1.5 text-sm">
-                <span className="font-mono font-semibold text-indigo-600">
+                <span className="font-mono font-semibold text-stone-600">
                   <InlineMath math={symbol} />
                 </span>
                 <span className="text-stone-600">= {description}</span>
@@ -105,14 +105,14 @@ const EquationCard = ({ equation, index }) => {
       
       {/* When to Use */}
       {when_to_use && (
-        <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-orange-50 border-t border-amber-100">
+        <div className="px-4 py-3 bg-stone-50 border-t border-stone-200">
           <div className="flex items-start gap-2">
-            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <Info className="w-4 h-4 text-stone-500 shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">
+              <p className="text-xs font-semibold text-stone-600 uppercase tracking-wide mb-0.5">
                 When to Use
               </p>
-              <p className="text-sm text-amber-900 leading-relaxed">
+              <p className="text-sm text-stone-700 leading-relaxed">
                 {when_to_use}
               </p>
             </div>

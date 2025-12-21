@@ -54,11 +54,3 @@
   background-image: radial-gradient(#a8a29e 1px, transparent 1px);
   background-size: 24px 24px;
 }
-
-.text-outline {
-  text-shadow: 
-    -2px -2px 0 #fff,  
-    2px -2px 0 #fff,
-    -2px  2px 0 #fff,
-    2px  2px 0 #fff;
-}
