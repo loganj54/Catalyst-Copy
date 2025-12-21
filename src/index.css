@@ -9,7 +9,7 @@
     scroll-padding-top: 100px;
   }
   body {
-    @apply antialiased min-h-screen text-[#2A2B2A] bg-[#F8F4E3] font-sans;
+    @apply antialiased min-h-screen text-[#2A2B2A] bg-white font-sans;
   }
   #root {
     @apply w-full;

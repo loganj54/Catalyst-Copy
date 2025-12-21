@@ -279,6 +279,7 @@ const ClassDetails = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#FF4A1C]" />
       </div>
     );
   }
@@ -333,7 +334,7 @@ const ClassDetails = () => {
         <ClassSidebar />
       </div>
 
-      <div className="flex-1 min-w-0 lg:ml-[19rem] relative z-10 pt-8 pb-12 px-6 lg:px-12">
+      <div className="flex-1 min-w-0 lg:ml-64 relative z-10">
         {isBlueprintModalOpen && (
           <BlueprintModal 
             isOpen={isBlueprintModalOpen}
@@ -355,7 +356,8 @@ const ClassDetails = () => {
           type="danger"
         />
         
-        <div className="max-w-7xl mx-auto">
+        <div className="pt-8 pb-12 px-6 lg:px-12 max-w-7xl mx-auto space-y-12">
+
           {/* Header */}
           <div className="flex flex-col gap-6 mb-8">
              <div className="text-left">
