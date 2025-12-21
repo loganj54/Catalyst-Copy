@@ -335,7 +335,6 @@ const Blueprint = () => {
   // UI State
   const [activeTab, setActiveTab] = useState(null);
   const [expandedTopics, setExpandedTopics] = useState({});
-  const [bgMode, setBgMode] = useState('dots');
   
   // Generation State
   const [generating, setGenerating] = useState(false);
@@ -585,11 +584,9 @@ const Blueprint = () => {
     }));
   };
 
-  const pageBackground = `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8a29e' fill-opacity='0.25'%3E%3Ccircle cx='5' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='5' r='1.5'/%3E%3Ccircle cx='65' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='25' r='1.5'/%3E%3Ccircle cx='45' cy='25' r='1.5'/%3E%3Ccircle cx='85' cy='25' r='1.5'/%3E%3Ccircle cx='5' cy='45' r='1.5'/%3E%3Ccircle cx='45' cy='45' r='1.5'/%3E%3Ccircle cx='65' cy='45' r='1.5'/%3E%3Ccircle cx='25' cy='65' r='1.5'/%3E%3Ccircle cx='65' cy='65' r='1.5'/%3E%3Ccircle cx='85' cy='65' r='1.5'/%3E%3Ccircle cx='5' cy='85' r='1.5'/%3E%3Ccircle cx='25' cy='85' r='1.5'/%3E%3Ccircle cx='85' cy='85' r='1.5'/%3E%3C/g%3E%3C/svg%3E")`;
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-stone-900 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[#FF4A1C]" />
       </div>
     );
@@ -649,7 +646,7 @@ const Blueprint = () => {
         <ClassSidebar />
       </div>
 
-      <div className="flex-1 min-w-0 lg:ml-64 relative z-10">
+      <div className="flex-1 min-w-0 lg:ml-[304px] relative z-10">
         <div className="pt-8 pb-12 px-6 lg:px-12 max-w-7xl mx-auto space-y-12">
           {/* Header */}
           <div className="mb-8">
@@ -661,16 +658,16 @@ const Blueprint = () => {
                   navigate('/dashboard');
                 }
               }}
-              className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors mb-4 text-sm font-medium"
+              className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors mb-4 text-sm font-medium dark:text-stone-400"
             >
               <ArrowLeft className="w-4 h-4" />
               {blueprint.class_id ? `Back to ${blueprint.class?.name || 'Class'}` : 'Back to Dashboard'}
             </button>
 
-            <h1 className="text-4xl  text-[#2A2B2A] mb-2">
+            <h1 className="text-4xl  text-[#2A2B2A] mb-2 dark:text-stone-100">
               {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
             </h1>
-            <p className="text-stone-500 text-lg ">
+            <p className="text-stone-500 text-lg dark:text-stone-400 ">
               {blueprint.class?.name ? `${blueprint.class.name} ` : ''}
               
             </p>
@@ -678,7 +675,7 @@ const Blueprint = () => {
 
           {/* No Structure State - Show Generation UI */}
           {!structure && (
-            <div className="bg-white dark:bg-stone-900 rounded-3xl p-8 shadow-sm border border-stone-200 dark:border-stone-800 mt-8">
+            <div className="bg-white dark:bg-stone-900 rounded-3xl p-8 shadow-sm border border-stone-200 dark:border-stone-600 mt-8">
                <div className="text-center py-8">
                 <h3 className="text-xl font-bold text-[#2A2B2A] dark:text-stone-100 mb-2">
                   Ready to Generate Your Learning Path

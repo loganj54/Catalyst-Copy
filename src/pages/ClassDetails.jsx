@@ -34,10 +34,6 @@ const ClassDetails = () => {
   const [isBlueprintModalOpen, setIsBlueprintModalOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', itemId: null, itemPath: null });
-  const [bgMode, setBgMode] = useState('dots');
-
-  // Background Patterns
-  const pageBackground = `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8a29e' fill-opacity='0.25'%3E%3Ccircle cx='5' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='5' r='1.5'/%3E%3Ccircle cx='65' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='25' r='1.5'/%3E%3Ccircle cx='45' cy='25' r='1.5'/%3E%3Ccircle cx='85' cy='25' r='1.5'/%3E%3Ccircle cx='5' cy='45' r='1.5'/%3E%3Ccircle cx='45' cy='45' r='1.5'/%3E%3Ccircle cx='65' cy='45' r='1.5'/%3E%3Ccircle cx='25' cy='65' r='1.5'/%3E%3Ccircle cx='65' cy='65' r='1.5'/%3E%3Ccircle cx='85' cy='65' r='1.5'/%3E%3Ccircle cx='5' cy='85' r='1.5'/%3E%3Ccircle cx='25' cy='85' r='1.5'/%3E%3Ccircle cx='85' cy='85' r='1.5'/%3E%3C/g%3E%3C/svg%3E")`;
 
   useEffect(() => {
     if (user && id) {
@@ -275,7 +271,7 @@ const ClassDetails = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-stone-900 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[#FF4A1C]" />
       </div>
     );
@@ -285,16 +281,8 @@ const ClassDetails = () => {
 
   return (
     <div 
-      className="min-h-screen bg-white dark:bg-stone-900 flex text-outline relative"
-      style={{ backgroundImage: bgMode === 'dots' ? pageBackground : 'none' }}
+      className="min-h-screen bg-transparent flex text-outline relative"
     >
-       {/* Backgrounds */}
-       {bgMode === 'default' && (
-          <div className="absolute inset-0 pointer-events-none z-0">
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-            <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white dark:from-stone-900 dark:via-transparent dark:to-stone-900"></div>
-          </div>
-        )}
       
       {/* Global Sidebar - Collapsed */}
       <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-30 hidden lg:block w-20">
@@ -306,7 +294,7 @@ const ClassDetails = () => {
         <ClassSidebar />
       </div>
 
-      <div className="flex-1 min-w-0 lg:ml-64 relative z-10">
+      <div className="flex-1 min-w-0 lg:ml-[304px] relative z-10">
         {isBlueprintModalOpen && (
           <BlueprintModal 
             isOpen={isBlueprintModalOpen}
@@ -381,7 +369,7 @@ const ClassDetails = () => {
                         />
                         <label 
                           htmlFor="document-upload"
-                          className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 cursor-pointer ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 cursor-pointer ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                           {uploadingDocument ? (
                             <>

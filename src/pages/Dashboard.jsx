@@ -179,7 +179,7 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-white dark:bg-stone-900 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[#FF4A1C]" />
       </div>
     );
