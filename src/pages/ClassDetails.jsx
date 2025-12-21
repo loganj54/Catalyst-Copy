@@ -3,25 +3,23 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { 
-  ArrowLeft, 
   FileText, 
   PenTool, 
-  HelpCircle, 
   Plus, 
   MoreVertical,
   Loader2,
   FolderOpen,
-  Calendar,
-  Clock,
-  ChevronRight,
-  MoreHorizontal,
   Trash2,
-  Upload,
   Download,
-  Eye
+  Eye,
+  Grid, 
+  Layout, 
+  Circle
 } from 'lucide-react';
 import BlueprintModal from '../components/BlueprintModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Sidebar from '../components/Sidebar';
+import ClassSidebar from '../components/ClassSidebar';
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -30,12 +28,13 @@ const ClassDetails = () => {
   const { user } = useAuth();
   const fileInputRef = useRef(null);
   
+  const [bgMode, setBgMode] = useState('dots'); // 'default', 'white', 'dots'
   const [classData, setClassData] = useState(null);
   const [blueprints, setBlueprints] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploadingDocument, setUploadingDocument] = useState(false);
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'documents'); // documents, blueprints, help
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'blueprints'); // blueprints, documents, help
   const [isBlueprintModalOpen, setIsBlueprintModalOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', itemId: null, itemPath: null });
@@ -274,10 +273,12 @@ const ClassDetails = () => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
+  // Background Patterns
+  const pageBackground = `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8a29e' fill-opacity='0.25'%3E%3Ccircle cx='5' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='5' r='1.5'/%3E%3Ccircle cx='65' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='25' r='1.5'/%3E%3Ccircle cx='45' cy='25' r='1.5'/%3E%3Ccircle cx='85' cy='25' r='1.5'/%3E%3Ccircle cx='5' cy='45' r='1.5'/%3E%3Ccircle cx='45' cy='45' r='1.5'/%3E%3Ccircle cx='65' cy='45' r='1.5'/%3E%3Ccircle cx='25' cy='65' r='1.5'/%3E%3Ccircle cx='65' cy='65' r='1.5'/%3E%3Ccircle cx='85' cy='65' r='1.5'/%3E%3Ccircle cx='5' cy='85' r='1.5'/%3E%3Ccircle cx='25' cy='85' r='1.5'/%3E%3Ccircle cx='85' cy='85' r='1.5'/%3E%3C/g%3E%3C/svg%3E")`;
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8F4E3] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FF4A1C]" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
       </div>
     );
   }
@@ -285,347 +286,348 @@ const ClassDetails = () => {
   if (!classData) return null;
 
   return (
-    <div className="min-h-screen bg-[#F8F4E3] pt-24 pb-12 px-6 lg:px-12">
-      {isBlueprintModalOpen && (
-        <BlueprintModal 
-          isOpen={isBlueprintModalOpen}
-          onClose={() => setIsBlueprintModalOpen(false)}
-          classId={id}
-          className={classData.name}
-          professorName={classData.professor}
-        />
-      )}
-      
-      <ConfirmDialog
-        isOpen={confirmDialog.isOpen}
-        onClose={() => setConfirmDialog({ isOpen: false, type: '', itemId: null, itemPath: null })}
-        onConfirm={confirmDelete}
-        title="Are you sure?"
-        message={`Are you sure you want to delete this ${confirmDialog.type}? This action cannot be undone.`}
-        confirmText="Yes"
-        cancelText="No"
-        type="danger"
-      />
-      
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col gap-6 mb-12">
-          <button 
-            onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-2 text-stone-500 hover:text-[#2A2B2A] transition-colors w-fit"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Back to Dashboard</span>
-          </button>
+    <div 
+      className="min-h-screen bg-white flex text-outline relative"
+      style={{ backgroundImage: bgMode === 'dots' ? pageBackground : 'none' }}
+    >
+      {/* Background Toggle - Development Only */}
+      <div className="fixed bottom-4 right-4 z-50 bg-white p-2 rounded-xl border border-stone-200 shadow-lg flex items-center gap-2">
+        <button
+          onClick={() => setBgMode('default')}
+          className={`p-2 rounded-lg transition-colors ${bgMode === 'default' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
+          title="Default Grid"
+        >
+          <Grid className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => setBgMode('white')}
+          className={`p-2 rounded-lg transition-colors ${bgMode === 'white' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
+          title="Pure White"
+        >
+          <Layout className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => setBgMode('dots')}
+          className={`p-2 rounded-lg transition-colors ${bgMode === 'dots' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
+          title="Dot Matrix"
+        >
+          <Circle className="w-5 h-5" />
+        </button>
+      </div>
 
-          <div className="flex justify-between items-end">
-            <div>
-              <h1 className="text-4xl font-bold text-[#2A2B2A] mb-2">{classData.name}</h1>
-              <p className="text-stone-500 text-lg">Professor: {classData.professor}</p>
-            </div>
-            
-            <div className="flex gap-3">
-              <button className="p-2 hover:bg-stone-100 rounded-full text-stone-400 hover:text-[#2A2B2A] transition-colors">
-                <MoreVertical className="w-6 h-6" />
-              </button>
-            </div>
+       {/* Backgrounds */}
+       {bgMode === 'default' && (
+          <div className="absolute inset-0 pointer-events-none z-0">
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white"></div>
           </div>
-        </div>
+        )}
 
-        {/* Navigation Tabs */}
-        <div className="flex gap-2 mb-8 border-b border-stone-200 pb-1 overflow-x-auto">
-          <button 
-            onClick={() => setActiveTab('documents')}
-            className={`px-6 py-3 rounded-t-xl font-medium transition-colors flex items-center gap-2 ${
-              activeTab === 'documents' 
-                ? 'bg-white text-[#FF4A1C] shadow-sm border-t border-x border-stone-100' 
-                : 'text-stone-500 hover:text-[#2A2B2A] hover:bg-stone-50'
-            }`}
-          >
-            <FileText className="w-5 h-5" />
-            Documents
-          </button>
-          <button 
-            onClick={() => setActiveTab('blueprints')}
-            className={`px-6 py-3 rounded-t-xl font-medium transition-colors flex items-center gap-2 ${
-              activeTab === 'blueprints' 
-                ? 'bg-white text-[#FF4A1C] shadow-sm border-t border-x border-stone-100' 
-                : 'text-stone-500 hover:text-[#2A2B2A] hover:bg-stone-50'
-            }`}
-          >
-            <PenTool className="w-5 h-5" />
-            Blueprints
-          </button>
-          <button 
-            onClick={() => setActiveTab('help')}
-            className={`px-6 py-3 rounded-t-xl font-medium transition-colors flex items-center gap-2 ${
-              activeTab === 'help' 
-                ? 'bg-white text-[#FF4A1C] shadow-sm border-t border-x border-stone-100' 
-                : 'text-stone-500 hover:text-[#2A2B2A] hover:bg-stone-50'
-            }`}
-          >
-            <HelpCircle className="w-5 h-5" />
-            Help & Resources
-          </button>
-        </div>
+      {/* Global Sidebar - Collapsed */}
+      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-30 hidden lg:block w-20">
+        <Sidebar collapsed={true} />
+      </div>
 
-        {/* Content Area */}
-        <div className="bg-white rounded-3xl p-8 min-h-[400px] shadow-sm">
-          {activeTab === 'documents' && (
-            <div className="min-h-[300px]">
-              {documents.length > 0 ? (
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-xl font-bold text-[#2A2B2A]">Your Documents</h3>
-                    <div>
-                      <input 
-                        ref={fileInputRef}
-                        type="file" 
-                        onChange={handleDocumentUpload}
-                        accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
-                        className="hidden"
-                        id="document-upload"
-                      />
-                      <label 
-                        htmlFor="document-upload"
-                        className={`px-4 py-2 bg-[#2A2B2A] text-white rounded-lg hover:bg-black transition-colors font-medium inline-flex items-center gap-2 text-sm cursor-pointer ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      >
-                        {uploadingDocument ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Uploading...
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-4 h-4" />
-                            Upload Document
-                          </>
-                        )}
-                      </label>
+      {/* Class Sidebar */}
+      <div className="fixed top-20 left-20 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white border-r border-stone-200">
+        <ClassSidebar />
+      </div>
+
+      <div className="flex-1 min-w-0 lg:ml-[19rem] relative z-10 pt-8 pb-12 px-6 lg:px-12">
+        {isBlueprintModalOpen && (
+          <BlueprintModal 
+            isOpen={isBlueprintModalOpen}
+            onClose={() => setIsBlueprintModalOpen(false)}
+            classId={id}
+            className={classData.name}
+            professorName={classData.professor}
+          />
+        )}
+        
+        <ConfirmDialog
+          isOpen={confirmDialog.isOpen}
+          onClose={() => setConfirmDialog({ isOpen: false, type: '', itemId: null, itemPath: null })}
+          onConfirm={confirmDelete}
+          title="Are you sure?"
+          message={`Are you sure you want to delete this ${confirmDialog.type}? This action cannot be undone.`}
+          confirmText="Yes"
+          cancelText="No"
+          type="danger"
+        />
+        
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="flex flex-col gap-6 mb-8">
+             <div className="text-left">
+                <h1 className="text-5xl font-normal text-stone-900 tracking-tight mb-2">{classData.name}</h1>
+                <p className="text-stone-500 text-lg">Professor: {classData.professor}</p>
+             </div>
+
+             {/* Navigation Toggle */}
+             <div className="self-center bg-stone-100/50 p-1 rounded-lg inline-flex items-center">
+                <button 
+                  onClick={() => setActiveTab('blueprints')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    activeTab === 'blueprints' 
+                      ? 'bg-white text-stone-900 shadow-sm' 
+                      : 'text-stone-500 hover:text-stone-900'
+                  }`}
+                >
+                  Blueprints
+                </button>
+                <button 
+                  onClick={() => setActiveTab('documents')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    activeTab === 'documents' 
+                      ? 'bg-white text-stone-900 shadow-sm' 
+                      : 'text-stone-500 hover:text-stone-900'
+                  }`}
+                >
+                  Documents
+                </button>
+             </div>
+          </div>
+  
+          {/* Content Area */}
+          <div className="min-h-[400px]">
+            {activeTab === 'documents' && (
+              <div className="min-h-[300px]">
+                {documents.length > 0 ? (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-normal text-stone-900">Your Documents</h3>
+                      <div>
+                        <input 
+                          ref={fileInputRef}
+                          type="file" 
+                          onChange={handleDocumentUpload}
+                          accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
+                          className="hidden"
+                          id="document-upload"
+                        />
+                        <label 
+                          htmlFor="document-upload"
+                          className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-lg hover:bg-stone-200 transition-all text-[#2A2B2A] cursor-pointer ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          {uploadingDocument ? (
+                            <>
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                              <span className="font-medium text-sm">Uploading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-5 h-5" />
+                              <span className="font-medium text-sm">Upload Document</span>
+                            </>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {documents.map((doc) => (
+                        <div 
+                          key={doc.id}
+                          className="bg-white border border-stone-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-all group relative flex flex-col h-full"
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="w-10 h-10 bg-stone-100 rounded-lg flex items-center justify-center text-stone-500">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            
+                            <div className="relative">
+                              <button
+                                onClick={(e) => toggleDropdown(e, doc.id)}
+                                className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:text-stone-900 hover:bg-stone-100 transition-colors"
+                              >
+                                <MoreVertical className="w-5 h-5" />
+                              </button>
+                              
+                              {openDropdownId === doc.id && (
+                                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-stone-100 py-1 z-10 animate-fade-in">
+                                  <a
+                                    href={doc.file_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="w-full px-4 py-2 text-left text-sm text-stone-600 hover:bg-stone-50 flex items-center gap-2"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                    View
+                                  </a>
+                                  <a
+                                    href={doc.file_url}
+                                    download
+                                    className="w-full px-4 py-2 text-left text-sm text-stone-600 hover:bg-stone-50 flex items-center gap-2"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Download className="w-4 h-4" />
+                                    Download
+                                  </a>
+                                  <button
+                                    onClick={(e) => handleDeleteDocument(e, doc.id, doc.file_path)}
+                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="mb-6">
+                            <h4 className="text-xl font-normal text-stone-900 mb-1 truncate" title={doc.name}>
+                              {doc.name}
+                            </h4>
+                            <p className="text-sm text-stone-500">
+                              {(doc.file_size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                          
+                          <div className="mt-auto pt-4 border-t border-stone-100 flex items-center justify-between text-xs text-stone-400">
+                            <div className="flex items-center gap-1.5">
+                              <span>Created</span>
+                              <span className="text-stone-500">{new Date(doc.created_at).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                               <span>{new Date(doc.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {documents.map((doc) => (
-                      <div 
-                        key={doc.id}
-                        className="bg-stone-50 hover:bg-white border border-stone-100 hover:border-[#FF4A1C]/20 rounded-xl p-5 transition-all shadow-sm hover:shadow-md group relative"
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-6 text-stone-300">
+                      <FolderOpen className="w-10 h-10" />
+                    </div>
+                    <h3 className="text-xl font-bold text-[#2A2B2A] mb-2">Class Documents</h3>
+                    <p className="text-stone-500 mb-8 max-w-md mx-auto">
+                      Store your syllabus, assignments, and lecture notes here to keep everything organized.
+                    </p>
+                    <input 
+                      ref={fileInputRef}
+                      type="file" 
+                      onChange={handleDocumentUpload}
+                      accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
+                      className="hidden"
+                      id="document-upload-empty"
+                    />
+                    <label 
+                      htmlFor="document-upload-empty"
+                      className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-lg hover:bg-stone-200 transition-all text-[#2A2B2A] cursor-pointer ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {uploadingDocument ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span className="font-medium text-sm">Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-5 h-5" />
+                          <span className="font-medium text-sm">Upload Document</span>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
+  
+            {activeTab === 'blueprints' && (
+              <div className="min-h-[300px]">
+                {blueprints.length > 0 ? (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-normal text-stone-900">Your Blueprints</h3>
+                      <button 
+                        onClick={() => setIsBlueprintModalOpen(true)}
+                        className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-lg hover:bg-stone-200 transition-all text-[#2A2B2A]"
                       >
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="p-2 bg-white rounded-lg text-[#FF4A1C] shadow-sm">
-                            <FileText className="w-5 h-5" />
+                        <Plus className="w-5 h-5" />
+                        <span className="font-medium text-sm">New Blueprint</span>
+                      </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {blueprints.map((blueprint) => (
+                        <div 
+                          key={blueprint.id}
+                          onClick={() => navigate(`/blueprint/${blueprint.id}`)}
+                          className="bg-white border border-stone-200 rounded-xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all group relative flex flex-col h-full"
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="w-10 h-10 bg-stone-100 rounded-lg flex items-center justify-center text-stone-500">
+                              <PenTool className="w-5 h-5" />
+                            </div>
+                            
+                            <div className="relative">
+                              <button
+                                onClick={(e) => toggleDropdown(e, blueprint.id)}
+                                className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:text-stone-900 hover:bg-stone-100 transition-colors"
+                              >
+                                <MoreVertical className="w-5 h-5" />
+                              </button>
+                              
+                              {openDropdownId === blueprint.id && (
+                                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-stone-100 py-1 z-10 animate-fade-in">
+                                  <button
+                                    onClick={(e) => handleDeleteBlueprint(e, blueprint.id)}
+                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete Blueprint
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                           
-                          <div className="relative">
-                            <button
-                              onClick={(e) => toggleDropdown(e, doc.id)}
-                              className="p-1.5 hover:bg-stone-200 rounded-lg text-stone-400 hover:text-[#2A2B2A] transition-colors"
-                            >
-                              <MoreHorizontal className="w-5 h-5" />
-                            </button>
-                            
-                            {openDropdownId === doc.id && (
-                              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-stone-100 py-1 z-10 animate-fade-in">
-                                <a
-                                  href={doc.file_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="w-full px-4 py-2 text-left text-sm text-stone-600 hover:bg-stone-50 flex items-center gap-2"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                  View
-                                </a>
-                                <a
-                                  href={doc.file_url}
-                                  download
-                                  className="w-full px-4 py-2 text-left text-sm text-stone-600 hover:bg-stone-50 flex items-center gap-2"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <Download className="w-4 h-4" />
-                                  Download
-                                </a>
-                                <button
-                                  onClick={(e) => handleDeleteDocument(e, doc.id, doc.file_path)}
-                                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  Delete
-                                </button>
-                              </div>
-                            )}
+                          <div className="mb-6">
+                            <h4 className="text-xl font-normal text-stone-900 mb-1 truncate" title={blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}>
+                              {blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}
+                            </h4>
+                            <p className="text-sm text-stone-500 line-clamp-2 h-10">
+                              {blueprint.task_type}
+                            </p>
+                          </div>
+                          
+                          <div className="mt-auto pt-4 border-t border-stone-100 flex items-center justify-between text-xs text-stone-400">
+                             <div className="flex items-center gap-1.5">
+                              <span>Created</span>
+                              <span className="text-stone-500">{new Date(blueprint.created_at).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                               <span>{new Date(blueprint.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
                           </div>
                         </div>
-                        
-                        <h4 className="font-bold text-[#2A2B2A] mb-1 truncate pr-8">
-                          {doc.name}
-                        </h4>
-                        <p className="text-sm text-stone-500 mb-4">
-                          {(doc.file_size / 1024).toFixed(1)} KB
-                        </p>
-                        
-                        <div className="flex items-center gap-4 text-xs text-stone-400 pt-4 border-t border-stone-200/60">
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5" />
-                            {new Date(doc.created_at).toLocaleDateString()}
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5" />
-                            {new Date(doc.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-6 text-stone-300">
-                    <FolderOpen className="w-10 h-10" />
-                  </div>
-                  <h3 className="text-xl font-bold text-[#2A2B2A] mb-2">Class Documents</h3>
-                  <p className="text-stone-500 mb-8 max-w-md mx-auto">
-                    Store your syllabus, assignments, and lecture notes here to keep everything organized.
-                  </p>
-                  <input 
-                    ref={fileInputRef}
-                    type="file" 
-                    onChange={handleDocumentUpload}
-                    accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
-                    className="hidden"
-                    id="document-upload-empty"
-                  />
-                  <label 
-                    htmlFor="document-upload-empty"
-                    className={`px-6 py-3 bg-[#2A2B2A] text-white rounded-xl hover:bg-black transition-colors font-medium inline-flex items-center gap-2 cursor-pointer ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {uploadingDocument ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-5 h-5" />
-                        Upload Document
-                      </>
-                    )}
-                  </label>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'blueprints' && (
-            <div className="min-h-[300px]">
-              {blueprints.length > 0 ? (
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-xl font-bold text-[#2A2B2A]">Your Blueprints</h3>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-6 text-stone-300">
+                      <PenTool className="w-10 h-10" />
+                    </div>
+                    <h3 className="text-xl font-bold text-[#2A2B2A] mb-2">Class Blueprints</h3>
+                    <p className="text-stone-500 mb-8 max-w-md mx-auto">
+                      Create and manage your engineering blueprints and diagrams for this class.
+                    </p>
                     <button 
                       onClick={() => setIsBlueprintModalOpen(true)}
-                      className="px-4 py-2 bg-[#2A2B2A] text-white rounded-lg hover:bg-black transition-colors font-medium inline-flex items-center gap-2 text-sm"
+                      className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-lg hover:bg-stone-200 transition-all text-[#2A2B2A]"
                     >
-                      <Plus className="w-4 h-4" />
-                      New Blueprint
+                      <Plus className="w-5 h-5" />
+                      <span className="font-medium text-sm">New Blueprint</span>
                     </button>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {blueprints.map((blueprint) => (
-                      <div 
-                        key={blueprint.id}
-                        onClick={() => navigate(`/blueprint/${blueprint.id}`)}
-                        className="bg-stone-50 hover:bg-white border border-stone-100 hover:border-[#FF4A1C]/20 rounded-xl p-5 cursor-pointer transition-all shadow-sm hover:shadow-md group relative"
-                      >
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="p-2 bg-white rounded-lg text-[#FF4A1C] shadow-sm">
-                            <PenTool className="w-5 h-5" />
-                          </div>
-                          
-                          <div className="relative">
-                            <button
-                              onClick={(e) => toggleDropdown(e, blueprint.id)}
-                              className="p-1.5 hover:bg-stone-200 rounded-lg text-stone-400 hover:text-[#2A2B2A] transition-colors"
-                            >
-                              <MoreHorizontal className="w-5 h-5" />
-                            </button>
-                            
-                            {openDropdownId === blueprint.id && (
-                              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-stone-100 py-1 z-10 animate-fade-in">
-                                <button
-                                  onClick={(e) => handleDeleteBlueprint(e, blueprint.id)}
-                                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  Delete Blueprint
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <h4 className="font-bold text-[#2A2B2A] mb-1 truncate pr-8">
-                          {blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}
-                        </h4>
-                        <p className="text-sm text-stone-500 mb-4 line-clamp-2 h-10">
-                          {blueprint.task_type}
-                        </p>
-                        
-                        <div className="flex items-center gap-4 text-xs text-stone-400 pt-4 border-t border-stone-200/60">
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5" />
-                            {new Date(blueprint.created_at).toLocaleDateString()}
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5" />
-                            {new Date(blueprint.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-6 text-stone-300">
-                    <PenTool className="w-10 h-10" />
-                  </div>
-                  <h3 className="text-xl font-bold text-[#2A2B2A] mb-2">Class Blueprints</h3>
-                  <p className="text-stone-500 mb-8 max-w-md mx-auto">
-                    Create and manage your engineering blueprints and diagrams for this class.
-                  </p>
-                  <button 
-                    onClick={() => setIsBlueprintModalOpen(true)}
-                    className="px-6 py-3 bg-[#2A2B2A] text-white rounded-xl hover:bg-black transition-colors font-medium inline-flex items-center gap-2"
-                  >
-                    <Plus className="w-5 h-5" />
-                    New Blueprint
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'help' && (
-            <div className="text-center py-12">
-              <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-6 text-stone-300">
-                <HelpCircle className="w-10 h-10" />
+                )}
               </div>
-              <h3 className="text-xl font-bold text-[#2A2B2A] mb-2">Need Help?</h3>
-              <p className="text-stone-500 mb-8 max-w-md mx-auto">
-                Find resources, study guides, and connect with tutors for {classData.name}.
-              </p>
-              <div className="flex gap-4 justify-center">
-                <button className="px-6 py-3 bg-stone-100 text-[#2A2B2A] rounded-xl hover:bg-stone-200 transition-colors font-medium">
-                  Find a Tutor
-                </button>
-                <button className="px-6 py-3 bg-[#2A2B2A] text-white rounded-xl hover:bg-black transition-colors font-medium">
-                  View Resources
-                </button>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
