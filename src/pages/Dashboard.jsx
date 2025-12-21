@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Plus, BookOpen, MoreVertical, Edit2, Trash2, Loader2, FileText, Zap, Search,
-  Grid, Layout, Circle
+  Plus, BookOpen, MoreVertical, Edit2, Trash2, Loader2, FileText, Zap, Search
 } from 'lucide-react';
 import CreateClassModal from '../components/CreateClassModal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -13,7 +12,6 @@ import { supabase } from '../lib/supabase';
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [bgMode, setBgMode] = useState('dots'); // 'default', 'white', 'dots'
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
@@ -179,9 +177,6 @@ const Dashboard = () => {
     setEditingClass(null);
   };
 
-  // Background Patterns
-  const pageBackground = `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8a29e' fill-opacity='0.25'%3E%3Ccircle cx='5' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='5' r='1.5'/%3E%3Ccircle cx='65' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='25' r='1.5'/%3E%3Ccircle cx='45' cy='25' r='1.5'/%3E%3Ccircle cx='85' cy='25' r='1.5'/%3E%3Ccircle cx='5' cy='45' r='1.5'/%3E%3Ccircle cx='45' cy='45' r='1.5'/%3E%3Ccircle cx='65' cy='45' r='1.5'/%3E%3Ccircle cx='25' cy='65' r='1.5'/%3E%3Ccircle cx='65' cy='65' r='1.5'/%3E%3Ccircle cx='85' cy='65' r='1.5'/%3E%3Ccircle cx='5' cy='85' r='1.5'/%3E%3Ccircle cx='25' cy='85' r='1.5'/%3E%3Ccircle cx='85' cy='85' r='1.5'/%3E%3C/g%3E%3C/svg%3E")`;
-
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -192,42 +187,8 @@ const Dashboard = () => {
 
   return (
     <div 
-      className="min-h-screen bg-white flex text-outline relative"
-      style={{ backgroundImage: bgMode === 'dots' ? pageBackground : 'none' }}
+      className="min-h-screen bg-transparent flex text-outline relative"
     >
-      {/* Background Toggle - Development Only */}
-      <div className="fixed bottom-4 right-4 z-50 bg-white p-2 rounded-xl border border-stone-200 shadow-lg flex items-center gap-2">
-        <button
-          onClick={() => setBgMode('default')}
-          className={`p-2 rounded-lg transition-colors ${bgMode === 'default' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
-          title="Default Grid"
-        >
-          <Grid className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => setBgMode('white')}
-          className={`p-2 rounded-lg transition-colors ${bgMode === 'white' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
-          title="Pure White"
-        >
-          <Layout className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => setBgMode('dots')}
-          className={`p-2 rounded-lg transition-colors ${bgMode === 'dots' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
-          title="Dot Matrix"
-        >
-          <Circle className="w-5 h-5" />
-        </button>
-      </div>
-
-       {/* Backgrounds */}
-       {bgMode === 'default' && (
-          <div className="absolute inset-0 pointer-events-none z-0">
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-            <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white"></div>
-          </div>
-        )}
-
       {/* Sidebar - Fixed Position */}
       <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-30 hidden lg:block w-64">
         <Sidebar />
@@ -258,8 +219,8 @@ const Dashboard = () => {
           {/* Header */}
           <div className="flex justify-between items-end">
             <div>
-              <div className="inline-block text-6xl text-stone-900 tracking-tight bg-white/90 backdrop-blur-sm  rounded-3xl ">
-                <h1 className="text-4xl font-normal text-[#2A2B2A] tracking-tight ">My Classes</h1>
+              <div className="inline-block text-6xl text-stone-900 dark:text-stone-100 tracking-tight bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-3xl">
+                <h1 className="text-4xl font-normal text-[#2A2B2A] dark:text-stone-100 tracking-tight">My Classes</h1>
                 </div>
                 
             </div>
@@ -268,40 +229,40 @@ const Dashboard = () => {
           {/* Recent Blueprints Section (Table View) */}
           <section>
             <div className="flex items-center justify-between mb-6">
-              <div className="inline-block text-6xl text-stone-900 tracking-tight bg-white/90 backdrop-blur-sm  rounded-3xl ">
-                <h2 className="text-3xl font-normal text-[#2A2B2A] tracking-tight mb-2">Recent Blueprints</h2>
+              <div className="inline-block text-6xl text-stone-900 dark:text-stone-100 tracking-tight bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-3xl">
+                <h2 className="text-3xl font-normal text-[#2A2B2A] dark:text-stone-100 tracking-tight mb-2">Recent Blueprints</h2>
               </div>
               <button 
                 onClick={() => navigate('/create')}
-                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-lg hover:bg-stone-200 transition-all text-[#2A2B2A]"
+                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100"
               >
                 <Plus className="w-5 h-5" />
                 <span className="font-medium text-sm">New Blueprint</span>
               </button>
             </div>
 
-            <div className="bg-white rounded-lg border border-stone-300 overflow-hidden shadow-sm">
+            <div className="bg-white dark:bg-stone-900 rounded-lg border border-stone-300 dark:border-stone-700 overflow-hidden shadow-sm">
               {recentBlueprints.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                       <thead>
-                        <tr className="bg-stone-50 border-b border-stone-300 text-left">
-                          <th className="py-2 px-6 font-normal text-stone-500 text-sm w-full">Blueprint </th>
-                          <th className="py-2 px-6 font-normal text-stone-500 text-sm whitespace-nowrap text-left w-1">Last Viewed</th>
+                        <tr className="bg-stone-50 dark:bg-stone-800 border-b border-stone-300 dark:border-stone-700 text-left">
+                          <th className="py-2 px-6 font-normal text-stone-500 dark:text-stone-400 text-sm w-full">Blueprint </th>
+                          <th className="py-2 px-6 font-normal text-stone-500 dark:text-stone-400 text-sm whitespace-nowrap text-left w-1">Last Viewed</th>
                           
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-stone-300">
+                      <tbody className="divide-y divide-stone-300 dark:divide-stone-700">
                         {recentBlueprints.map((blueprint) => (
                           <tr 
                             key={blueprint.id} 
                             onClick={() => navigate(`/blueprint/${blueprint.id}`)}
-                            className="hover:bg-stone-50/50 cursor-pointer transition-colors group"
+                            className="hover:bg-stone-50/50 dark:hover:bg-stone-800/50 cursor-pointer transition-colors group"
                           >
                             <td className="py-2 px-6">
                               <div className="flex items-center gap-4">
                                 <div>
-                                  <h3 className="font-normal text-[#2A2B2A] transition-colors">
+                                  <h3 className="font-normal text-[#2A2B2A] dark:text-stone-100 transition-colors">
                                     {blueprint.title || 'Untitled Blueprint'}
                                   </h3>
                                   <p className="text-stone-400 text-sm line-clamp-1 max-w-xs">
@@ -325,7 +286,7 @@ const Dashboard = () => {
               ) : (
                 <div className="p-12 text-center">
                  
-                  <h3 className="text-lg font-bold text-[#2A2B2A] mb-1">No blueprints found</h3>
+                  <h3 className="text-lg font-bold text-[#2A2B2A] dark:text-stone-100 mb-1">No blueprints found</h3>
                   <p className="text-stone-500 mb-6">Create your first blueprint to get started.</p>
                   <button 
                     onClick={() => navigate('/create')}
@@ -341,12 +302,12 @@ const Dashboard = () => {
           {/* Classes Section */}
           <section>
             <div className="flex items-center justify-between mb-6">
-              <div className="inline-block bg-white/90 backdrop-blur-sm rounded-lg">
-                <h2 className="text-3xl font-normal text-[#2A2B2A] tracking-tight mb-2">All Classes</h2>
+              <div className="inline-block bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg">
+                <h2 className="text-3xl font-normal text-[#2A2B2A] dark:text-stone-100 tracking-tight mb-2">All Classes</h2>
               </div>
               <button 
                 onClick={() => { setEditingClass(null); setIsModalOpen(true); }}
-                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-lg hover:bg-stone-200 transition-all text-[#2A2B2A]"
+                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100"
               >
                 <Plus className="w-5 h-5" />
                 <span className="font-medium text-sm">New Class</span>
@@ -359,18 +320,18 @@ const Dashboard = () => {
                 <div 
                   key={course.id}
                   onClick={() => navigate(`/class/${course.id}`)}
-                  className="aspect-square bg-white rounded-xl p-6 shadow-sm hover:shadow-xl transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-stone-300 hover:border-stone-400"
+                  className="aspect-square bg-white dark:bg-stone-900 rounded-xl p-6 shadow-sm hover:shadow-xl transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-stone-300 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-600"
                 >
                   {/* Card Header */}
                   <div className="flex justify-between items-start z-10 relative">
-                    <div className="w-12 h-12 rounded-2xl bg-stone-100 flex items-center justify-center text-stone-500 shadow-md">
+                    <div className="w-12 h-12 rounded-2xl bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-500 dark:text-stone-400 shadow-md">
                       <BookOpen className="w-6 h-6" />
                     </div>
                     
                     {/* Dropdown Menu Button */}
                     <button 
                       onClick={(e) => toggleDropdown(course.id, e)}
-                      className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:text-[#2A2B2A] hover:bg-stone-100 transition-all relative z-10"
+                      className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:text-[#2A2B2A] dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 transition-all relative z-10"
                     >
                       <MoreVertical className="w-5 h-5" />
                     </button>
@@ -378,23 +339,23 @@ const Dashboard = () => {
 
                   {/* Card Content */}
                   <div className="z-10 mt-4">
-                    <h3 className="text-2xl font-normal text-[#2A2B2A] mb-1 leading-tight  transition-colors line-clamp-2">
+                    <h3 className="text-2xl font-normal text-[#2A2B2A] dark:text-stone-100 mb-1 leading-tight  transition-colors line-clamp-2">
                       {course.name}
                     </h3>
-                    <p className="text-stone-500 font-normal truncate">{course.professor}</p>
+                    <p className="text-stone-500 dark:text-stone-400 font-normal truncate">{course.professor}</p>
                   </div>
 
                   {/* Card Footer / Stats */}
-                  <div className="z-10 mt-auto pt-6 border-t border-stone-300">
+                  <div className="z-10 mt-auto pt-6 border-t border-stone-300 dark:border-stone-700">
                     <div className="flex justify-between items-center text-sm">
                        <div className="flex flex-col">
                          <span className="text-stone-400 text-xs font-normal uppercase">Next Exam</span>
-                         <span className="font-normal text-[#2A2B2A]">{course.nextExam}</span>
+                         <span className="font-normal text-[#2A2B2A] dark:text-stone-100">{course.nextExam}</span>
                        </div>
-                       <div className="h-8 w-[1px] bg-stone-300"></div>
+                       <div className="h-8 w-[1px] bg-stone-300 dark:bg-stone-700"></div>
                        <div className="flex flex-col items-end">
                          <span className="text-stone-400 text-xs font-normal uppercase">Progress</span>
-                         <span className="font-normal text-green-600">On Track</span>
+                         <span className="font-normal text-green-600 dark:text-green-500">On Track</span>
                        </div>
                     </div>
                   </div>

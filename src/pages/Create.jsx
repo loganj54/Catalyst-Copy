@@ -2,8 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Upload, FileText, Trash2, Sparkles, BookOpen, Briefcase, 
-  ArrowRight, Layers, Command, Loader2, Paperclip, Plus, Check, X,
-  Grid, Layout, Circle
+  ArrowRight, Layers, Command, Loader2, Paperclip, Plus, Check, X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -18,7 +17,6 @@ const Create = () => {
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
-  const [bgMode, setBgMode] = useState('dots'); // 'default', 'white', 'dots' (Defaulting to dots as it was original default)
 
   // Class Selection State
   const [classes, setClasses] = useState([]);
@@ -334,60 +332,23 @@ const Create = () => {
     }
   };
 
-  // Background Patterns
-  const pageBackground = `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8a29e' fill-opacity='0.25'%3E%3Ccircle cx='5' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='5' r='1.5'/%3E%3Ccircle cx='65' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='25' r='1.5'/%3E%3Ccircle cx='45' cy='25' r='1.5'/%3E%3Ccircle cx='85' cy='25' r='1.5'/%3E%3Ccircle cx='5' cy='45' r='1.5'/%3E%3Ccircle cx='45' cy='45' r='1.5'/%3E%3Ccircle cx='65' cy='45' r='1.5'/%3E%3Ccircle cx='25' cy='65' r='1.5'/%3E%3Ccircle cx='65' cy='65' r='1.5'/%3E%3Ccircle cx='85' cy='65' r='1.5'/%3E%3Ccircle cx='5' cy='85' r='1.5'/%3E%3Ccircle cx='25' cy='85' r='1.5'/%3E%3Ccircle cx='85' cy='85' r='1.5'/%3E%3C/g%3E%3C/svg%3E")`;
-  
   const cardBackground = `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8a29e' fill-opacity='0.05'%3E%3Ccircle cx='10' cy='10' r='1'/%3E%3C/g%3E%3C/svg%3E")`;
 
   return (
     <div 
-      className="min-h-screen bg-white pt-24 pb-12 px-4 sm:px-6 relative"
-      style={{ backgroundImage: bgMode === 'dots' ? pageBackground : 'none' }}
+      className="min-h-screen bg-transparent pt-24 pb-12 px-4 sm:px-6 relative"
     >
-      {/* Background Toggle - Development Only */}
-      <div className="fixed bottom-4 right-4 z-50 bg-white p-2 rounded-xl border border-stone-200 shadow-lg flex items-center gap-2">
-        <button
-          onClick={() => setBgMode('default')}
-          className={`p-2 rounded-lg transition-colors ${bgMode === 'default' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
-          title="Default Grid"
-        >
-          <Grid className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => setBgMode('white')}
-          className={`p-2 rounded-lg transition-colors ${bgMode === 'white' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
-          title="Pure White"
-        >
-          <Layout className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => setBgMode('dots')}
-          className={`p-2 rounded-lg transition-colors ${bgMode === 'dots' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
-          title="Dot Matrix"
-        >
-          <Circle className="w-5 h-5" />
-        </button>
-      </div>
-
-       {/* Backgrounds */}
-       {bgMode === 'default' && (
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-            <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white"></div>
-          </div>
-        )}
-
       <div className="max-w-3xl mx-auto relative z-10">
         
           {/* Header */}
           <div className="text-center mb-10 pt-20">
             <div className="mb-8">
-              <h1 className="inline-block text-6xl text-stone-900 tracking-tight bg-white/90 backdrop-blur-sm px-8 py-62 rounded-3xl ">
+              <h1 className="inline-block text-6xl text-stone-900 dark:text-stone-100 tracking-tight bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-8 py-62 rounded-3xl ">
                 What are we learning today?
               </h1>
             </div>
             <div className="mb-10">
-              <p className="inline-block text-stone-500 text-lg bg-white/90 backdrop-blur-sm px-8 py-4 rounded-2xl max-w-2xl mx-auto leading-relaxed">
+              <p className="inline-block text-stone-500 dark:text-stone-400 text-lg bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-8 py-4 rounded-2xl max-w-2xl mx-auto leading-relaxed">
                 Transform PDFs and ideas into structured engineering roadmaps.
               </p>
             </div>
@@ -395,8 +356,8 @@ const Create = () => {
 
         {/* Main Input Card */}
         <div 
-          className="rounded-2xl shadow-xl border border-stone-300 overflow-hidden"
-          style={{ backgroundImage: cardBackground, backgroundColor: 'white' }}
+          className="rounded-2xl shadow-xl border border-stone-300 dark:border-stone-700 overflow-hidden bg-white dark:bg-stone-900"
+          style={{ backgroundImage: cardBackground }}
         >
           
           <div className="p-4 space-y-4">
@@ -415,8 +376,8 @@ const Create = () => {
                       onClick={() => fileInputRef.current?.click()}
                       className={`h-full border border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
                         isDragging 
-                          ? 'border-stone-500 bg-stone-50' 
-                          : 'border-stone-300 hover:border-stone-400 hover:bg-stone-50'
+                          ? 'border-stone-500 bg-stone-50 dark:bg-stone-800' 
+                          : 'border-stone-300 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-500 hover:bg-stone-50 dark:hover:bg-stone-800'
                       }`}
                     >
                       <input
@@ -426,27 +387,27 @@ const Create = () => {
                         className="hidden"
                         accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
                       />
-                      <div className="p-2 bg-stone-100 rounded-lg text-stone-500 mb-2">
+                      <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-lg text-stone-500 dark:text-stone-400 mb-2">
                          <Paperclip className="w-5 h-5" />
                       </div>
-                      <p className="text-sm font-medium text-stone-900">Upload file</p>
+                      <p className="text-sm font-medium text-stone-900 dark:text-stone-100">Upload file</p>
                       
                     </div>
                   ) : (
-                    <div className="h-full border border-stone-300 rounded-lg p-4 bg-stone-50 flex flex-col items-center justify-center text-center relative group">
-                      <div className="p-2 bg-white border border-stone-300 rounded-lg text-[#FF4A1C] mb-2 shadow-sm">
+                    <div className="h-full border border-stone-300 dark:border-stone-700 rounded-lg p-4 bg-stone-50 dark:bg-stone-800 flex flex-col items-center justify-center text-center relative group">
+                      <div className="p-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-[#FF4A1C] mb-2 shadow-sm">
                          <FileText className="w-5 h-5" />
                       </div>
-                      <p className="text-sm font-medium text-stone-900 line-clamp-2 px-2 break-all">
+                      <p className="text-sm font-medium text-stone-900 dark:text-stone-100 line-clamp-2 px-2 break-all">
                         {formData.fileUpload.name}
                       </p>
-                      <p className="text-xs text-stone-500 mt-1">
+                      <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
                         {(formData.fileUpload.size / 1024).toFixed(1)} KB
                       </p>
                       
                       <button
                         onClick={(e) => { e.stopPropagation(); removeFile(); }}
-                        className="absolute top-2 right-2 p-1.5 bg-white border border-stone-300 rounded-md text-stone-500 hover:text-red-600 hover:border-red-300 transition-colors opacity-0 group-hover:opacity-100"
+                        className="absolute top-2 right-2 p-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-md text-stone-500 dark:text-stone-400 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-900/50 transition-colors opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -463,21 +424,21 @@ const Create = () => {
                   placeholder={mode === 'classwork' 
                     ? "Or add any specific context, problem details, or questions here..." 
                     : "Describe your engineering project idea in detail..."}
-                  className="w-full h-full p-3 bg-white border border-stone-300 rounded-lg text-sm text-stone-900 placeholder:text-stone-400 resize-none focus:outline-none focus:border-stone-500 focus:ring-0 leading-relaxed transition-all"
+                  className="w-full h-full p-3 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-600 resize-none focus:outline-none focus:border-stone-500 dark:focus:border-stone-400 focus:ring-0 leading-relaxed transition-all"
                 />
               </div>
 
             </div>
 
             {/* Action Bar */}
-            <div className="flex items-center justify-between pt-4 border-t border-stone-300">
+            <div className="flex items-center justify-between pt-4 border-t border-stone-300 dark:border-stone-700">
               <div className="flex gap-2">
                 <button
                   onClick={() => setMode('classwork')}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                     mode === 'classwork' 
-                      ? 'bg-stone-100 text-stone-900 border-stone-300' 
-                      : 'text-stone-500 border-transparent hover:bg-stone-50 hover:text-stone-900'
+                      ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600' 
+                      : 'text-stone-500 dark:text-stone-400 border-transparent hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-stone-100'
                   }`}
                 >
                   <BookOpen className="w-3 h-3" />
@@ -487,8 +448,8 @@ const Create = () => {
                   onClick={() => setMode('project')}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                     mode === 'project' 
-                      ? 'bg-stone-100 text-stone-900 border-stone-300' 
-                      : 'text-stone-500 border-transparent hover:bg-stone-50 hover:text-stone-900'
+                      ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600' 
+                      : 'text-stone-500 dark:text-stone-400 border-transparent hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-stone-100'
                   }`}
                 >
                   <Briefcase className="w-3 h-3" />
@@ -499,7 +460,7 @@ const Create = () => {
               <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-stone-900 border border-stone-300 rounded-lg font-medium text-sm hover:bg-stone-50 transition-all disabled:opacity-50 shadow-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 rounded-lg font-medium text-sm hover:bg-stone-50 dark:hover:bg-stone-700 transition-all disabled:opacity-50 shadow-sm"
               >
                 {loading ? (
                   <>
@@ -521,9 +482,9 @@ const Create = () => {
           {/* Class Selection Card (Classwork Mode Only) */}
         {mode === 'classwork' && (formData.fileUpload || formData.textInput.trim().length > 0 || selectedClassId || isCreatingClass) && (
           <div className="mt-6 flex gap-6 items-start">
-            <div className="rounded-2xl shadow-xl border border-stone-300 overflow-hidden bg-white max-w-[300px] w-full animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="rounded-2xl shadow-xl border border-stone-300 dark:border-stone-700 overflow-hidden bg-white dark:bg-stone-900 max-w-[300px] w-full animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="p-5">
-                <h3 className="text-sm font-bold text-stone-900 mb-4 flex items-center gap-2">
+                <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 mb-4 flex items-center gap-2">
                   What class is this for?
                 </h3>
                 
@@ -539,13 +500,13 @@ const Create = () => {
                         w-3 h-3 rounded-full border flex items-center justify-center transition-all flex-shrink-0
                         ${selectedClassId === cls.id 
                           ? 'border-[#FF4A1C] bg-[#FF4A1C]' 
-                          : 'border-stone-300 bg-white group-hover:border-stone-400'
+                          : 'border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 group-hover:border-stone-400 dark:group-hover:border-stone-500'
                         }
                       `}>
                          {/* No inner dot needed if we fill the background */}
                       </div>
                       <span className={`text-sm transition-colors truncate ${
-                        selectedClassId === cls.id ? 'text-stone-900 font-medium' : 'text-stone-600 group-hover:text-stone-900'
+                        selectedClassId === cls.id ? 'text-stone-900 dark:text-stone-100 font-medium' : 'text-stone-600 dark:text-stone-400 group-hover:text-stone-900 dark:group-hover:text-stone-200'
                       }`}>
                         {cls.name}
                       </span>
@@ -555,7 +516,7 @@ const Create = () => {
                   {/* Create New Class UI */}
                   {isCreatingClass ? (
                     <div ref={wrapperRef} className="flex items-center gap-3 pl-[0px] w-full animate-in fade-in slide-in-from-left-2">
-                      <div className="w-3 h-3 rounded-full border border-stone-300 flex-shrink-0 bg-white" />
+                      <div className="w-3 h-3 rounded-full border border-stone-300 dark:border-stone-600 flex-shrink-0 bg-white dark:bg-stone-800" />
                       <div className="flex-1 flex items-center gap-2">
                         <input
                           type="text"
@@ -563,7 +524,7 @@ const Create = () => {
                           onChange={(e) => setNewClassName(e.target.value)}
                           placeholder="Enter Class Name"
                           autoFocus
-                          className="bg-white  border-stone-300 focus:border-[#FF4A1C] focus:ring-0 text-sm text-stone-900 placeholder:text-stone-600 placeholder:font-normal w-full px-0 py-1 outline-none transition-all"
+                          className="bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-600 focus:border-[#FF4A1C] dark:focus:border-[#FF4A1C] focus:ring-0 text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-600 dark:placeholder:text-stone-400 placeholder:font-normal w-full px-0 py-1 outline-none transition-all"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') handleCreateClass();
                             if (e.key === 'Escape') {
@@ -594,9 +555,9 @@ const Create = () => {
                       }}
                       className="group flex items-center gap-3 w-full text-left mt-1"
                     >
-                      <div className="w-3 h-3 rounded-full border border-stone-200 flex items-center justify-center transition-all flex-shrink-0 bg-white group-hover:border-[#FF4A1C]/50">
+                      <div className="w-3 h-3 rounded-full border border-stone-200 dark:border-stone-700 flex items-center justify-center transition-all flex-shrink-0 bg-white dark:bg-stone-800 group-hover:border-[#FF4A1C]/50">
                       </div>
-                      <span className="text-sm text-stone-600 group-hover:text-[#FF4A1C] transition-colors">
+                      <span className="text-sm text-stone-600 dark:text-stone-400 group-hover:text-[#FF4A1C] transition-colors">
                         Create a Class
                       </span>
                     </button>
@@ -607,9 +568,9 @@ const Create = () => {
 
             {/* Name This Blueprint (Progressive Disclosure) */}
             {(selectedClassId || isCreatingClass) && (
-              <div className="rounded-2xl shadow-xl border border-stone-300 overflow-hidden bg-white flex-1 animate-in fade-in slide-in-from-left-4 duration-500">
+              <div className="rounded-2xl shadow-xl border border-stone-300 dark:border-stone-700 overflow-hidden bg-white dark:bg-stone-900 flex-1 animate-in fade-in slide-in-from-left-4 duration-500">
                 <div className="p-5">
-                  <h3 className="text-sm font-bold text-stone-900 mb-4">
+                  <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 mb-4">
                     Name This Blueprint
                   </h3>
                   <div className="flex items-center gap-3 pl-[0px] w-full">
@@ -619,7 +580,7 @@ const Create = () => {
                       value={formData.blueprintName}
                       onChange={(e) => setFormData(prev => ({ ...prev, blueprintName: e.target.value }))}
                       placeholder="Enter Blueprint Name"
-                      className=" pl-4 bg-white border-stone-300 focus:border-[#FF4A1C] focus:ring-0 text-sm text-stone-900 placeholder:text-stone-600 placeholder:font-normal w-full px-0 py-1 outline-none transition-all"
+                      className=" pl-4 bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-600 focus:border-[#FF4A1C] focus:ring-0 text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-600 dark:placeholder:text-stone-400 placeholder:font-normal w-full px-0 py-1 outline-none transition-all"
                     />
                   </div>
                 </div>

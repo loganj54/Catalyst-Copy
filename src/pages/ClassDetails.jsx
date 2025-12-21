@@ -11,10 +11,7 @@ import {
   FolderOpen,
   Trash2,
   Download,
-  Eye,
-  Grid, 
-  Layout, 
-  Circle
+  Eye
 } from 'lucide-react';
 import BlueprintModal from '../components/BlueprintModal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -28,7 +25,6 @@ const ClassDetails = () => {
   const { user } = useAuth();
   const fileInputRef = useRef(null);
   
-  const [bgMode, setBgMode] = useState('dots'); // 'default', 'white', 'dots'
   const [classData, setClassData] = useState(null);
   const [blueprints, setBlueprints] = useState([]);
   const [documents, setDocuments] = useState([]);
@@ -273,9 +269,6 @@ const ClassDetails = () => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // Background Patterns
-  const pageBackground = `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8a29e' fill-opacity='0.25'%3E%3Ccircle cx='5' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='5' r='1.5'/%3E%3Ccircle cx='65' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='25' r='1.5'/%3E%3Ccircle cx='45' cy='25' r='1.5'/%3E%3Ccircle cx='85' cy='25' r='1.5'/%3E%3Ccircle cx='5' cy='45' r='1.5'/%3E%3Ccircle cx='45' cy='45' r='1.5'/%3E%3Ccircle cx='65' cy='45' r='1.5'/%3E%3Ccircle cx='25' cy='65' r='1.5'/%3E%3Ccircle cx='65' cy='65' r='1.5'/%3E%3Ccircle cx='85' cy='65' r='1.5'/%3E%3Ccircle cx='5' cy='85' r='1.5'/%3E%3Ccircle cx='25' cy='85' r='1.5'/%3E%3Ccircle cx='85' cy='85' r='1.5'/%3E%3C/g%3E%3C/svg%3E")`;
-
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -288,49 +281,16 @@ const ClassDetails = () => {
 
   return (
     <div 
-      className="min-h-screen bg-white flex text-outline relative"
-      style={{ backgroundImage: bgMode === 'dots' ? pageBackground : 'none' }}
+      className="min-h-screen bg-transparent flex text-outline relative"
     >
-      {/* Background Toggle - Development Only */}
-      <div className="fixed bottom-4 right-4 z-50 bg-white p-2 rounded-xl border border-stone-200 shadow-lg flex items-center gap-2">
-        <button
-          onClick={() => setBgMode('default')}
-          className={`p-2 rounded-lg transition-colors ${bgMode === 'default' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
-          title="Default Grid"
-        >
-          <Grid className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => setBgMode('white')}
-          className={`p-2 rounded-lg transition-colors ${bgMode === 'white' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
-          title="Pure White"
-        >
-          <Layout className="w-5 h-5" />
-        </button>
-        <button
-          onClick={() => setBgMode('dots')}
-          className={`p-2 rounded-lg transition-colors ${bgMode === 'dots' ? 'bg-stone-100 text-[#FF4A1C]' : 'text-stone-400 hover:text-stone-600'}`}
-          title="Dot Matrix"
-        >
-          <Circle className="w-5 h-5" />
-        </button>
-      </div>
-
-       {/* Backgrounds */}
-       {bgMode === 'default' && (
-          <div className="absolute inset-0 pointer-events-none z-0">
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-            <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white"></div>
-          </div>
-        )}
-
+      
       {/* Global Sidebar - Collapsed */}
       <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-30 hidden lg:block w-20">
         <Sidebar collapsed={true} />
       </div>
 
       {/* Class Sidebar */}
-      <div className="fixed top-20 left-20 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white border-r border-stone-200">
+      <div className="fixed top-20 left-20 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
         <ClassSidebar />
       </div>
 
@@ -361,18 +321,18 @@ const ClassDetails = () => {
           {/* Header */}
           <div className="flex flex-col gap-6 mb-8">
              <div className="text-left">
-                <h1 className="text-4xl font-normal text-[#2A2B2A] tracking-tight">{classData.name}</h1>
-                <p className="text-stone-500 text-lg">{classData.professor}</p>
+                <h1 className="text-4xl font-normal text-[#2A2B2A] dark:text-stone-100 tracking-tight">{classData.name}</h1>
+                <p className="text-stone-500 dark:text-stone-400 text-lg">{classData.professor}</p>
              </div>
 
              {/* Navigation Toggle */}
-             <div className="self-center bg-stone-100/50 p-1 rounded-lg inline-flex items-center">
+             <div className="self-center bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg inline-flex items-center">
                 <button 
                   onClick={() => setActiveTab('blueprints')}
                   className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
                     activeTab === 'blueprints' 
-                      ? 'bg-white text-stone-900 shadow-sm' 
-                      : 'text-stone-500 hover:text-stone-900'
+                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm' 
+                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
                   }`}
                 >
                   Blueprints
@@ -381,8 +341,8 @@ const ClassDetails = () => {
                   onClick={() => setActiveTab('documents')}
                   className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
                     activeTab === 'documents' 
-                      ? 'bg-white text-stone-900 shadow-sm' 
-                      : 'text-stone-500 hover:text-stone-900'
+                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm' 
+                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
                   }`}
                 >
                   Documents
@@ -397,7 +357,7 @@ const ClassDetails = () => {
                 {documents.length > 0 ? (
                   <div className="space-y-6">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-xl font-normal text-stone-900">Your Documents</h3>
+                      <h3 className="text-xl font-normal text-stone-900 dark:text-stone-100">Your Documents</h3>
                       <div>
                         <input 
                           ref={fileInputRef}
@@ -409,7 +369,7 @@ const ClassDetails = () => {
                         />
                         <label 
                           htmlFor="document-upload"
-                          className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-lg hover:bg-stone-200 transition-all text-[#2A2B2A] cursor-pointer ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 cursor-pointer ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                           {uploadingDocument ? (
                             <>
@@ -430,28 +390,28 @@ const ClassDetails = () => {
                       {documents.map((doc) => (
                         <div 
                           key={doc.id}
-                          className="bg-white border border-stone-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-all group relative flex flex-col h-full"
+                          className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl p-6 shadow-sm hover:shadow-md transition-all group relative flex flex-col h-full"
                         >
                           <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-stone-100 rounded-lg flex items-center justify-center text-stone-500">
+                            <div className="w-10 h-10 bg-stone-100 dark:bg-stone-800 rounded-lg flex items-center justify-center text-stone-500 dark:text-stone-400">
                               <FileText className="w-5 h-5" />
                             </div>
                             
                             <div className="relative">
                               <button
                                 onClick={(e) => toggleDropdown(e, doc.id)}
-                                className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:text-stone-900 hover:bg-stone-100 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
                               >
                                 <MoreVertical className="w-5 h-5" />
                               </button>
                               
                               {openDropdownId === doc.id && (
-                                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-stone-100 py-1 z-10 animate-fade-in">
+                                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-100 dark:border-stone-800 py-1 z-10 animate-fade-in">
                                   <a
                                     href={doc.file_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="w-full px-4 py-2 text-left text-sm text-stone-600 hover:bg-stone-50 flex items-center gap-2"
+                                    className="w-full px-4 py-2 text-left text-sm text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2"
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <Eye className="w-4 h-4" />
@@ -460,7 +420,7 @@ const ClassDetails = () => {
                                   <a
                                     href={doc.file_url}
                                     download
-                                    className="w-full px-4 py-2 text-left text-sm text-stone-600 hover:bg-stone-50 flex items-center gap-2"
+                                    className="w-full px-4 py-2 text-left text-sm text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2"
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <Download className="w-4 h-4" />
@@ -468,7 +428,7 @@ const ClassDetails = () => {
                                   </a>
                                   <button
                                     onClick={(e) => handleDeleteDocument(e, doc.id, doc.file_path)}
-                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
                                   >
                                     <Trash2 className="w-4 h-4" />
                                     Delete
@@ -479,18 +439,18 @@ const ClassDetails = () => {
                           </div>
                           
                           <div className="mb-6">
-                            <h4 className="text-xl font-normal text-stone-900 mb-1 truncate" title={doc.name}>
+                            <h4 className="text-xl font-normal text-stone-900 dark:text-stone-100 mb-1 truncate" title={doc.name}>
                               {doc.name}
                             </h4>
-                            <p className="text-sm text-stone-500">
+                            <p className="text-sm text-stone-500 dark:text-stone-400">
                               {(doc.file_size / 1024).toFixed(1)} KB
                             </p>
                           </div>
                           
-                          <div className="mt-auto pt-4 border-t border-stone-100 flex items-center justify-between text-xs text-stone-400">
+                          <div className="mt-auto pt-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs text-stone-400 dark:text-stone-500">
                             <div className="flex items-center gap-1.5">
                               <span>Created</span>
-                              <span className="text-stone-500">{new Date(doc.created_at).toLocaleDateString()}</span>
+                              <span className="text-stone-500 dark:text-stone-400">{new Date(doc.created_at).toLocaleDateString()}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                                <span>{new Date(doc.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -502,11 +462,11 @@ const ClassDetails = () => {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-6 text-stone-300">
+                    <div className="w-20 h-20 bg-stone-50 dark:bg-stone-800 rounded-full flex items-center justify-center mx-auto mb-6 text-stone-300 dark:text-stone-600">
                       <FolderOpen className="w-10 h-10" />
                     </div>
-                    <h3 className="text-xl font-bold text-[#2A2B2A] mb-2">Class Documents</h3>
-                    <p className="text-stone-500 mb-8 max-w-md mx-auto">
+                    <h3 className="text-xl font-bold text-[#2A2B2A] dark:text-stone-100 mb-2">Class Documents</h3>
+                    <p className="text-stone-500 dark:text-stone-400 mb-8 max-w-md mx-auto">
                       Store your syllabus, assignments, and lecture notes here to keep everything organized.
                     </p>
                     <input 
@@ -519,7 +479,7 @@ const ClassDetails = () => {
                     />
                     <label 
                       htmlFor="document-upload-empty"
-                      className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-lg hover:bg-stone-200 transition-all text-[#2A2B2A] cursor-pointer ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 cursor-pointer ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       {uploadingDocument ? (
                         <>
@@ -543,10 +503,10 @@ const ClassDetails = () => {
                 {blueprints.length > 0 ? (
                   <div className="space-y-6">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-xl font-normal text-stone-900">Your Blueprints</h3>
+                      <h3 className="text-xl font-normal text-stone-900 dark:text-stone-100">Your Blueprints</h3>
                       <button 
                         onClick={() => setIsBlueprintModalOpen(true)}
-                        className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-lg hover:bg-stone-200 transition-all text-[#2A2B2A]"
+                        className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100"
                       >
                         <Plus className="w-5 h-5" />
                         <span className="font-medium text-sm">New Blueprint</span>
@@ -558,26 +518,26 @@ const ClassDetails = () => {
                         <div 
                           key={blueprint.id}
                           onClick={() => navigate(`/blueprint/${blueprint.id}`)}
-                          className="bg-white border border-stone-200 rounded-xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all group relative flex flex-col h-full"
+                          className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all group relative flex flex-col h-full"
                         >
                           <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-stone-100 rounded-lg flex items-center justify-center text-stone-500">
+                            <div className="w-10 h-10 bg-stone-100 dark:bg-stone-800 rounded-lg flex items-center justify-center text-stone-500 dark:text-stone-400">
                               <PenTool className="w-5 h-5" />
                             </div>
                             
                             <div className="relative">
                               <button
                                 onClick={(e) => toggleDropdown(e, blueprint.id)}
-                                className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:text-stone-900 hover:bg-stone-100 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
                               >
                                 <MoreVertical className="w-5 h-5" />
                               </button>
                               
                               {openDropdownId === blueprint.id && (
-                                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-xl border border-stone-100 py-1 z-10 animate-fade-in">
+                                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-100 dark:border-stone-800 py-1 z-10 animate-fade-in">
                                   <button
                                     onClick={(e) => handleDeleteBlueprint(e, blueprint.id)}
-                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
                                   >
                                     <Trash2 className="w-4 h-4" />
                                     Delete Blueprint
@@ -588,18 +548,18 @@ const ClassDetails = () => {
                           </div>
                           
                           <div className="mb-6">
-                            <h4 className="text-xl font-normal text-stone-900 mb-1 truncate" title={blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}>
+                            <h4 className="text-xl font-normal text-stone-900 dark:text-stone-100 mb-1 truncate" title={blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}>
                               {blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}
                             </h4>
-                            <p className="text-sm text-stone-500 line-clamp-2 h-10">
+                            <p className="text-sm text-stone-500 dark:text-stone-400 line-clamp-2 h-10">
                               {blueprint.task_type}
                             </p>
                           </div>
                           
-                          <div className="mt-auto pt-4 border-t border-stone-100 flex items-center justify-between text-xs text-stone-400">
+                          <div className="mt-auto pt-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs text-stone-400 dark:text-stone-500">
                              <div className="flex items-center gap-1.5">
                               <span>Created</span>
-                              <span className="text-stone-500">{new Date(blueprint.created_at).toLocaleDateString()}</span>
+                              <span className="text-stone-500 dark:text-stone-400">{new Date(blueprint.created_at).toLocaleDateString()}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                                <span>{new Date(blueprint.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -611,16 +571,16 @@ const ClassDetails = () => {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center mx-auto mb-6 text-stone-300">
+                    <div className="w-20 h-20 bg-stone-50 dark:bg-stone-800 rounded-full flex items-center justify-center mx-auto mb-6 text-stone-300 dark:text-stone-600">
                       <PenTool className="w-10 h-10" />
                     </div>
-                    <h3 className="text-xl font-bold text-[#2A2B2A] mb-2">Class Blueprints</h3>
-                    <p className="text-stone-500 mb-8 max-w-md mx-auto">
+                    <h3 className="text-xl font-bold text-[#2A2B2A] dark:text-stone-100 mb-2">Class Blueprints</h3>
+                    <p className="text-stone-500 dark:text-stone-400 mb-8 max-w-md mx-auto">
                       Create and manage your engineering blueprints and diagrams for this class.
                     </p>
                     <button 
                       onClick={() => setIsBlueprintModalOpen(true)}
-                      className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 border border-stone-200 rounded-lg hover:bg-stone-200 transition-all text-[#2A2B2A]"
+                      className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100"
                     >
                       <Plus className="w-5 h-5" />
                       <span className="font-medium text-sm">New Blueprint</span>

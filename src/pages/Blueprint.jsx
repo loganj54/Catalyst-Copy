@@ -636,16 +636,10 @@ const Blueprint = () => {
 
   return (
     <div 
-      className="min-h-screen bg-white flex text-outline relative"
-      style={{ backgroundImage: bgMode === 'dots' ? pageBackground : 'none' }}
+      className="min-h-screen bg-transparent flex text-outline relative"
     >
       {/* Backgrounds */}
-      {bgMode === 'default' && (
-        <div className="absolute inset-0 pointer-events-none z-0">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-          <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white"></div>
-        </div>
-      )}
+      {/* Removed bgMode === 'default' background logic to match ClassDetails */}
 
       {/* Sidebars */}
       <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-30 hidden lg:block w-20">
@@ -684,15 +678,12 @@ const Blueprint = () => {
 
           {/* No Structure State - Show Generation UI */}
           {!structure && (
-            <div className="bg-white rounded-3xl p-8 shadow-sm border border-stone-100 mt-8">
-               <div className="bg-gradient-to-br from-[#FF4A1C]/5 to-purple-50 rounded-2xl p-8 text-center border-2 border-dashed border-stone-200">
-                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                  <Sparkles className="w-8 h-8 text-[#FF4A1C]" />
-                </div>
-                <h3 className="text-xl font-bold text-[#2A2B2A] mb-2">
+            <div className="bg-white dark:bg-stone-900 rounded-3xl p-8 shadow-sm border border-stone-200 dark:border-stone-800 mt-8">
+               <div className="text-center py-8">
+                <h3 className="text-xl font-bold text-[#2A2B2A] dark:text-stone-100 mb-2">
                   Ready to Generate Your Learning Path
                 </h3>
-                <p className="text-stone-600 mb-6 max-w-md mx-auto">
+                <p className="text-stone-500 dark:text-stone-400 mb-8 max-w-md mx-auto">
                   Analyze your document and create a personalized learning path with topics and resources.
                 </p>
                 
@@ -700,13 +691,13 @@ const Blueprint = () => {
                    <button
                     onClick={runAllSteps}
                     disabled={generating}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-[#FF4A1C] text-white rounded-xl 
-                               hover:bg-black transition-colors font-medium disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 font-medium disabled:opacity-50"
                   >
+                    <Sparkles className="w-4 h-4" />
                     {generating ? 'Generating...' : 'Generate Learning Structure'}
                   </button>
                 ) : (
-                  <div className={`inline-flex items-center gap-3 p-3 rounded-xl bg-white border border-stone-200 shadow-sm`}>
+                  <div className={`inline-flex items-center gap-3 p-3 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-sm`}>
                     <StatusIcon className={`w-5 h-5 ${statusConfig.color} ${statusConfig.animate ? 'animate-pulse' : ''}`} />
                     <span className={`font-medium ${statusConfig.color}`}>
                       {statusConfig.label}

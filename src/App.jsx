@@ -1,6 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import ThemeToggle from './components/ThemeToggle';
+import Background from './components/Background';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
@@ -19,6 +22,8 @@ function Layout() {
   return (
     <div className="w-full min-h-screen overflow-hidden relative flex flex-col pt-20">
       <Navbar />
+      <ThemeToggle />
+      <Background />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/auth" element={<Auth />} />
@@ -74,9 +79,11 @@ function Layout() {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Layout />
-      </Router>
+      <ThemeProvider>
+        <Router>
+          <Layout />
+        </Router>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

@@ -95,13 +95,13 @@ const ClassSidebar = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-80px)] bg-white border-r border-stone-200 flex flex-col w-56">
+    <div className="h-[calc(100vh-80px)] bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800 flex flex-col w-56">
       {/* Header */}
-      <div className="p-4 border-b border-stone-100 flex justify-between items-center">
-        <h2 className="font-semibold text-stone-900">My Classes</h2>
+      <div className="p-4 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
+        <h2 className="font-semibold text-stone-900 dark:text-stone-100">My Classes</h2>
         <Link 
           to="/create"
-          className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-900 transition-colors"
+          className="p-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 transition-colors"
           title="Create New Class"
         >
           <Plus className="w-4 h-4" />
@@ -132,13 +132,13 @@ const ClassSidebar = () => {
                     }}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border group ${
                       isCurrentClassActive 
-                        ? 'bg-stone-100 text-stone-900 border-stone-300' 
-                        : 'text-stone-500 border-transparent hover:bg-stone-50 hover:text-stone-900'
+                        ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-700' 
+                        : 'text-stone-500 dark:text-stone-400 border-transparent hover:bg-stone-50 dark:hover:bg-stone-800/50 hover:text-stone-900 dark:hover:text-stone-200'
                     }`}
                   >
                     <div className="flex items-center gap-2 truncate flex-1">
                       <BookOpen className={`w-3.5 h-3.5 flex-shrink-0 ${
-                        isCurrentClassActive ? 'text-stone-900' : 'text-stone-400 group-hover:text-stone-500'
+                        isCurrentClassActive ? 'text-stone-900 dark:text-stone-100' : 'text-stone-400 dark:text-stone-500 group-hover:text-stone-500 dark:group-hover:text-stone-300'
                       }`} />
                       <span className="truncate">{course.name}</span>
                     </div>
@@ -146,7 +146,7 @@ const ClassSidebar = () => {
 
                   {/* Indented Blueprints List */}
                   {isExpanded && (
-                    <div className="ml-6 mt-1 space-y-0.5 border-l-2 border-stone-100 pl-3">
+                    <div className="ml-6 mt-1 space-y-0.5 border-l-2 border-stone-100 dark:border-stone-800 pl-3">
                       {loadingBlueprints ? (
                         <div className="py-2 px-2">
                            <Loader2 className="w-3 h-3 animate-spin text-stone-400" />
@@ -162,11 +162,11 @@ const ClassSidebar = () => {
                                to={`/blueprint/${bp.id}`}
                                className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors block w-full text-left ${
                                  isBpActive 
-                                   ? 'text-[#FF4A1C] bg-[#FF4A1C]/5 font-medium  border-[#FF4A1C]' 
-                                   : 'text-stone-500 hover:text-stone-900 hover:bg-stone-50'
+                                   ? 'text-[#FF4A1C] bg-[#FF4A1C]/5 dark:bg-[#FF4A1C]/10 font-medium  border-[#FF4A1C]' 
+                                   : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800/50'
                                }`}
                              >
-                               <PenTool className={`w-3 h-3 shrink-0 ${isBpActive ? 'text-[#FF4A1C]' : 'text-stone-400'}`} />
+                               <PenTool className={`w-3 h-3 shrink-0 ${isBpActive ? 'text-[#FF4A1C]' : 'text-stone-400 dark:text-stone-500'}`} />
                                <span className="truncate">{bpName}</span>
                              </Link>
                            );
@@ -184,7 +184,7 @@ const ClassSidebar = () => {
           </div>
         ) : (
           <div className="px-4 py-8 text-center">
-            <p className="text-sm text-stone-500 mb-4">No classes found.</p>
+            <p className="text-sm text-stone-500 dark:text-stone-400 mb-4">No classes found.</p>
             <Link 
               to="/create"
               className="text-xs font-medium text-[#FF4A1C] hover:text-[#d43b15]"
