@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
+import Footer from '../components/Footer';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -122,6 +123,9 @@ const Auth = () => {
             {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
           </button>
         </div>
+      </div>
+      <div className="fixed bottom-0 w-full left-0">
+        <Footer />
       </div>
     </div>
   );

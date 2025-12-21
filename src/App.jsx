@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
-import Footer from './components/Footer';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
@@ -16,7 +15,6 @@ import ClassDetails from './pages/ClassDetails';
 
 function Layout() {
   const location = useLocation();
-  const isDashboardPage = ['/classes', '/projects', '/career', '/skills'].includes(location.pathname);
 
   return (
     <div className="w-full min-h-screen overflow-hidden relative flex flex-col pt-20">
@@ -69,7 +67,6 @@ function Layout() {
           } 
         />
       </Routes>
-      {!isDashboardPage && <Footer />}
     </div>
   );
 }

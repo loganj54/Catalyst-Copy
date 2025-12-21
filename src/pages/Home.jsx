@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Check, Zap, Globe, Shield, Grid, Layout, Circle } from 'lucide-react';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const Home = () => {
   const [bgMode, setBgMode] = useState('default'); // 'default', 'white', 'dots'
@@ -213,6 +214,7 @@ const Home = () => {
         </div>
       </section>
 
+      <Footer />
     </div>
   );
 };

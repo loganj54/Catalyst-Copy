@@ -359,8 +359,8 @@ const ClassDetails = () => {
           {/* Header */}
           <div className="flex flex-col gap-6 mb-8">
              <div className="text-left">
-                <h1 className="text-5xl font-normal text-stone-900 tracking-tight mb-2">{classData.name}</h1>
-                <p className="text-stone-500 text-lg">Professor: {classData.professor}</p>
+                <h1 className="text-4xl font-normal text-[#2A2B2A] tracking-tight">{classData.name}</h1>
+                <p className="text-stone-500 text-lg">{classData.professor}</p>
              </div>
 
              {/* Navigation Toggle */}
