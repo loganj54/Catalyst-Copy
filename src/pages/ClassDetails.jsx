@@ -208,6 +208,35 @@ const ClassDetails = () => {
     });
   };
 
+  const handleViewDocument = async (e, doc) => {
+    e.stopPropagation();
+    
+    try {
+      let viewUrl = doc.file_url;
+      
+      // If public URL is not available or might be broken, try generating a signed URL
+      if (!viewUrl || viewUrl.includes('error')) {
+        console.log('Public URL not available, generating signed URL...');
+        const { data, error } = await supabase.storage
+          .from('class-documents')
+          .createSignedUrl(doc.file_path, 3600); // 1 hour expiry
+        
+        if (error) {
+          console.error('Error generating signed URL:', error);
+          alert('❌ Failed to open document.\n\nPlease check that storage policies are configured correctly.');
+          return;
+        }
+        viewUrl = data.signedUrl;
+      }
+      
+      // Open document in new tab
+      window.open(viewUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Error viewing document:', error);
+      alert('❌ Failed to open document.\n\nError: ' + error.message);
+    }
+  };
+
   const confirmDelete = async () => {
     const { type, itemId, itemPath } = confirmDialog;
     
@@ -407,16 +436,13 @@ const ClassDetails = () => {
                               
                               {openDropdownId === doc.id && (
                                 <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-100 dark:border-stone-800 py-1 z-10 animate-fade-in">
-                                  <a
-                                    href={doc.file_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                  <button
+                                    onClick={(e) => handleViewDocument(e, doc)}
                                     className="w-full px-4 py-2 text-left text-sm text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2"
-                                    onClick={(e) => e.stopPropagation()}
                                   >
                                     <Eye className="w-4 h-4" />
                                     View
-                                  </a>
+                                  </button>
                                   <a
                                     href={doc.file_url}
                                     download

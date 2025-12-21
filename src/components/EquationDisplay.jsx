@@ -29,7 +29,7 @@ const EquationDisplay = ({ equations }) => {
         Key Equations
       </div>
       
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {equations.map((equation, idx) => (
           <EquationCard 
             key={equation.name || idx} 
@@ -66,7 +66,7 @@ const EquationCard = ({ equation, index }) => {
   };
 
   return (
-    <div className="bg-stone-50 rounded-xl border border-stone-200 overflow-hidden">
+    <div className="bg-stone-50 rounded-xl border border-stone-200 overflow-hidden h-full flex flex-col">
       {/* Equation Header */}
       <div className="px-4 py-3 bg-stone-100/50 border-b border-stone-200">
         <div className="flex items-center gap-2">
@@ -92,11 +92,11 @@ const EquationCard = ({ equation, index }) => {
           </p>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             {Object.entries(variables).map(([symbol, description]) => (
-              <div key={symbol} className="flex items-baseline gap-1.5 text-sm">
-                <span className="font-mono font-semibold text-stone-600">
+              <div key={symbol} className="flex items-baseline gap-1.5 text-sm max-w-full">
+                <span className="font-mono font-semibold text-stone-600 shrink-0">
                   <InlineMath math={symbol} />
                 </span>
-                <span className="text-stone-600">= {description}</span>
+                <span className="text-stone-600 break-words min-w-0">= {description}</span>
               </div>
             ))}
           </div>
