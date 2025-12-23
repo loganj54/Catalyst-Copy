@@ -23,6 +23,12 @@ import {
 } from '../_shared/supabase-client.ts';
 import { PROMPTS } from '../_shared/prompts.ts';
 import { generateEmbedding } from '../_shared/embeddings.ts';
+import { 
+  checkStructureCache,
+  adaptCachedStructure,
+  cacheNewStructure,
+  incrementCacheUsage,
+} from '../_shared/structure-cache.ts';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -585,6 +591,114 @@ serve(async (req) => {
           generation_error: null,
         })
         .eq('id', blueprint_id);
+      
+      // =========================================================================
+      // CHECK STRUCTURE CACHE (NEW!)
+      // =========================================================================
+      // Check if we have a similar blueprint structure cached
+      // This can save 20,000-24,000 tokens (~$0.05-0.06 per cache hit)
+      // =========================================================================
+      
+      console.log('[generate-structure] ========================================');
+      console.log('[generate-structure] CHECKING STRUCTURE CACHE');
+      console.log('[generate-structure] ========================================');
+      
+      const cacheCheck = await checkStructureCache(supabase, analysisData, 0.92);
+      
+      if (cacheCheck.hit && cacheCheck.cachedStructure) {
+        console.log('[generate-structure] ✅ CACHE HIT! Adapting cached structure...');
+        console.log(`[generate-structure]   - Similarity: ${(cacheCheck.similarity! * 100).toFixed(1)}%`);
+        console.log(`[generate-structure]   - Times used: ${cacheCheck.timesUsed}`);
+        console.log(`[generate-structure]   - Quality: ${cacheCheck.qualityScore?.toFixed(2)}`);
+        console.log(`[generate-structure]   - Token savings: ~24,000 tokens (~$0.06)`);
+        
+        // Adapt the cached structure to the new document
+        const adaptedStructure = adaptCachedStructure(cacheCheck.cachedStructure, analysisData);
+        
+        // Increment cache usage stats
+        await incrementCacheUsage(supabase, cacheCheck.cacheId!);
+        
+        // Process equations as usual
+        const equationResults = await processStructureEquations(
+          supabase,
+          adaptedStructure,
+          blueprint_id,
+          analysisData.subject_area || 'General',
+          userId
+        );
+        
+        console.log(`[generate-structure] Processed equations: ${equationResults.totalCached} cached, ${equationResults.totalNew} new`);
+        
+        // Count metrics
+        const metrics = countStructureMetrics(adaptedStructure);
+        const allSearchQueries = flattenSearchQueries(adaptedStructure);
+        
+        // Store the adapted structure
+        const structureInsert = {
+          blueprint_id: blueprint_id,
+          analysis_id: analysisId,
+          document_id: documentId || null,
+          user_id: userId,
+          structure: adaptedStructure,
+          all_search_queries: allSearchQueries,
+          total_prerequisites: metrics.total_prerequisites,
+          total_sections: metrics.total_sections,
+          total_learning_units: metrics.total_learning_units,
+          total_search_queries: metrics.total_search_queries,
+          model_used: 'cached',
+          from_cache: true,
+          cache_source_id: cacheCheck.cacheId,
+          cache_similarity: cacheCheck.similarity,
+        };
+        
+        const { data: newStructure, error: structureError } = await supabase
+          .from('blueprint_structures')
+          .insert(structureInsert)
+          .select()
+          .single();
+        
+        if (structureError) {
+          console.error('[generate-structure] Error storing adapted structure:', structureError);
+          throw new Error(`Database error: ${structureError.message}`);
+        }
+        
+        // Update blueprint status
+        await supabase
+          .from('blueprints')
+          .update({ 
+            generation_status: 'structure_generated',
+            generation_error: null,
+          })
+          .eq('id', blueprint_id);
+        
+        // Return success response
+        return new Response(
+          JSON.stringify({
+            success: true,
+            step: 'generate_structure',
+            status: 'structure_generated',
+            structure_id: newStructure?.id,
+            structure: adaptedStructure,
+            metrics: metrics,
+            search_queries_count: allSearchQueries.length,
+            equations: {
+              cached: equationResults.totalCached,
+              new: equationResults.totalNew,
+              total: equationResults.totalCached + equationResults.totalNew,
+            },
+            from_cache: true,
+            cache_similarity: cacheCheck.similarity,
+            cache_times_used: cacheCheck.timesUsed,
+            token_savings: '~24,000 tokens',
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          }
+        );
+      }
+      
+      console.log('[generate-structure] Cache miss - generating new structure with AI...');
 
     } else if (body.analysis) {
       // Direct input mode
@@ -614,7 +728,7 @@ serve(async (req) => {
     const structure = await callClaudeJSON<LearningStructure>(
       PROMPTS.generateStructure.system,
       PROMPTS.generateStructure.user(analysisData, inputType),
-      { temperature: 0.4, maxTokens: 16384 }
+      { temperature: 0.4, maxTokens: 12288 } // Increased from 8192 - need enough for complete JSON
     );
 
     console.log('[generate-structure] Structure generated:');
@@ -674,6 +788,18 @@ serve(async (req) => {
     }
 
     console.log('[generate-structure] Structure saved with ID:', newStructure?.id);
+
+    // =========================================================================
+    // CACHE THIS NEW STRUCTURE FOR FUTURE USE
+    // =========================================================================
+    // Store this structure in the cache so similar documents can reuse it
+    // This builds up a library of reusable learning structures over time
+    // =========================================================================
+    
+    if (blueprint_id && analysisData) {
+      console.log('[generate-structure] Caching structure for future reuse...');
+      await cacheNewStructure(supabase, structure, analysisData, analysisId);
+    }
 
     // Update blueprint status to indicate structure generation is complete
     if (blueprint_id) {

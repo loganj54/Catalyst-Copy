@@ -355,13 +355,13 @@ const ClassDetails = () => {
              </div>
 
              {/* Navigation Toggle */}
-             <div className="self-center bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg inline-flex items-center">
+             <div className="self-center bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg inline-flex items-center border border-stone-200 dark:border-stone-700">
                 <button 
                   onClick={() => setActiveTab('blueprints')}
                   className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
                     activeTab === 'blueprints' 
-                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm' 
-                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600' 
+                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
                   }`}
                 >
                   Blueprints
@@ -370,8 +370,8 @@ const ClassDetails = () => {
                   onClick={() => setActiveTab('documents')}
                   className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
                     activeTab === 'documents' 
-                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm' 
-                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600' 
+                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
                   }`}
                 >
                   Documents
@@ -398,7 +398,7 @@ const ClassDetails = () => {
                         />
                         <label 
                           htmlFor="document-upload"
-                          className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 cursor-pointer ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 cursor-pointer shadow-sm ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                           {uploadingDocument ? (
                             <>
@@ -419,10 +419,10 @@ const ClassDetails = () => {
                       {documents.map((doc) => (
                         <div 
                           key={doc.id}
-                          className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl p-6 shadow-sm hover:shadow-md transition-all group relative flex flex-col h-full"
+                          className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-xl p-6 shadow-sm hover:shadow-md transition-all group relative flex flex-col h-full"
                         >
                           <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-stone-100 dark:bg-stone-800 rounded-lg flex items-center justify-center text-stone-500 dark:text-stone-400">
+                            <div className="w-10 h-10 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg flex items-center justify-center text-stone-500 dark:text-stone-400">
                               <FileText className="w-5 h-5" />
                             </div>
                             
@@ -435,7 +435,7 @@ const ClassDetails = () => {
                               </button>
                               
                               {openDropdownId === doc.id && (
-                                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-100 dark:border-stone-800 py-1 z-10 animate-fade-in">
+                                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 py-1 z-10 animate-fade-in">
                                   <button
                                     onClick={(e) => handleViewDocument(e, doc)}
                                     className="w-full px-4 py-2 text-left text-sm text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2"
@@ -505,7 +505,7 @@ const ClassDetails = () => {
                     />
                     <label 
                       htmlFor="document-upload-empty"
-                      className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 cursor-pointer ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 cursor-pointer shadow-sm ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       {uploadingDocument ? (
                         <>
@@ -532,7 +532,7 @@ const ClassDetails = () => {
                       <h3 className="text-xl font-normal text-stone-900 dark:text-stone-100">Your Blueprints</h3>
                       <button 
                         onClick={() => setIsBlueprintModalOpen(true)}
-                        className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100"
+                        className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 shadow-sm"
                       >
                         <Plus className="w-5 h-5" />
                         <span className="font-medium text-sm">New Blueprint</span>
@@ -544,10 +544,10 @@ const ClassDetails = () => {
                         <div 
                           key={blueprint.id}
                           onClick={() => navigate(`/blueprint/${blueprint.id}`)}
-                          className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all group relative flex flex-col h-full"
+                          className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all group relative flex flex-col h-full"
                         >
                           <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-stone-100 dark:bg-stone-800 rounded-lg flex items-center justify-center text-stone-500 dark:text-stone-400">
+                            <div className="w-10 h-10 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg flex items-center justify-center text-stone-500 dark:text-stone-400">
                               <PenTool className="w-5 h-5" />
                             </div>
                             
@@ -560,7 +560,7 @@ const ClassDetails = () => {
                               </button>
                               
                               {openDropdownId === blueprint.id && (
-                                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-100 dark:border-stone-800 py-1 z-10 animate-fade-in">
+                                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 py-1 z-10 animate-fade-in">
                                   <button
                                     onClick={(e) => handleDeleteBlueprint(e, blueprint.id)}
                                     className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
@@ -606,7 +606,7 @@ const ClassDetails = () => {
                     </p>
                     <button 
                       onClick={() => setIsBlueprintModalOpen(true)}
-                      className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100"
+                      className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 shadow-sm"
                     >
                       <Plus className="w-5 h-5" />
                       <span className="font-medium text-sm">New Blueprint</span>

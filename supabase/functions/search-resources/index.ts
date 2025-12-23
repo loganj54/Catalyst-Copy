@@ -98,6 +98,57 @@ interface ResourceResult {
 }
 
 // ============================================================================
+// SEARCH QUERY SIMPLIFICATION
+// ============================================================================
+
+/**
+ * Simplify complex academic topics into searchable YouTube-friendly terms
+ * Removes jargon, breaks down compound terms, uses common educational language
+ */
+function simplifyTopicForSearch(topic: string): string {
+  // Remove common academic modifiers that make searches too specific
+  const wordsToRemove = [
+    'calculations?', 'analysis', 'applications?', 'methods?', 'techniques?',
+    'optimization', 'numerical', 'computational', 'advanced', 'detailed',
+    'comprehensive', 'and', '&', 'using', 'with', 'for', 'in'
+  ];
+  
+  let simplified = topic;
+  
+  // Remove problematic words
+  const removePattern = new RegExp(`\\b(${wordsToRemove.join('|')})\\b`, 'gi');
+  simplified = simplified.replace(removePattern, ' ');
+  
+  // Clean up multiple spaces
+  simplified = simplified.replace(/\s+/g, ' ').trim();
+  
+  // If still too long (>6 words), take first 4 words
+  const words = simplified.split(' ');
+  if (words.length > 6) {
+    simplified = words.slice(0, 4).join(' ');
+  }
+  
+  // Common term replacements for better searchability
+  const replacements: Record<string, string> = {
+    'spectral radiance': 'blackbody radiation',
+    'spectral fractions': 'blackbody radiation',
+    "planck's distribution": "planck's law",
+    'navier-stokes': 'navier stokes',
+    'finite element': 'FEA',
+    'computational fluid dynamics': 'CFD',
+    'effectiveness-ntu': 'NTU method',
+  };
+  
+  // Apply replacements (case-insensitive)
+  for (const [complex, simple] of Object.entries(replacements)) {
+    const regex = new RegExp(complex, 'gi');
+    simplified = simplified.replace(regex, simple);
+  }
+  
+  return simplified;
+}
+
+// ============================================================================
 // YOUTUBE DATA API SEARCH
 // ============================================================================
 
@@ -136,12 +187,30 @@ async function searchYouTube(
   const queriesActuallyUsed: string[] = [];
   let totalApiResults = 0;
 
-  // Use the topic as main query, plus top priority queries
-  const queriesToTry = [
-    `${topic} tutorial`,
-    `${topic} explained`,
-    ...(searchQueries?.slice(0, 2).map(q => q.query) || [])
-  ];
+  // Build smart search queries with progressive simplification
+  const queriesToTry: string[] = [];
+  
+  // PRIORITY 1: Use AI-generated queries (these should be well-crafted)
+  if (searchQueries && searchQueries.length > 0) {
+    searchQueries
+      .sort((a, b) => a.priority - b.priority)
+      .slice(0, 3)
+      .forEach(q => queriesToTry.push(q.query));
+  }
+  
+  // PRIORITY 2: Simplified topic-based queries (fallback if AI queries fail)
+  // Extract core concepts from the topic by removing complex modifiers
+  const simplifiedTopic = simplifyTopicForSearch(topic);
+  
+  if (queriesToTry.length < 3) {
+    queriesToTry.push(`${simplifiedTopic} tutorial youtube`);
+  }
+  if (queriesToTry.length < 3) {
+    queriesToTry.push(`${simplifiedTopic} explained youtube`);
+  }
+  if (queriesToTry.length < 3) {
+    queriesToTry.push(`${simplifiedTopic} youtube`);
+  }
 
   console.log('[search-resources] Searching YouTube with queries:', queriesToTry);
 
@@ -252,58 +321,89 @@ async function searchWithClaude(
 CRITICAL RULES:
 1. YOUTUBE VIDEOS ONLY - Every URL must be from youtube.com or youtu.be
 2. NO Wikipedia, blog posts, or articles - ONLY video content
-3. If a search returns no results, TRY SIMPLER/BROADER search terms
+3. If a search returns no results, IMMEDIATELY TRY SIMPLER/BROADER search terms
 
-SEARCH STRATEGY - START BROAD, THEN NARROW:
-- First try: "[main topic] youtube tutorial" or "[main topic] youtube explained"
-- If no results: simplify! Remove technical jargon, use common terms
-- For physics: try "blackbody radiation explained" not "Planck distribution function numerical integration"
-- For math: try "calculus derivatives tutorial" not "differentiation of polynomial functions step by step"
-- IMPORTANT: If "site:youtube.com" returns nothing, search WITHOUT it - YouTube results will still appear
+SEARCH STRATEGY - START SIMPLE, NOT COMPLEX:
+Complex academic terms often return ZERO results on YouTube. You MUST simplify FIRST.
 
-FALLBACK SEARCHES (if initial searches fail):
-- Try just the core concept: "Planck's law explained"
-- Try related broader topics: "thermal radiation physics"
-- Try popular educational channels + topic: "Physics blackbody radiation"
+SIMPLIFICATION EXAMPLES:
+❌ DON'T search: "Planck's Distribution and Spectral Radiance Calculations"
+✅ DO search: "Planck's law blackbody radiation"
+✅ DO search: "spectral radiance explained"
+
+❌ DON'T search: "Navier-Stokes Equation Turbulent Flow Analysis"
+✅ DO search: "Navier Stokes equation explained"
+✅ DO search: "turbulent flow basics"
+
+❌ DON'T search: "Thermodynamic Cycle Efficiency Optimization"
+✅ DO search: "thermodynamic cycles explained"
+✅ DO search: "Carnot cycle efficiency"
+
+SIMPLIFICATION RULES:
+1. Remove words like: "calculations", "analysis", "applications", "methods", "optimization"
+2. Break "A and B" into separate searches for "A" and "B"
+3. Use common names: "Planck's law" not "Planck's distribution function"
+4. Keep searches under 5 words (excluding "youtube")
+5. Add context: "physics", "engineering", "explained", "tutorial"
+
+SEARCH PROGRESSION (try in this order):
+1. "[simplified core concept] explained youtube" (e.g., "Planck's law explained youtube")
+2. "[simplified core concept] tutorial youtube" (e.g., "blackbody radiation tutorial youtube")
+3. "[related broader topic] youtube" (e.g., "thermal radiation physics youtube")
+4. "[subject area] [key term] youtube" (e.g., "physics spectral radiance youtube")
+
+CRITICAL: If a search returns EMPTY results:
+- DO NOT try variations of the same complex query
+- IMMEDIATELY simplify to core concepts
+- Try the broader related topic
+- It's better to return 3 somewhat-related videos than 0 perfectly-specific ones
 
 SELECTION CRITERIA:
 - Clear explanations and good production quality
-- Relevant to the topic (even if not perfectly specific)
+- Relevant to the topic (even if not perfectly specific - related content is OK!)
 - Any YouTube channel is fine - prioritize quality over channel fame
+- Videos that teach the CONCEPTS are more valuable than perfect keyword matches
 
 For each video, generate a topic_signature (2-3 sentences) describing what it teaches.`;
 
-  // Extract simpler search terms from the topic
-  const simplifiedTopic = topic
-    .replace(/and\s+/gi, '') // Remove "and"
-    .replace(/calculations?/gi, '') // Remove "calculations"
-    .replace(/\s+/g, ' ') // Normalize spaces
-    .trim();
+  // Simplify the topic for better search results
+  const simplifiedTopic = simplifyTopicForSearch(topic);
+  
+  // Extract core concept (first 2-3 meaningful words)
+  const words = simplifiedTopic.split(' ').filter(w => w.length > 2);
+  const coreConcept = words.slice(0, 3).join(' ');
   
   const userPrompt = `Find ${MAX_SEARCH_RESULTS} YouTube videos for this educational topic:
 
 TOPIC: ${topic}
+SIMPLIFIED SEARCH TERM: ${simplifiedTopic}
+CORE CONCEPT: ${coreConcept}
 ${description ? `CONTEXT: ${description}` : ''}
 
 SEARCH APPROACH - CRITICAL FOR SUCCESS:
-1. START with simple, broad searches - complex queries often return nothing!
+1. START with the SIMPLIFIED term, NOT the full topic name
 2. Try these search patterns IN ORDER until you find results:
-   - "${simplifiedTopic} tutorial"
-   - "${simplifiedTopic} explained" 
-   - "${topic.split(' ')[0]} ${topic.split(' ')[1] || ''} youtube" (just first 2 words)
+   - "${simplifiedTopic} explained youtube"
+   - "${simplifiedTopic} tutorial youtube"
+   - "${coreConcept} youtube"
    - Related broader topic if specific searches fail
 
 3. If a search returns EMPTY results, immediately try a SIMPLER search
 4. DO NOT keep trying variations of the same complex query
+5. Use terms that would appear in YouTube VIDEO TITLES, not academic papers
 
 EXAMPLE: For "Planck's Distribution and Spectral Radiance Calculations":
-- DON'T search: "Planck distribution function numerical integration wavelength band"
-- DO search: "Planck's law explained" or "blackbody radiation tutorial"
+- Simplified term: "Planck's law blackbody radiation"
+- Core concept: "Planck's law"
+- DON'T search: "Planck distribution spectral radiance calculations"
+- DO search: "Planck's law explained youtube"
+- DO search: "blackbody radiation tutorial youtube"
 
 REQUIREMENTS:
 - Return ONLY youtube.com or youtu.be URLs
 - Find ${MAX_SEARCH_RESULTS} different videos covering different aspects if possible
 - It's better to return 3 somewhat-related videos than 0 perfectly-specific ones
+- Focus on videos that teach the CONCEPTS, not perfect keyword matches
 
 After finding videos, output them in this JSON format:
 
@@ -341,14 +441,14 @@ If you cannot find ANY YouTube videos after multiple search attempts, explain wh
     },
     body: JSON.stringify({
       model: CLAUDE_MODEL,
-      max_tokens: 4096,
+      max_tokens: 2048, // Reduced from 4096 to avoid rate limits
       temperature: 0.3,
       system: systemPrompt,
       tools: [
         {
           type: 'web_search_20250305',
           name: 'web_search',
-          max_uses: 5,
+          max_uses: 3, // Reduced from 5 to limit token usage
         }
       ],
       messages: [
@@ -630,7 +730,7 @@ Output valid JSON only, no markdown.`;
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 2048,
+        max_tokens: 1024, // Reduced from 2048 for resource explanations
         temperature: 0.4,
         system: systemPrompt,
         messages: [

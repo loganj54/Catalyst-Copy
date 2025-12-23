@@ -343,7 +343,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
                   type="text" 
                   value={formData.className}
                   onChange={(e) => setFormData({...formData, className: e.target.value})}
-                  className="w-full p-3 rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
+                  className="w-full p-3 rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
                   placeholder="e.g. Calculus I"
                 />
               </div>
@@ -353,7 +353,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
                   type="text" 
                   value={formData.professorName}
                   onChange={(e) => setFormData({...formData, professorName: e.target.value})}
-                  className="w-full p-3 rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
+                  className="w-full p-3 rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
                   placeholder="e.g. Dr. Smith"
                 />
               </div>
@@ -367,7 +367,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
               type="text" 
               value={formData.blueprintName}
               onChange={(e) => setFormData({...formData, blueprintName: e.target.value})}
-              className="w-full p-3 rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
+              className="w-full p-3 rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
               placeholder="e.g. Midterm Prep"
             />
           </div>
@@ -406,7 +406,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
                 {/* Content Area */}
                 <div className={`flex-1 flex flex-col border-2 rounded-xl transition-all h-full ${
                   (uploadedFile || selectedDocument) ? 'border-[#FF4A1C] bg-[#FF4A1C]/5' : 
-                  'border-stone-200 bg-white'
+                  'border-stone-300 bg-white'
                 }`}>
                   
                   {/* Case 1: File Selected (Uploaded or Existing) */}
@@ -516,7 +516,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
               <textarea 
                 value={formData.textInput}
                 onChange={(e) => setFormData({...formData, textInput: e.target.value})}
-                className="w-full h-full min-h-[160px] p-3 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all resize-none text-sm"
+                className="w-full h-full min-h-[160px] p-3 rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all resize-none text-sm"
                 placeholder="Optional: Paste problem text, add notes, or describe what you're trying to learn..."
               />
             </div>

@@ -95,9 +95,9 @@ const ClassSidebar = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-80px)] bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800 flex flex-col w-56">
+    <div className="h-[calc(100vh-80px)] bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-700 flex flex-col w-56">
       {/* Header */}
-      <div className="p-4 border-b border-stone-100 dark:border-stone-800 flex justify-between items-center">
+      <div className="p-4 border-b border-stone-200 dark:border-stone-700 flex justify-between items-center">
         <h2 className="font-semibold text-stone-900 dark:text-stone-100">My Classes</h2>
         <Link 
           to="/create"
@@ -132,7 +132,7 @@ const ClassSidebar = () => {
                     }}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border group ${
                       isCurrentClassActive 
-                        ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-700' 
+                        ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600 shadow-sm' 
                         : 'text-stone-500 dark:text-stone-400 border-transparent hover:bg-stone-50 dark:hover:bg-stone-800/50 hover:text-stone-900 dark:hover:text-stone-200'
                     }`}
                   >

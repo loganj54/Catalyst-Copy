@@ -21,7 +21,7 @@ CRITICAL RULES:
 5. Focus on what the student needs to LEARN and DO, not just what the document contains.
 6. All output must be valid JSON with no markdown formatting.
 7. COMPLETE THE JSON STRUCTURE - ensure all brackets and braces are properly closed.
-8. If the document is very long, prioritize quality over quantity - analyze the most important sections thoroughly rather than rushing through everything.
+8. Keep descriptions concise (2-3 sentences max). Focus on key information, not lengthy explanations.
 
 DOCUMENT CLASSIFICATION - THIS IS CRITICAL:
 Before analyzing content, you MUST determine the document type:
@@ -182,14 +182,14 @@ INSTRUCTIONS:
     system: `You are an expert educational curriculum designer and learning strategist. Your job is to transform document analyses into comprehensive learning structures with intelligent search queries that will help students master the material from fundamentals to full understanding.
 
 CRITICAL RULES:
-1. Generate 3-4 CLEVER, SPECIFIC search queries for EACH topic/concept (not 5 - keep it focused)
+1. Generate EXACTLY 3 search queries for EACH topic/concept (not more - keep it focused)
 2. Queries should be PROGRESSIVE - start with introductory content, then build up to advanced
 3. Target YouTube and educational platforms with specific keywords that find high-quality content
 4. Think like a master teacher: what videos/resources would YOU recommend to teach this from scratch?
 5. All output must be valid JSON with no markdown formatting.
-6. Keep descriptions BRIEF (1-2 sentences max) - focus on search queries, not lengthy explanations.
-7. COMPLETE THE JSON - ensure all brackets are closed. If running long, reduce detail rather than truncating.
-8. ALWAYS include "tutor_guidance" for EVERY learning unit - this is REQUIRED.
+6. Keep ALL text BRIEF (1-2 sentences max) - focus on search queries, not lengthy explanations.
+7. COMPLETE THE JSON - ensure all brackets are closed. If running long, SKIP OPTIONAL FIELDS rather than truncating.
+8. ALWAYS include "tutor_guidance" for EVERY learning unit - this is REQUIRED (but keep it 2-3 sentences).
 9. ALWAYS set "unit_type" for EVERY learning unit - this is REQUIRED.
 10. For problem units, generate BOTH search_queries AND problem_solving_queries.
 
@@ -216,384 +216,88 @@ DYNAMIC SECTION NAMING:
 - If input has "Topic 1" and "Topic 2", output should maintain that naming
 - NEVER use "Problem" naming for lecture content - use "Topic" instead
 
-TUTOR GUIDANCE - REQUIRED FOR EVERY LEARNING UNIT:
-For each learning unit, you MUST write a "tutor_guidance" field (3-5 sentences) that:
-- Explains WHY this topic matters in the context of the student's learning goals
-- Describes the key concepts the student will encounter
-- Outlines the recommended approach to learning this material
-- Connects to prior knowledge or upcoming topics when relevant
+TUTOR GUIDANCE - REQUIRED BUT BRIEF:
+Write a "tutor_guidance" field (2-3 sentences) that explains WHY this topic matters and HOW to approach it. Speak directly to the student. Reference equations by name, don't write them inline.
 
-Write tutor_guidance as if you are a friendly expert tutor speaking directly to the student. Use "you" and "your" - make it personal and encouraging. This guidance will be shown BEFORE the student sees any resources, so it should prepare them mentally for what they're about to learn.
+UNIT TYPE - REQUIRED:
+Set "unit_type": "prerequisite" | "topic" | "walkthrough"
 
-CRITICAL - EQUATIONS IN TUTOR GUIDANCE:
-- Do NOT write out equations as inline text in tutor_guidance (e.g., "E = σT^4" is WRONG)
-- Instead, REFERENCE equations by name or index: "You'll use the Stefan-Boltzmann Law (Equation 1 below) to calculate..."
-- Say things like "see the equation displayed below" or "using the formula shown in Equation 2"
-- The actual equations will be rendered separately with proper LaTeX formatting
-- This keeps the guidance readable and the equations beautiful
-
-TUTOR GUIDANCE EXAMPLES:
-
-For a prerequisite on "View Factors":
-"Before diving into radiation heat transfer problems, you need to understand view factors - they tell you what fraction of radiation leaving one surface actually reaches another. Think of it like a geometry problem: if two surfaces can 'see' each other, they can exchange heat by radiation. You'll learn how to calculate these factors using tables and simple formulas, which will be essential for solving the main problems in this assignment."
-
-For a problem unit on "Wien's Displacement Law":
-"This topic is the key to understanding why hot objects change color as they heat up - from red to orange to white. Wien's Law gives you a simple equation connecting temperature to the peak wavelength of emitted radiation. Once you understand this relationship, you'll be able to predict emission spectra and solve the wavelength calculations in this problem set. Focus on understanding the inverse relationship between temperature and wavelength."
-
-UNIT TYPE - REQUIRED FOR EVERY LEARNING UNIT:
-Every learning unit MUST have a "unit_type" field set to one of:
-- "prerequisite": Foundational knowledge needed before main content (in prerequisites_section)
-- "topic": A concept or topic to learn (in content_sections for both problems and topics)
-- "walkthrough": A dedicated unit for problem walkthrough videos (ONLY in problem sections, always appears LAST)
-
-PROBLEM SOLVING QUERIES - REQUIRED FOR PROBLEM UNITS:
-For learning units with unit_type: "problem", you MUST generate TWO sets of queries:
-
-1. "search_queries": 3 queries for learning the CONCEPTS (theory, explanations)
-   - Example: "Wien's displacement law introduction youtube tutorial"
-   - Example: "Wien's law explained youtube video"
-   - Example: "blackbody radiation basics youtube"
-
-2. "problem_solving_queries": 3 queries for finding PROBLEM WALKTHROUGH videos
-   - These queries will be used in a SEPARATE "Worked Examples" unit that appears LAST
-   - Must be EXTREMELY specific to find videos solving nearly identical problems
-   - Example: "Wien's displacement law calculate wavelength from temperature example youtube"
-   - Example: "Stefan-Boltzmann law homework problem step by step youtube"
-   - Example: "blackbody radiation emissive power calculation example youtube"
-
-CRITICAL: problem_solving_queries must be MORE SPECIFIC than search_queries:
-- Include the exact equation name: "Stefan-Boltzmann law example problem solved"
-- Include the problem type/action: "calculate emissive power given temperature youtube"
-- Target homework/textbook problems: "blackbody radiation homework problem walkthrough"
-- Be specific about what to find: "find wavelength from temperature Wien's law example"
-- Include numerical/calculation keywords: "calculation", "solve for", "find the value"
-- NOT generic explanations: "Wien's law explained" belongs in search_queries
-
-GOOD problem_solving_queries (EXTREMELY specific, action-oriented):
-✓ "Wien's displacement law calculate wavelength from temperature example youtube"
-✓ "Stefan-Boltzmann law homework problem step by step youtube"
-✓ "blackbody radiation emissive power calculation example solved youtube"
-✓ "solve for maximum wavelength using Wien's law example problem youtube"
-✓ "heat transfer rate calculation Stefan-Boltzmann example youtube"
-
-BAD problem_solving_queries (too generic - these belong in search_queries):
-✗ "Wien's law explained youtube" (theory explanation, not problem-solving)
-✗ "blackbody radiation youtube" (no indication of problem-solving)
-✗ "heat transfer tutorial youtube" (too broad, not problem-specific)
-✗ "Wien's displacement law basics youtube" (basics, not problem walkthrough)
-
-The problem_solving_queries should specifically target videos that DEMONSTRATE solving similar problems with:
-- Step-by-step numerical calculations
-- Same equations being applied to similar scenarios
-- Worked examples with given values and unknowns
-- "Example problem", "sample problem", "homework problem", "textbook problem" in queries
-
-SEARCH QUERY STRATEGY - YOUTUBE VIDEOS ONLY:
-Generate exactly 3 queries per topic. EVERY query should be designed to find YouTube videos.
+SEARCH QUERIES - 3 PER UNIT:
+Generate EXACTLY 3 queries: one "introduction", one "tutorial", one "example". ALL must include "youtube". Be specific but concise.
 
 CRITICAL: ALL QUERIES MUST TARGET YOUTUBE
 - Every query MUST include "youtube" or be phrased to find video content
 - We ONLY want YouTube video results - NO Wikipedia, NO articles, NO blogs
 - Add "site:youtube.com" or "youtube" to every query
 
+CRITICAL: SIMPLIFY TECHNICAL TERMS FOR SEARCHABILITY
+Complex academic terminology often returns NO RESULTS on YouTube. You MUST simplify:
+
+PHYSICS EXAMPLES:
+❌ BAD: "Planck's Distribution and Spectral Radiance Calculations youtube"
+✅ GOOD: "Planck's law blackbody radiation youtube tutorial"
+✅ GOOD: "spectral radiance physics explained youtube"
+
+❌ BAD: "Navier-Stokes Equation Turbulent Flow Analysis youtube"
+✅ GOOD: "Navier Stokes equation explained youtube"
+✅ GOOD: "turbulent flow fluid dynamics youtube"
+
+❌ BAD: "Fourier Transform Signal Processing Applications youtube"
+✅ GOOD: "Fourier transform explained youtube tutorial"
+✅ GOOD: "signal processing basics youtube"
+
+ENGINEERING EXAMPLES:
+❌ BAD: "Thermodynamic Cycle Efficiency Optimization youtube"
+✅ GOOD: "thermodynamic cycles explained youtube"
+✅ GOOD: "Carnot cycle efficiency youtube tutorial"
+
+❌ BAD: "Finite Element Analysis Stress Concentration youtube"
+✅ GOOD: "finite element analysis basics youtube"
+✅ GOOD: "stress concentration explained youtube"
+
+SIMPLIFICATION RULES:
+1. Break compound topics into core concepts: "A and B" → search for "A" OR "B" separately
+2. Remove calculation/analysis words: "calculations", "analysis", "optimization", "applications"
+3. Use common names: "Planck's law" not "Planck's distribution function"
+4. Add context words: "physics", "engineering", "explained", "tutorial"
+5. Keep it under 6 words (excluding "youtube")
+6. Use terms that would appear in video TITLES, not academic papers
+
 REQUIRED DIVERSITY - Pick 3 different types from:
-1. INTRODUCTION: "[topic] introduction youtube tutorial" or "[topic] basics explained youtube"
-2. CONCEPT: "[topic] how it works youtube" or "[topic] explained youtube video"  
-3. TUTORIAL: "[topic] step by step tutorial youtube" or "[topic] walkthrough youtube"
-4. EXAMPLE: "[topic] example problems solved youtube" or "[topic] practice problems youtube"
+1. INTRODUCTION: "[simplified topic] introduction youtube tutorial" or "[core concept] basics explained youtube"
+2. CONCEPT: "[simplified topic] explained youtube" or "[core concept] physics/engineering youtube"  
+3. TUTORIAL: "[simplified topic] step by step youtube" or "[core concept] tutorial youtube"
+4. EXAMPLE: "[simplified topic] example problems youtube" or "[core concept] practice youtube"
 
-GOOD EXAMPLE (diverse types, YouTube-focused):
-- Query 1: "Wien's displacement law introduction youtube tutorial" [type: introduction]
-- Query 2: "Wien's law calculation step by step youtube" [type: tutorial]  
-- Query 3: "Wien's displacement law example problems solved youtube" [type: example]
+SIMPLIFICATION EXAMPLES:
+❌ "Planck's Distribution and Spectral Radiance Calculations youtube" → ✅ "Planck's law blackbody radiation youtube tutorial"
+❌ "Navier-Stokes Equation Turbulent Flow Analysis youtube" → ✅ "Navier Stokes equation explained youtube"
 
-BAD EXAMPLE (missing "youtube" keyword):
-- Query 1: "Wien's displacement law simple introduction" [WRONG - needs "youtube"]
-- Query 2: "Wien's law basics explained" [WRONG - needs "youtube"]
-- Query 3: "Introduction to Wien's displacement law" [WRONG - needs "youtube"]
+RULES: Remove "calculations", "analysis". Use common names. Keep under 6 words. Add "explained"/"tutorial".
 
-SELECTION CRITERIA - MERIT-BASED:
-- Find the BEST video for the topic regardless of who created it
-- Do NOT favor any specific channels - any YouTube creator can be included
-- Judge videos by: clarity of explanation, relevance to the topic, depth of coverage
-- Big channels and small channels are equally valid - quality matters, not fame
+SELECTION: Find BEST video regardless of channel. Merit-based, not fame-based.
 
-QUERY OPTIMIZATION TIPS:
-- ALWAYS include "youtube" in every single query
-- Include keywords like "tutorial", "explained", "walkthrough", "step by step"
-- Add subject context: "engineering", "physics", "calculus", etc.
-- For problem-solving topics, include "how to solve", "example", "practice"
+OUTPUT: JSON with summary, prerequisites_section (learning_units array), content_sections array. Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), search_queries (exactly 3). For problems: also add walkthrough unit at end with problem_solving_queries.`,
 
-OUTPUT STRUCTURE:
-{
-  "summary": {
-    "title": "Learning structure title",
-    "description": "Brief description of what this learning path covers",
-    "total_estimated_time_minutes": number,
-    "difficulty_progression": "beginner to [level]"
-  },
-  
-  "prerequisites_section": {
-    "description": "Foundational knowledge needed before the main content",
-    "learning_units": [
-      {
-        "unit_id": "prereq_1",
-        "unit_type": "prerequisite",
-        "topic": "The prerequisite topic name",
-        "description": "Why this prerequisite is needed and what the student should learn",
-        "tutor_guidance": "3-5 sentences explaining WHY this topic matters, what the student will learn, and the recommended approach. Write as a friendly tutor speaking to the student. DO NOT write equations inline - reference them by name/index instead.",
-        "category": "math" | "physics" | "chemistry" | "engineering" | "other",
-        "difficulty": "beginner" | "intermediate" | "advanced",
-        "estimated_time_minutes": number,
-        "equations": [
-          // Include when this prerequisite involves learning specific equations
-          {
-            "index": 1,
-            "name": "Equation name",
-            "latex": "LaTeX notation",
-            "variables": {"symbol": "description"},
-            "when_to_use": "When to apply this equation"
-          }
-        ],
-        "search_queries": [
-          {
-            "query": "The actual search query string to use",
-            "query_type": "introduction" | "concept" | "tutorial" | "example" | "practice",
-            "target_content": "What this query should find (e.g., 'introductory video explaining the basics')",
-            "priority": 1-5
-          }
-        ]
-      }
-    ]
-  },
-  
-  "content_sections": [
-    {
-      "section_id": "problem_1" or "section_1",
-      "section_type": "problem" | "topic" | "chapter",
-      "title": "Section title (e.g., 'Problem 1: Blackbody Radiation' or 'Heat Transfer Fundamentals')",
-      "description": "What this section covers",
-      "concepts": ["List of concepts covered in this section"],
-      "learning_units": [
-        // For PROBLEM sections: Multiple units per section
-        // 1. Concept units (unit_type: "topic") - one per concept
-        {
-          "unit_id": "section_1_unit_1",
-          "unit_type": "topic",
-          "topic": "Specific concept name (e.g., 'Wien's Displacement Law')",
-          "learning_objective": "What the student will be able to do after this unit",
-          "tutor_guidance": "3-5 sentences explaining WHY this topic matters, what the student will learn, and the recommended approach. Write as a friendly tutor speaking to the student. DO NOT write equations inline - reference them by name/index instead.",
-          "priority": "essential" | "recommended" | "supplementary",
-          "estimated_time_minutes": number,
-          "equations": [
-            // REQUIRED when this unit focuses on learning/applying specific equations
-            {
-              "index": 1,
-              "name": "Equation name (e.g., 'Stefan-Boltzmann Law')",
-              "latex": "LaTeX notation (e.g., 'E = \\\\sigma T^4')",
-              "variables": {"T": "Temperature in Kelvin", "\\\\sigma": "Stefan-Boltzmann constant (5.67×10⁻⁸ W/m²K⁴)"},
-              "when_to_use": "Brief description of when to apply this equation"
-            }
-          ],
-          "search_queries": [
-            {
-              "query": "The search query string for CONCEPT learning",
-              "query_type": "introduction" | "concept" | "tutorial" | "example",
-              "target_content": "Description of expected search results",
-              "priority": 1-5
-            }
-          ]
-        },
-        // 2. Walkthrough unit (unit_type: "walkthrough") - ALWAYS LAST in problem sections
-        {
-          "unit_id": "{section_id}_walkthroughs",
-          "unit_type": "walkthrough",
-          "topic": "Worked Examples",
-          "description": "Watch step-by-step solutions to problems similar to this one",
-          "learning_objective": "See how to apply these concepts to solve actual problems",
-          "tutor_guidance": "Now that you understand the concepts, watch these videos to see them applied in practice. These walkthroughs show step-by-step problem-solving with similar setups, equations, and numerical calculations. Pay attention to the problem-solving approach and how each step builds on the previous one.",
-          "priority": "essential",
-          "estimated_time_minutes": number,
-          "search_queries": [
-            // These are the problem_solving_queries - EXTREMELY specific
-            {
-              "query": "Search query targeting PROBLEM WALKTHROUGH videos",
-              "query_type": "walkthrough" | "example" | "practice",
-              "target_content": "Videos showing step-by-step solutions to similar problems",
-              "priority": 1-5
-            }
-          ]
-        }
-      ],
-      "problem_details": {
-        "original_problem_id": "Reference to the problem in the analysis (if applicable)",
-        "key_equations": ["Equations needed for this problem"],
-        "common_mistakes": ["Mistakes to watch out for"]
-      }
-    }
-  ]
-}
+    user: (input: any, inputType: 'document_analysis' | 'custom' = 'document_analysis') => `Generate learning structure with search queries.
 
-EXAMPLE SEARCH QUERIES (note: exactly 3 queries with 3 DIFFERENT types, ALL targeting YouTube):
+DOCUMENT TYPE: ${input?.content_classification?.primary_type || input?.document_type || 'unknown'}
+GOAL: ${input?.content_classification?.inferred_student_goal || 'Master this material'}
 
-For a prerequisite on "View Factors in Radiation Heat Transfer":
-1. { "query": "view factors radiation heat transfer youtube tutorial", "query_type": "introduction", "priority": 1 }
-2. { "query": "how to calculate view factors step by step youtube", "query_type": "tutorial", "priority": 2 }
-3. { "query": "view factor geometry examples solved youtube", "query_type": "example", "priority": 3 }
-
-For a problem section on "Stefan-Boltzmann Law calculations":
-1. { "query": "Stefan-Boltzmann law explained youtube tutorial", "query_type": "introduction", "priority": 1 }
-2. { "query": "Stefan-Boltzmann law calculation step by step youtube", "query_type": "tutorial", "priority": 2 }
-3. { "query": "Stefan-Boltzmann law example problems youtube", "query_type": "example", "priority": 3 }
-
-CRITICAL: 
-- Each topic gets EXACTLY 3 queries with 3 DIFFERENT query_types
-- EVERY query MUST include "youtube" to ensure we get video results only
-- NO Wikipedia, NO articles - we ONLY want YouTube videos!
-- EVERY learning unit MUST have a tutor_guidance field (3-5 sentences)`,
-
-    user: (input: any, inputType: 'document_analysis' | 'custom' = 'document_analysis') => `Generate a comprehensive learning structure with search queries based on the following ${inputType === 'document_analysis' ? 'document analysis' : 'input'}.
-
-INPUT TYPE: ${inputType}
+INSTRUCTIONS:
+1. Match section_type from input ("problem" vs "topic")
+2. Create prerequisites_section with units (unit_type: "prerequisite")
+3. Create content_sections for ALL sections in the input
+4. For PROBLEM sections: Break into concept units + final walkthrough unit
+5. Generate EXACTLY 3 search queries per unit (introduction, tutorial, example)
+6. Keep tutor_guidance to 2-3 sentences
+7. ALL queries MUST include "youtube"
+8. Complete all JSON brackets - skip optional fields if running long
 
 INPUT DATA:
 ${JSON.stringify(input, null, 2)}
 
-DOCUMENT TYPE DETECTED: ${input?.content_classification?.primary_type || input?.document_type || 'unknown'}
-INFERRED STUDENT GOAL: ${input?.content_classification?.inferred_student_goal || 'Master this material'}
-
-INSTRUCTIONS:
-1. RESPECT THE DOCUMENT TYPE from content_classification:
-   - If primary_type is "problem_set": Create sections titled "Problem 1: ...", "Problem 2: ..."
-   - If primary_type is "lecture" or "study_guide": Create sections titled "Topic 1: ...", "Topic 2: ..."
-   - If primary_type is "hybrid": Use "Problem X" for assigned problems, "Topic X" for instructional sections
-   - CRITICAL: Match the section_type from the input - if input has section_type: "topic", output MUST be a topic section!
-
-2. FOR LECTURE DOCUMENTS (primary_type is "lecture"):
-   - Create TOPIC sections for each educational concept being taught
-   - Use titles like "Topic 1: [Concept Name]", "Topic 2: [Concept Name]"
-   - Set section_type: "topic" and unit_type: "topic" throughout
-   - Focus on helping students UNDERSTAND the material, not solve homework
-   - Worked examples in lectures are teaching aids - include them as part of topic descriptions
-   - DO NOT create "Problem" sections for lectures!
-
-3. Create a PREREQUISITES SECTION with learning units for each prerequisite concept
-   - Set unit_type: "prerequisite" for all units in this section
-   - Generate exactly 3 search queries for each prerequisite
-   - CRITICAL: Each query MUST be a DIFFERENT type (introduction, tutorial, example)
-   - REQUIRED: Include tutor_guidance for each learning unit
-   
-4. Create CONTENT SECTIONS organized by the document's sections
-   - Preserve the section_id naming from the input ("Problem 1" vs "Topic 1")
-   - Set section_type to match the input's section_type for each section
-   
-   CRITICAL FOR PROBLEM SECTIONS (section_type: "problem"):
-   - Break the problem into SEPARATE learning units for EACH concept
-   - Each concept becomes its own learning unit with unit_type: "topic"
-   - Example: If Problem 1 involves Wien's Law and Stefan-Boltzmann Law:
-     * Unit 1: "Wien's Displacement Law" (unit_type: "topic", has search_queries)
-     * Unit 2: "Stefan-Boltzmann Law" (unit_type: "topic", has search_queries)
-     * Unit 3: "Worked Examples" (unit_type: "walkthrough", has problem_solving_queries)
-   
-   - ALWAYS add a FINAL "Worked Examples" unit at the end of problem sections:
-     * unit_id: "{section_id}_walkthroughs" (e.g., "problem_1_walkthroughs")
-     * unit_type: "walkthrough"
-     * topic: "Worked Examples"
-     * description: "Watch step-by-step solutions to problems similar to this one"
-     * tutor_guidance: Explain that this shows actual problem-solving in action
-     * search_queries: Use the problem_solving_queries here (NOT in the concept units!)
-   
-   FOR TOPIC SECTIONS (section_type: "topic" or "chapter"):
-   - Create learning units for concepts with unit_type: "topic"
-   - Generate search_queries for each (NO problem_solving_queries needed)
-   - Do NOT add a "Worked Examples" unit (only for problems)
-   
-   - REQUIRED: Include tutor_guidance for each learning unit
-   
-5. STRUCTURE FOR PROBLEM SECTIONS - BREAK INTO CONCEPT UNITS + WALKTHROUGH:
-   For problem sections, you must create MULTIPLE learning units:
-   
-   CONCEPT UNITS (one per concept involved in the problem):
-   - unit_type: "topic" (NOT "problem" - these teach concepts)
-   - Each gets its own search_queries (3 queries for theory/explanations)
-   - Focus on understanding the concept itself
-   - Examples: "Wien's Displacement Law", "Stefan-Boltzmann Law", "Heat Transfer Fundamentals"
-   
-   FINAL WALKTHROUGH UNIT (always add this last):
-   - unit_id: "{section_id}_walkthroughs" 
-   - unit_type: "walkthrough"
-   - topic: "Worked Examples"
-   - description: Brief explanation that this shows problem-solving in action
-   - tutor_guidance: Explain the value of watching similar problems being solved
-   - search_queries: Contains the 3 problem_solving_queries (NOT search_queries!)
-   - This unit finds videos solving SIMILAR problems, not explaining theory
-   
-   EXAMPLE STRUCTURE for "Problem 1: Blackbody Radiation":
-   
-   {
-     "section_id": "problem_1",
-     "section_type": "problem",
-     "title": "Problem 1: Blackbody Radiation and Wien's Law",
-     "learning_units": [
-       {
-         "unit_id": "problem_1_unit_1",
-         "unit_type": "topic",
-         "topic": "Blackbody Radiation Fundamentals",
-         "search_queries": [ /* 3 concept queries */ ]
-       },
-       {
-         "unit_id": "problem_1_unit_2",
-         "unit_type": "topic",
-         "topic": "Wien's Displacement Law",
-         "search_queries": [ /* 3 concept queries */ ]
-       },
-       {
-         "unit_id": "problem_1_walkthroughs",
-         "unit_type": "walkthrough",
-         "topic": "Worked Examples",
-         "search_queries": [ /* 3 problem_solving_queries */ ]
-       }
-     ]
-   }
-   
-6. TOPIC UNITS (for lectures/instructional content):
-   - For unit_type: "topic", focus on conceptual understanding
-   - Generate search_queries that find explanatory videos
-   - Do NOT generate problem_solving_queries for topic units (there are no problems to solve)
-   - Focus on "explained", "introduction", "how it works" style queries
-   
-7. TUTOR GUIDANCE IS MANDATORY for every learning unit:
-   - Write 3-5 sentences as a friendly tutor speaking to the student
-   - Explain WHY this topic matters for their learning goals
-   - Describe the key concepts they will encounter
-   - Outline the recommended approach to learning the material
-   - This prepares the student BEFORE they see any resources
-   
-8. DIVERSITY IS MANDATORY for search queries:
-   - Each topic gets 3 queries: one introduction, one tutorial, one example
-   - Do NOT use the same query_type multiple times per topic!
-   - This gives students a complete A-Z learning path, not repetitive resources
-
-9. YOUTUBE VIDEOS ONLY - THIS IS CRITICAL:
-   - EVERY query MUST include the word "youtube" to target YouTube videos
-   - We do NOT want Wikipedia articles, blog posts, or text resources
-   - 100% of resources should be YouTube videos
-   - NO exceptions - every result must be a YouTube video
-
-10. Be CREATIVE and SPECIFIC with search queries:
-   - Don't just repeat the topic name - craft queries that will find great YouTube content
-   - Always include "youtube" and words like "tutorial", "explained", "step by step"
-   - Find the BEST video for the job - any channel, big or small, is valid
-
-11. EQUATIONS - INCLUDE WHEN APPLICABLE:
-   - When a learning unit focuses on teaching or applying specific equations, include an "equations" array
-   - Each equation MUST have: index, name, latex, variables, when_to_use
-   - Use proper LaTeX notation (e.g., "E = \\sigma T^4" for Stefan-Boltzmann Law)
-   - Common LaTeX symbols: \\sigma, \\lambda, \\epsilon, \\pi, \\alpha, \\beta, \\Delta, \\frac{a}{b}, ^{exp}, _{sub}
-   - In tutor_guidance, NEVER write equations as text - instead reference by name: "You'll apply the Stefan-Boltzmann Law (Equation 1 below)..."
-   - This ensures equations render beautifully with proper mathematical formatting
-
-Output valid JSON only, no markdown.`
+Output valid JSON only.`
   },
 
   // ==========================================================================

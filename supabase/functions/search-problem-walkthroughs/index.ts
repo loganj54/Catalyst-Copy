@@ -99,6 +99,57 @@ interface ResourceResult {
 }
 
 // ============================================================================
+// SEARCH QUERY SIMPLIFICATION
+// ============================================================================
+
+/**
+ * Simplify complex academic topics into searchable YouTube-friendly terms
+ * Same logic as search-resources but optimized for problem-solving queries
+ */
+function simplifyTopicForSearch(topic: string): string {
+  // Remove common academic modifiers that make searches too specific
+  const wordsToRemove = [
+    'calculations?', 'analysis', 'applications?', 'methods?', 'techniques?',
+    'optimization', 'numerical', 'computational', 'advanced', 'detailed',
+    'comprehensive', 'and', '&', 'using', 'with', 'for', 'in'
+  ];
+  
+  let simplified = topic;
+  
+  // Remove problematic words
+  const removePattern = new RegExp(`\\b(${wordsToRemove.join('|')})\\b`, 'gi');
+  simplified = simplified.replace(removePattern, ' ');
+  
+  // Clean up multiple spaces
+  simplified = simplified.replace(/\s+/g, ' ').trim();
+  
+  // If still too long (>6 words), take first 4 words
+  const words = simplified.split(' ');
+  if (words.length > 6) {
+    simplified = words.slice(0, 4).join(' ');
+  }
+  
+  // Common term replacements for better searchability
+  const replacements: Record<string, string> = {
+    'spectral radiance': 'blackbody radiation',
+    'spectral fractions': 'blackbody radiation',
+    "planck's distribution": "planck's law",
+    'navier-stokes': 'navier stokes',
+    'finite element': 'FEA',
+    'computational fluid dynamics': 'CFD',
+    'effectiveness-ntu': 'NTU method',
+  };
+  
+  // Apply replacements (case-insensitive)
+  for (const [complex, simple] of Object.entries(replacements)) {
+    const regex = new RegExp(complex, 'gi');
+    simplified = simplified.replace(regex, simple);
+  }
+  
+  return simplified;
+}
+
+// ============================================================================
 // YOUTUBE SEARCH FOR PROBLEM WALKTHROUGHS
 // ============================================================================
 
@@ -166,24 +217,36 @@ async function searchYouTubeForWalkthroughs(
     }
   }
   
-  // PRIORITY 2: Use AI-generated problem_solving_queries
+  // PRIORITY 2: Use AI-generated problem_solving_queries (with simplification)
   const aiQueries = problemSolvingQueries
     .sort((a, b) => a.priority - b.priority)
     .slice(0, 2)
     .map(q => {
       let query = q.query;
       
+      // Simplify the query if it's too complex
+      const simplified = simplifyTopicForSearch(query);
+      
       // Enhance with problem context if available
-      const hasProblemKeywords = /example|problem|solve|calculation|walkthrough|step by step|homework/i.test(query);
+      const hasProblemKeywords = /example|problem|solve|calculation|walkthrough|step by step|homework/i.test(simplified);
       if (!hasProblemKeywords && problemDetails?.key_equations && problemDetails.key_equations.length > 0) {
         const mainEquation = problemDetails.key_equations[0];
-        query = `${query} ${mainEquation} example problem`;
+        query = `${simplified} ${mainEquation} example problem`;
+      } else {
+        query = simplified;
       }
       
       return query;
     });
   
   queriesToTry.push(...aiQueries);
+  
+  // PRIORITY 3: Fallback simplified queries based on topic
+  if (queriesToTry.length < 5) {
+    const simplifiedTopic = simplifyTopicForSearch(topic);
+    queriesToTry.push(`${simplifiedTopic} example problem solved youtube`);
+    queriesToTry.push(`${simplifiedTopic} homework problem walkthrough youtube`);
+  }
   
   // Take top 5 queries to search
   const finalQueries = queriesToTry.slice(0, 5);
@@ -487,7 +550,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           model: 'claude-haiku-4-5',
-          max_tokens: 2048,
+          max_tokens: 1024, // Reduced from 2048 to avoid rate limits
           temperature: 0.4,
           system: PROMPTS.resourceExplanation.system,
           messages: [{

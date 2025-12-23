@@ -82,10 +82,18 @@ const ResourceTable = ({ resources }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Decode HTML entities in text
+  const decodeHtmlEntities = (text) => {
+    if (!text) return text;
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+  };
+
   if (!resources || resources.length === 0) return null;
 
   return (
-    <div className="mt-4 overflow-hidden rounded-lg border border-stone-200 dark:border-stone-700">
+    <div className="mt-4 overflow-hidden rounded-lg border border-stone-300 dark:border-stone-600">
       <table className="min-w-full divide-y divide-stone-200 dark:divide-stone-700">
         <thead className="bg-stone-50 dark:bg-stone-900">
           <tr>
@@ -129,29 +137,29 @@ const ResourceTable = ({ resources }) => {
                   
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-stone-900 dark:text-stone-100 group-hover:text-[#FF4A1C] dark:group-hover:text-[#FF4A1C] line-clamp-2">
-                      {resource.title}
+                      {decodeHtmlEntities(resource.title)}
                     </div>
                     <div className="flex items-center gap-2 mt-1 text-xs text-stone-500 dark:text-stone-400">
                       {getPlatformIcon(resource.platform)}
-                      <span>{resource.channel_name || resource.platform}</span>
+                      <span>{decodeHtmlEntities(resource.channel_name) || resource.platform}</span>
                     </div>
                   </div>
                 </a>
               </td>
               <td className="px-6 py-4">
-                <div className="text-sm text-stone-600 dark:text-stone-300 line-clamp-3">
+                <div className="text-sm text-stone-600 dark:text-stone-300">
                   {resource.resource_explanation ? (
-                     <span>
-                        <span className="font-semibold text-purple-600 dark:text-purple-400">Why this helps: </span>
-                        {resource.resource_explanation}
-                     </span>
+                    <span>
+                      <span className="italic text-[#FF4A1C] dark:text-[#FF4A1C]">Why this helps: </span>
+                      {decodeHtmlEntities(resource.resource_explanation)}
+                    </span>
                   ) : (
-                    resource.description || 'No description available.'
+                    decodeHtmlEntities(resource.description) || 'No description available.'
                   )}
                 </div>
                 {/* Badges */}
                 <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                   {resource.from_cache && (
+                  {resource.from_cache && (
                     <span className="flex items-center gap-1 text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-100">
                       <Star className="w-3 h-3" />
                       Verified
@@ -192,7 +200,7 @@ const TopicListItem = ({
     : unit.equations;
 
   return (
-    <div className={`border-b border-stone-100 dark:border-stone-700 last:border-0 transition-colors ${isWalkthrough ? 'bg-gradient-to-r from-purple-50/30 to-transparent dark:from-purple-900/10' : ''} ${isExpanded ? 'bg-stone-50/50 dark:bg-stone-800/50' : 'hover:bg-stone-50/30 dark:hover:bg-stone-800/30'}`}>
+    <div className={`border-b border-stone-200 dark:border-stone-700 last:border-0 transition-colors ${isExpanded ? 'bg-stone-50/50 dark:bg-stone-800/50' : 'hover:bg-stone-50/30 dark:hover:bg-stone-800/30'}`}>
       <div 
         onClick={onToggle}
         className="w-full text-left py-4 px-4 flex items-start gap-3 cursor-pointer group select-none"
@@ -203,14 +211,11 @@ const TopicListItem = ({
         
         <div className="flex-1 min-w-0">
            <div className="flex items-center gap-3">
-              {isWalkthrough && (
-                <Zap className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0" />
-              )}
-              <h4 className={`font-semibold text-lg ${isWalkthrough ? 'text-purple-900 dark:text-purple-300' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
+              <h4 className={`font-semibold text-lg ${isWalkthrough ? 'text-stone-900 dark:text-stone-100' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
                 {unit.topic}
               </h4>
               {isWalkthrough && (
-                <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs rounded-full font-medium">
+                <span className="px-2 py-0.5 bg-[#FF4A1C]/10 dark:bg-[#FF4A1C]/20 text-[#FF4A1C] dark:text-[#FF4A1C] text-xs rounded-full font-medium">
                   Problem Solving
                 </span>
               )}
@@ -236,17 +241,17 @@ const TopicListItem = ({
           
           {/* Tutor Guidance */}
           {unit.tutor_guidance && (
-            <div className={`mb-6 p-4 rounded-lg border ${isWalkthrough ? 'bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800' : 'bg-stone-50 dark:bg-stone-900 border-stone-200 dark:border-stone-700'}`}>
+            <div className={`mb-6 p-4 rounded-lg border bg-stone-50 dark:bg-stone-900 border-stone-200 dark:border-stone-700`}>
               <div className="flex items-start gap-3">
-                <div className={`p-1.5 rounded-lg shrink-0 ${isWalkthrough ? 'bg-purple-200 dark:bg-purple-800' : 'bg-stone-200 dark:bg-stone-800'}`}>
+                <div className="shrink-0 mt-0.5">
                   {isWalkthrough ? (
-                    <Zap className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <Sparkles className="w-4 h-4 text-[#FF4A1C] dark:text-[#FF4A1C]" />
                   ) : (
                     <Sparkles className="w-4 h-4 text-stone-600 dark:text-stone-400" />
                   )}
                 </div>
                 <div>
-                  <p className={`text-sm font-semibold uppercase tracking-wide mb-1 ${isWalkthrough ? 'text-purple-700 dark:text-purple-300' : 'text-stone-700 dark:text-stone-300'}`}>
+                  <p className={`text-sm font-semibold uppercase tracking-wide mb-1 ${isWalkthrough ? 'text-[#FF4A1C] dark:text-[#FF4A1C]' : 'text-stone-700 dark:text-stone-300'}`}>
                     {isWalkthrough ? 'Problem-Solving Approach' : 'Core overview'}
                   </p>
                   <p className="text-stone-700 dark:text-stone-300 text-m leading-relaxed">
@@ -273,11 +278,7 @@ const TopicListItem = ({
                     onGenerateBlueprint(unit);
                   }}
                   disabled={isSearching}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors ${
-                    isWalkthrough
-                      ? 'bg-white dark:bg-stone-800 text-purple-600 dark:text-purple-400 border border-purple-600 dark:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10'
-                      : 'bg-white dark:bg-stone-800 text-[#FF4A1C] border border-[#FF4A1C] hover:bg-[#FF4A1C]/5 dark:hover:bg-[#FF4A1C]/10'
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-[#FF4A1C] border border-[#FF4A1C] hover:bg-[#FF4A1C]/5 dark:hover:bg-[#FF4A1C]/10`}
                 >
                   {isSearching ? (
                     <>
@@ -299,7 +300,7 @@ const TopicListItem = ({
                     }}
                     disabled={isSearching}
                     className="flex items-center gap-2 px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg 
-                               hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors font-medium text-sm"
+                               hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors font-medium text-sm border border-stone-200 dark:border-stone-700"
                   >
                     <Check className="w-4 h-4" />
                     I know this
@@ -311,8 +312,8 @@ const TopicListItem = ({
           {/* Resources Table */}
           {hasResources && (
             <div className="mt-4">
-              <h5 className={`text-sm font-semibold mb-2 flex items-center gap-2 ${isWalkthrough ? 'text-purple-700 dark:text-purple-300' : 'text-stone-700 dark:text-stone-300'}`}>
-                <Play className={`w-4 h-4 ${isWalkthrough ? 'text-purple-600 dark:text-purple-400' : 'text-[#FF4A1C]'}`} />
+              <h5 className={`text-sm font-semibold mb-2 flex items-center gap-2 ${isWalkthrough ? 'text-[#FF4A1C] dark:text-[#FF4A1C]' : 'text-stone-700 dark:text-stone-300'}`}>
+                <Play className={`w-4 h-4 ${isWalkthrough ? 'text-[#FF4A1C] dark:text-[#FF4A1C]' : 'text-[#FF4A1C]'}`} />
                 {isWalkthrough ? 'Worked Example Videos' : 'Recommended Resources'}
               </h5>
               <ResourceTable resources={topicResources} />
@@ -423,6 +424,11 @@ const Blueprint = () => {
             total: 0,
           },
           created_at: structureData.created_at,
+          // Cache information (if available)
+          from_cache: structureData.from_cache || false,
+          cache_similarity: structureData.cache_similarity,
+          cache_source_id: structureData.cache_source_id,
+          model_used: structureData.model_used || 'claude-haiku-4-5',
         });
       }
 
@@ -939,7 +945,7 @@ const Blueprint = () => {
 
             {/* Document Card */}
             {doc && (
-              <div className="w-full lg:w-80 shrink-0 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-full lg:w-80 shrink-0 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-start gap-3 mb-3">
                   <div className="p-2 bg-stone-100 dark:bg-stone-900 rounded-lg text-stone-500 dark:text-stone-400">
                     <FileText className="w-5 h-5" />
@@ -956,7 +962,7 @@ const Blueprint = () => {
                 
                 <button
                   onClick={handleViewDocument}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-sm font-medium transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-sm font-medium transition-colors"
                 >
                   <Eye className="w-4 h-4" />
                   View Document
@@ -1026,24 +1032,10 @@ const Blueprint = () => {
                         total_learning_units: learningStructure.total_learning_units,
                         total_search_queries: learningStructure.total_search_queries,
                         model_used: learningStructure.model_used,
-                        prerequisites: structure?.prerequisites_section?.learning_units?.map(u => ({
-                          unit_id: u.unit_id,
-                          unit_type: u.unit_type,
-                          topic: u.topic,
-                          search_queries_count: u.search_queries?.length || 0,
-                        })),
-                        content_sections: structure?.content_sections?.map(s => ({
-                          section_id: s.section_id,
-                          section_type: s.section_type,
-                          title: s.title,
-                          learning_units: s.learning_units?.map(u => ({
-                            unit_id: u.unit_id,
-                            unit_type: u.unit_type,
-                            topic: u.topic,
-                            search_queries_count: u.search_queries?.length || 0,
-                            has_equations: (u.equations?.length || 0) > 0,
-                          })),
-                        })),
+                        from_cache: learningStructure.from_cache || false,
+                        cache_similarity: learningStructure.cache_similarity ? `${(learningStructure.cache_similarity * 100).toFixed(1)}%` : null,
+                        token_savings: learningStructure.from_cache ? '~24,000 tokens (~$0.06)' : 'N/A',
+                        created_at: learningStructure.created_at,
                       }, null, 2)}
                     </pre>
                   </div>
@@ -1156,7 +1148,7 @@ const Blueprint = () => {
 
           {/* No Structure State - Show Generation UI */}
           {!structure && (
-            <div className="bg-white dark:bg-stone-900 rounded-3xl p-8 shadow-sm border border-stone-200 dark:border-stone-600 mt-8">
+            <div className="bg-white dark:bg-stone-900 rounded-3xl p-8 shadow-sm border border-stone-300 dark:border-stone-600 mt-8">
                <div className="text-center py-8">
                 <h3 className="text-xl font-bold text-[#2A2B2A] dark:text-stone-100 mb-2">
                   Ready to Generate Your Learning Path
@@ -1173,8 +1165,8 @@ const Blueprint = () => {
                       disabled={generating && generationStatus === 'analyzing'}
                       className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 border rounded-lg transition-all font-medium ${
                         documentAnalysis || generationStatus === 'analyzed' || generationStatus === 'structure_generated' || generationStatus === 'completed'
-                          ? 'bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-900 dark:text-green-100'
-                          : 'bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-800/40'
+                          ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-600 text-green-900 dark:text-green-100'
+                          : 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-800/40'
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                       {documentAnalysis || generationStatus === 'analyzed' || generationStatus === 'structure_generated' || generationStatus === 'completed' ? (
@@ -1200,8 +1192,8 @@ const Blueprint = () => {
                       disabled={(!documentAnalysis && generationStatus === 'pending' || generationStatus === 'analyzing' || generationStatus === 'failed') || (generating && generationStatus === 'generating')}
                       className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 border rounded-lg transition-all font-medium ${
                         generationStatus === 'structure_generated' || generationStatus === 'completed'
-                          ? 'bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-900 dark:text-green-100'
-                          : 'bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700 text-purple-900 dark:text-purple-100 hover:bg-purple-200 dark:hover:bg-purple-800/40'
+                          ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-600 text-green-900 dark:text-green-100'
+                          : 'bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-600 text-purple-900 dark:text-purple-100 hover:bg-purple-200 dark:hover:bg-purple-800/40'
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                       {generationStatus === 'structure_generated' || generationStatus === 'completed' ? (
@@ -1243,7 +1235,7 @@ const Blueprint = () => {
                     <button
                       onClick={runAllSteps}
                       disabled={generating}
-                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 font-medium disabled:opacity-50 text-sm"
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 font-medium disabled:opacity-50 text-sm"
                     >
                       <Sparkles className="w-4 h-4" />
                       {generating ? 'Running...' : 'Or Run All Steps'}
@@ -1264,15 +1256,15 @@ const Blueprint = () => {
               {/* Bucket Navigation (Tabs) */}
               <div className="mb-8">
                 <div className="flex justify-center mb-4 px-4">
-                  <div className="inline-flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg overflow-x-auto max-w-full no-scrollbar">
+                  <div className="inline-flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg overflow-x-auto max-w-full no-scrollbar border border-stone-200 dark:border-stone-700">
                     {tabs.map(tab => (
                       <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap snap-center ${
                           activeTab === tab.id
-                            ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm'
-                            : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                            ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
+                            : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
                         }`}
                       >
                         {tab.label}
@@ -1282,8 +1274,17 @@ const Blueprint = () => {
                 </div>
                 
                 {/* Active Section Header */}
-                <div className="mt-4">
+                <div className="mt-4 flex items-center gap-3">
                   <h2 className="text-2xl font-bold text-[#2A2B2A] dark:text-stone-100">{currentSectionTitle}</h2>
+                  {learningStructure?.from_cache && (
+                    <span 
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg text-xs font-medium text-emerald-700 dark:text-emerald-300"
+                      title={`Reused cached structure (${(learningStructure.cache_similarity * 100).toFixed(1)}% similar) - saved ~24,000 tokens`}
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      Optimized
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1291,7 +1292,7 @@ const Blueprint = () => {
               <div className="space-y-4">
                 {currentUnits.length > 0 ? (
                     currentUnits.map((unit, idx) => (
-                      <div key={unit.unit_id || idx} className="bg-white dark:bg-stone-800 rounded-xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
+                      <div key={unit.unit_id || idx} className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
                         <TopicListItem
                           unit={unit}
                           blueprintId={id}

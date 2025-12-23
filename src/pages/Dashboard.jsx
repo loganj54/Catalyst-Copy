@@ -220,7 +220,7 @@ const Dashboard = () => {
           <div className="flex justify-between items-end">
             <div>
               <div className="inline-block text-6xl text-stone-900 dark:text-stone-100 tracking-tight bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-3xl">
-                <h1 className="text-4xl font-normal text-[#2A2B2A] dark:text-stone-100 tracking-tight">My Classes</h1>
+                <h1 className="text-4xl font-normal text-[#2A2B2A] dark:text-stone-100 tracking-tight">Classwork Dashboard</h1>
                 </div>
                 
             </div>
@@ -234,25 +234,25 @@ const Dashboard = () => {
               </div>
               <button 
                 onClick={() => navigate('/create')}
-                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100"
+                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100"
               >
                 <Plus className="w-5 h-5" />
                 <span className="font-medium text-sm">New Blueprint</span>
               </button>
             </div>
 
-            <div className="bg-white dark:bg-stone-900 rounded-lg border border-stone-300 dark:border-stone-700 overflow-hidden shadow-sm">
+            <div className="bg-white dark:bg-stone-900 rounded-lg border border-stone-300 dark:border-stone-600 overflow-hidden shadow-sm">
               {recentBlueprints.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                       <thead>
-                        <tr className="bg-stone-50 dark:bg-stone-800 border-b border-stone-300 dark:border-stone-700 text-left">
+                        <tr className="bg-stone-50 dark:bg-stone-800 border-b border-stone-200 dark:border-stone-700 text-left">
                           <th className="py-2 px-6 font-normal text-stone-500 dark:text-stone-400 text-sm w-full">Blueprint </th>
                           <th className="py-2 px-6 font-normal text-stone-500 dark:text-stone-400 text-sm whitespace-nowrap text-left w-1">Last Viewed</th>
                           
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-stone-300 dark:divide-stone-700">
+                      <tbody className="divide-y divide-stone-200 dark:divide-stone-700">
                         {recentBlueprints.map((blueprint) => (
                           <tr 
                             key={blueprint.id} 
@@ -307,7 +307,7 @@ const Dashboard = () => {
               </div>
               <button 
                 onClick={() => { setEditingClass(null); setIsModalOpen(true); }}
-                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100"
+                className="flex items-center justify-center gap-2 w-40 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100"
               >
                 <Plus className="w-5 h-5" />
                 <span className="font-medium text-sm">New Class</span>
@@ -320,7 +320,7 @@ const Dashboard = () => {
                 <div 
                   key={course.id}
                   onClick={() => navigate(`/class/${course.id}`)}
-                  className="aspect-square bg-white dark:bg-stone-900 rounded-xl p-6 shadow-sm hover:shadow-xl transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-stone-300 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-600"
+                  className="aspect-square bg-white dark:bg-stone-900 rounded-xl p-6 shadow-sm hover:shadow-xl transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-stone-300 dark:border-stone-600 hover:border-stone-400 dark:hover:border-stone-500"
                 >
                   {/* Card Header */}
                   <div className="flex justify-between items-start z-10 relative">
@@ -382,7 +382,7 @@ const Dashboard = () => {
           {/* Dropdown */}
           <div 
             ref={dropdownRef}
-            className="absolute bg-white rounded-xl shadow-xl border border-stone-200 overflow-hidden z-50 w-48"
+            className="absolute bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 overflow-hidden z-50 w-48"
             style={{ 
               top: `${dropdownPosition.top}px`,
               right: `${dropdownPosition.right}px`
@@ -393,13 +393,13 @@ const Dashboard = () => {
                 const course = classes.find(c => c.id === activeDropdown);
                 if (course) openEditModal(course, e);
               }}
-              className="w-full px-4 py-3 text-left hover:bg-stone-50 flex items-center gap-2 text-stone-600 font-medium transition-colors"
+              className="w-full px-4 py-3 text-left hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2 text-stone-600 dark:text-stone-300 font-medium transition-colors"
             >
               <Edit2 className="w-4 h-4" /> Edit Class
             </button>
             <button 
               onClick={(e) => handleDeleteClass(activeDropdown, e)}
-              className="w-full px-4 py-3 text-left hover:bg-red-50 text-red-500 hover:text-red-600 flex items-center gap-2 font-medium transition-colors border-t border-stone-100"
+              className="w-full px-4 py-3 text-left hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 hover:text-red-600 flex items-center gap-2 font-medium transition-colors border-t border-stone-100 dark:border-stone-800"
             >
               <Trash2 className="w-4 h-4" /> Remove Class
             </button>

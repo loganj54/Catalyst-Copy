@@ -33,7 +33,7 @@ const Sidebar = ({ collapsed = false }) => {
         title={collapsed ? item.label : ''}
         className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-normal transition-all border ${
           isActive 
-            ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-700 shadow-sm' 
+            ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600 shadow-sm' 
             : 'text-stone-500 dark:text-stone-400 border-transparent hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-stone-100'
         } ${collapsed ? 'justify-center px-2' : ''}`}
       >
@@ -52,7 +52,7 @@ const Sidebar = ({ collapsed = false }) => {
 
   return (
     <div 
-      className={`h-[calc(100vh-80px)] bg-stone-50 dark:bg-stone-900 border-r border-stone-100 dark:border-stone-800 flex flex-col pt-6 pb-6 transition-all duration-300 ${
+      className={`h-[calc(100vh-80px)] bg-stone-50 dark:bg-stone-900 border-r border-stone-200 dark:border-stone-700 flex flex-col pt-6 pb-6 transition-all duration-300 ${
         collapsed ? 'w-20' : 'w-56'
       }`}
     >
@@ -66,7 +66,7 @@ const Sidebar = ({ collapsed = false }) => {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="px-3 space-y-2 pt-4 border-t border-stone-100 dark:border-stone-800">
+      <div className="px-3 space-y-2 pt-4 border-t border-stone-200 dark:border-stone-700">
         {bottomItems.map((item) => (
           <NavItem key={item.path} item={item} />
         ))}

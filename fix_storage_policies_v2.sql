@@ -53,3 +53,4 @@ USING (
 -- 4. Verify policies are active
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
+

@@ -59,7 +59,7 @@ const CreateClassModal = ({ isOpen, onClose, onSubmit, initialData = null }) => 
                 type="text" 
                 value={className}
                 onChange={(e) => setClassName(e.target.value)}
-                className="w-full p-3 rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
+                className="w-full p-3 rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
                 placeholder="e.g. Calculus I"
                 required
               />
@@ -73,7 +73,7 @@ const CreateClassModal = ({ isOpen, onClose, onSubmit, initialData = null }) => 
                 type="text" 
                 value={professor}
                 onChange={(e) => setProfessor(e.target.value)}
-                className="w-full p-3 rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
+                className="w-full p-3 rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
                 placeholder="e.g. Dr. Smith"
               />
             </div>

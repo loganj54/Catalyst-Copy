@@ -48,7 +48,7 @@ const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, confirmText
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-[#2A2B2A] rounded-xl font-medium transition-colors"
+            className="flex-1 px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-[#2A2B2A] rounded-xl font-medium transition-colors border border-stone-300"
           >
             {cancelText}
           </button>
