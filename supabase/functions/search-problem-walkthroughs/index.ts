@@ -417,7 +417,10 @@ function calculateProblemSolvingScore(text: string): number {
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { 
+      status: 204,
+      headers: corsHeaders 
+    });
   }
 
   const supabase = createSupabaseClient();

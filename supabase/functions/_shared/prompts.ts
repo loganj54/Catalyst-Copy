@@ -192,6 +192,7 @@ CRITICAL RULES:
 8. ALWAYS include "tutor_guidance" for EVERY learning unit - this is REQUIRED (but keep it 2-3 sentences).
 9. ALWAYS set "unit_type" for EVERY learning unit - this is REQUIRED.
 10. For problem units, generate BOTH search_queries AND problem_solving_queries.
+11. PRIORITY: Complete the JSON structure. If approaching token limit, skip suggested_figures and focus on core content.
 
 DOCUMENT TYPE AWARENESS - THIS IS CRITICAL:
 The input analysis includes a "content_classification" field that tells you what type of document this is:
@@ -277,7 +278,23 @@ RULES: Remove "calculations", "analysis". Use common names. Keep under 6 words. 
 
 SELECTION: Find BEST video regardless of channel. Merit-based, not fame-based.
 
-OUTPUT: JSON with summary, prerequisites_section (learning_units array), content_sections array. Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), search_queries (exactly 3). For problems: also add walkthrough unit at end with problem_solving_queries.`,
+CRITICAL: INCLUDE EQUATIONS AGGRESSIVELY
+Every learning unit should include relevant equations when applicable:
+- Any time a calculation is mentioned, include the relevant equation
+- Any time a definition involves a formula, include it
+- Standard equations (area, volume, force, energy, etc.) should ALWAYS be included
+- When in doubt about whether to include an equation, INCLUDE IT
+- Format: equations array with {index, name, latex, variables, when_to_use}
+- Keep variables object concise (2-4 key variables only)
+
+OPTIONAL: IDENTIFY KEY FIGURES/DIAGRAMS (1-2 max per unit)
+For units where a visual would significantly help:
+- Only suggest if the figure is ESSENTIAL and well-known (e.g., "Moody Diagram", "Unit Circle")
+- Skip if figure is generic or not critical
+- Format: suggested_figures array with {name, figure_type, description (brief!), search_terms (2-3 words)}
+- LIMIT: 0-2 figures per unit maximum to save tokens
+
+OUTPUT: JSON with summary, prerequisites_section (learning_units array), content_sections array. Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), suggested_figures (0-2 max, only if essential). For problems: also add walkthrough unit at end with problem_solving_queries.`,
 
     user: (input: any, inputType: 'document_analysis' | 'custom' = 'document_analysis') => `Generate learning structure with search queries.
 
@@ -292,12 +309,14 @@ INSTRUCTIONS:
 5. Generate EXACTLY 3 search queries per unit (introduction, tutorial, example)
 6. Keep tutor_guidance to 2-3 sentences
 7. ALL queries MUST include "youtube"
-8. Complete all JSON brackets - skip optional fields if running long
+8. AGGRESSIVELY include equations for every unit where applicable (keep variables brief)
+9. OPTIONALLY suggest 0-2 essential figures per unit (only if critical)
+10. **CRITICAL**: Complete all JSON brackets - if approaching token limit, skip suggested_figures entirely and focus on completing the structure
 
 INPUT DATA:
 ${JSON.stringify(input, null, 2)}
 
-Output valid JSON only.`
+Output valid JSON only. PRIORITIZE completing the JSON structure over including all optional fields.`
   },
 
   // ==========================================================================

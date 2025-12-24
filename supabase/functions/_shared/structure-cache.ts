@@ -95,6 +95,11 @@ export async function checkStructureCache(
       console.log(`[cache]   - Times used: ${cached.times_used}`);
       console.log(`[cache]   - Quality score: ${cached.quality_score.toFixed(2)}`);
       console.log(`[cache]   - Topics: ${JSON.stringify(cached.topics)}`);
+      console.log(`[cache]   - Structure keys: ${Object.keys(cached.structure || {})}`);
+      console.log(`[cache]   - Content sections count: ${cached.structure?.content_sections?.length || 0}`);
+      if (cached.structure?.content_sections?.[0]) {
+        console.log(`[cache]   - First section learning_units: ${cached.structure.content_sections[0].learning_units?.length || 0}`);
+      }
       
       return {
         hit: true,
@@ -131,9 +136,35 @@ export function adaptCachedStructure(
   newAnalysis: any
 ): any {
   console.log('[cache] Adapting cached structure to new document...');
+  console.log('[cache] Input cached structure keys:', Object.keys(cachedStructure || {}));
+  console.log('[cache] Has content_sections:', !!cachedStructure?.content_sections);
+  console.log('[cache] Number of content_sections:', cachedStructure?.content_sections?.length || 0);
+  
+  // Check if structure has the wrong shape (nested under learning_structure)
+  if (!cachedStructure.content_sections && cachedStructure.learning_structure) {
+    console.log('[cache] ⚠️ DETECTED OLD FORMAT: Structure nested under learning_structure key');
+    console.log('[cache] Flattening structure...');
+    cachedStructure = cachedStructure.learning_structure;
+    console.log('[cache] After flattening, has content_sections:', !!cachedStructure?.content_sections);
+  }
   
   // Deep clone to avoid mutations
   const adapted = JSON.parse(JSON.stringify(cachedStructure));
+  
+  // Ensure summary object exists
+  if (!adapted.summary) {
+    adapted.summary = {};
+  }
+  
+  // If summary is a string instead of an object, convert it
+  if (typeof adapted.summary === 'string') {
+    const summaryText = adapted.summary;
+    adapted.summary = {
+      title: summaryText.split('.')[0] || 'Learning Path',
+      description: summaryText
+    };
+    console.log('[cache] ⚠️ Summary was a string, converted to object');
+  }
   
   // Update summary to match new document
   adapted.summary.title = `Learning Path: ${newAnalysis.specific_topic || newAnalysis.subject_area}`;
@@ -144,16 +175,41 @@ export function adaptCachedStructure(
     console.log('[cache] Adapting prerequisites...');
     // Keep cached prerequisite structure but update topics
     if (adapted.prerequisites_section?.learning_units) {
-      adapted.prerequisites_section.learning_units = adapted.prerequisites_section.learning_units.slice(
+      const originalUnits = adapted.prerequisites_section.learning_units;
+      adapted.prerequisites_section.learning_units = originalUnits.slice(
         0,
-        Math.min(adapted.prerequisites_section.learning_units.length, newAnalysis.prerequisites.length)
+        Math.min(originalUnits.length, newAnalysis.prerequisites.length)
       );
+      console.log(`[cache]   Kept ${adapted.prerequisites_section.learning_units.length} prerequisite units`);
     }
   }
   
+  // Log prerequisites status
+  console.log(`[cache] Prerequisites section: ${adapted.prerequisites_section?.learning_units?.length || 0} units`);
+  
+  // Ensure content_sections exists
+  if (!adapted.content_sections) {
+    console.log('[cache] ⚠️ Cached structure missing content_sections, initializing empty array');
+    adapted.content_sections = [];
+  }
+  
   // Adapt content sections to match new document
-  if (newAnalysis.sections && adapted.content_sections) {
+  if (newAnalysis.sections && newAnalysis.sections.length > 0) {
     console.log(`[cache] Adapting ${newAnalysis.sections.length} content sections...`);
+    console.log(`[cache] Cached structure has ${adapted.content_sections.length} sections`);
+    
+    // Ensure content_sections is an array
+    if (!Array.isArray(adapted.content_sections)) {
+      console.log('[cache] ⚠️ content_sections was not an array, converting');
+      adapted.content_sections = [];
+    }
+    
+    // If cache has fewer sections than needed, we can't adapt properly
+    if (adapted.content_sections.length === 0) {
+      console.log('[cache] ⚠️ WARNING: Cached structure has 0 content_sections');
+      console.log('[cache] Cannot adapt - cache is missing the section data');
+      console.log('[cache] This will result in an empty structure');
+    }
     
     adapted.content_sections = adapted.content_sections
       .slice(0, Math.min(adapted.content_sections.length, newAnalysis.sections.length))
@@ -161,7 +217,11 @@ export function adaptCachedStructure(
         const newSection = newAnalysis.sections[idx];
         if (!newSection) return cachedSection;
         
+        // Log what we're working with
+        console.log(`[cache]   Section ${idx}: has ${cachedSection.learning_units?.length || 0} learning units`);
+        
         // Preserve cached structure but update titles and IDs
+        // IMPORTANT: Keep learning_units array intact!
         return {
           ...cachedSection,
           section_id: newSection.section_id,
@@ -171,11 +231,32 @@ export function adaptCachedStructure(
             : `Topic ${idx + 1}: ${newSection.key_concepts?.[0] || newSection.topic_summary || cachedSection.concepts?.[0] || 'Study'}`,
           description: newSection.topic_summary || newSection.problem_statement?.substring(0, 150) || cachedSection.description,
           concepts: newSection.concepts_tested || newSection.key_concepts || cachedSection.concepts,
+          // Explicitly preserve learning_units
+          learning_units: cachedSection.learning_units || [],
         };
       });
+  } else {
+    console.log('[cache] ⚠️ newAnalysis has no sections - keeping cached sections as-is');
+    console.log(`[cache] Cached structure has ${adapted.content_sections.length} sections`);
   }
   
   console.log('[cache] ✅ Structure adapted successfully');
+  console.log(`[cache] Final structure has ${adapted.content_sections?.length || 0} sections`);
+  if (adapted.content_sections?.length > 0) {
+    console.log(`[cache] First section has ${adapted.content_sections[0]?.learning_units?.length || 0} learning units`);
+  } else {
+    console.log('[cache] ⚠️ WARNING: No content_sections in adapted structure!');
+    console.log('[cache] Structure keys:', Object.keys(adapted));
+  }
+  
+  // Final validation
+  if (!adapted.content_sections || adapted.content_sections.length === 0) {
+    console.error('[cache] ❌ CRITICAL: Adapted structure has no content_sections!');
+    console.error('[cache] This will cause the UI to show "No topics found"');
+    console.error('[cache] Input had sections:', !!cachedStructure?.content_sections);
+    console.error('[cache] Input section count:', cachedStructure?.content_sections?.length || 0);
+  }
+  
   return adapted;
 }
 

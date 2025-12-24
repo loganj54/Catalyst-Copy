@@ -11,9 +11,9 @@ import {
   FolderOpen,
   Trash2,
   Download,
-  Eye
+  Eye,
+  Edit2
 } from 'lucide-react';
-import BlueprintModal from '../components/BlueprintModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Sidebar from '../components/Sidebar';
 import ClassSidebar from '../components/ClassSidebar';
@@ -31,9 +31,11 @@ const ClassDetails = () => {
   const [loading, setLoading] = useState(true);
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'blueprints'); // blueprints, documents, help
-  const [isBlueprintModalOpen, setIsBlueprintModalOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: '', itemId: null, itemPath: null });
+  const [editingBlueprint, setEditingBlueprint] = useState(null);
+  const [newBlueprintName, setNewBlueprintName] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
 
   useEffect(() => {
     if (user && id) {
@@ -286,6 +288,51 @@ const ClassDetails = () => {
     });
   };
 
+  const handleEditBlueprint = (e, blueprint) => {
+    e.stopPropagation();
+    setEditingBlueprint(blueprint);
+    setNewBlueprintName(blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint');
+    setOpenDropdownId(null);
+  };
+
+  const saveBlueprintName = async () => {
+    if (!editingBlueprint || !newBlueprintName.trim()) return;
+    
+    setIsSavingName(true);
+    try {
+      // Update both title column and content.blueprintName for consistency
+      const updatedContent = {
+        ...editingBlueprint.content,
+        blueprintName: newBlueprintName.trim()
+      };
+
+      const { error } = await supabase
+        .from('blueprints')
+        .update({ 
+          title: newBlueprintName.trim(),
+          content: updatedContent 
+        })
+        .eq('id', editingBlueprint.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setBlueprints(blueprints.map(bp => 
+        bp.id === editingBlueprint.id 
+          ? { ...bp, title: newBlueprintName.trim(), content: updatedContent }
+          : bp
+      ));
+
+      setEditingBlueprint(null);
+      setNewBlueprintName('');
+    } catch (error) {
+      console.error('Error updating blueprint name:', error);
+      alert('Failed to update blueprint name');
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
   const toggleDropdown = (e, blueprintId) => {
     e.stopPropagation();
     setOpenDropdownId(openDropdownId === blueprintId ? null : blueprintId);
@@ -324,16 +371,6 @@ const ClassDetails = () => {
       </div>
 
       <div className="flex-1 min-w-0 lg:ml-[304px] relative z-10">
-        {isBlueprintModalOpen && (
-          <BlueprintModal 
-            isOpen={isBlueprintModalOpen}
-            onClose={() => setIsBlueprintModalOpen(false)}
-            classId={id}
-            className={classData.name}
-            professorName={classData.professor}
-          />
-        )}
-        
         <ConfirmDialog
           isOpen={confirmDialog.isOpen}
           onClose={() => setConfirmDialog({ isOpen: false, type: '', itemId: null, itemPath: null })}
@@ -346,6 +383,56 @@ const ClassDetails = () => {
         />
         
         <div className="pt-8 pb-12 px-6 lg:px-12 max-w-7xl mx-auto space-y-12">
+
+          {/* Edit Blueprint Name Modal */}
+          {editingBlueprint && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-xl max-w-md w-full p-6 border border-stone-200 dark:border-stone-700 animate-in fade-in zoom-in-95 duration-200">
+                <h3 className="text-xl font-bold text-stone-900 dark:text-stone-100 mb-4">Rename Blueprint</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                      Blueprint Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newBlueprintName}
+                      onChange={(e) => setNewBlueprintName(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-[#FF4A1C] focus:border-transparent outline-none transition-all text-stone-900 dark:text-stone-100"
+                      placeholder="Enter new name"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveBlueprintName();
+                        if (e.key === 'Escape') setEditingBlueprint(null);
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      onClick={() => setEditingBlueprint(null)}
+                      className="px-4 py-2 text-sm font-medium text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveBlueprintName}
+                      disabled={isSavingName || !newBlueprintName.trim()}
+                      className="px-4 py-2 text-sm font-medium bg-[#FF4A1C] text-white rounded-lg hover:bg-[#e03e15] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    >
+                      {isSavingName ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Changes'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Header */}
           <div className="flex flex-col gap-6 mb-8">
@@ -531,7 +618,7 @@ const ClassDetails = () => {
                     <div className="flex justify-between items-center">
                       <h3 className="text-xl font-normal text-stone-900 dark:text-stone-100">Your Blueprints</h3>
                       <button 
-                        onClick={() => setIsBlueprintModalOpen(true)}
+                        onClick={() => navigate('/create', { state: { initialClassId: id } })}
                         className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 shadow-sm"
                       >
                         <Plus className="w-5 h-5" />
@@ -561,6 +648,13 @@ const ClassDetails = () => {
                               
                               {openDropdownId === blueprint.id && (
                                 <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 py-1 z-10 animate-fade-in">
+                                  <button
+                                    onClick={(e) => handleEditBlueprint(e, blueprint)}
+                                    className="w-full px-4 py-2 text-left text-sm text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                    Edit Name
+                                  </button>
                                   <button
                                     onClick={(e) => handleDeleteBlueprint(e, blueprint.id)}
                                     className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"

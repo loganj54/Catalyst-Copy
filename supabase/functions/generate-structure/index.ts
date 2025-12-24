@@ -29,6 +29,9 @@ import {
   cacheNewStructure,
   incrementCacheUsage,
 } from '../_shared/structure-cache.ts';
+import {
+  findOrCreateFigure,
+} from '../_shared/figure-sourcing.ts';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -60,6 +63,14 @@ interface Equation {
   when_to_use: string;
 }
 
+// Suggested figure/diagram for a learning unit
+interface SuggestedFigure {
+  name: string;
+  figure_type: 'diagram' | 'chart' | 'graph' | 'table' | 'illustration';
+  description: string;
+  search_terms: string[];
+}
+
 // Learning unit within a section
 interface LearningUnit {
   unit_id: string;
@@ -73,6 +84,7 @@ interface LearningUnit {
   priority?: string;
   estimated_time_minutes: number;
   equations?: Equation[]; // LaTeX equations for this learning unit (when applicable)
+  suggested_figures?: SuggestedFigure[]; // Suggested figures/diagrams for this unit
   search_queries: SearchQuery[]; // For videos (concept videos for topic units, problem walkthroughs for walkthrough units)
   problem_solving_queries?: SearchQuery[]; // DEPRECATED - now incorporated into walkthrough units
 }
@@ -412,13 +424,324 @@ async function processStructureEquations(
 }
 
 // ============================================================================
+// AGGRESSIVE EQUATION DETECTION (POST-PROCESSING)
+// ============================================================================
+
+/**
+ * Search for equations by topic/keyword similarity
+ * This helps find relevant equations even if the AI didn't include them
+ */
+async function searchEquationsByTopic(
+  supabase: any,
+  topic: string,
+  description: string,
+  subjectArea: string
+): Promise<CachedEquation[]> {
+  const searchText = `${topic} ${description || ''}`.toLowerCase();
+  
+  // Try exact name matches first (case-insensitive)
+  const { data: exactMatches } = await supabase
+    .from('curated_equations')
+    .select('*')
+    .eq('subject_area', subjectArea)
+    .ilike('name', `%${topic}%`)
+    .order('times_used', { ascending: false })
+    .limit(3);
+  
+  if (exactMatches && exactMatches.length > 0) {
+    return exactMatches.map((eq: any) => ({
+      id: eq.id,
+      name: eq.name,
+      latex: eq.latex,
+      variables: eq.variables || {},
+      when_to_use: eq.when_to_use || '',
+      from_cache: true,
+    }));
+  }
+  
+  // Try topic tags match
+  const { data: tagMatches } = await supabase
+    .from('curated_equations')
+    .select('*')
+    .eq('subject_area', subjectArea)
+    .contains('topic_tags', [topic.toLowerCase()])
+    .order('times_used', { ascending: false })
+    .limit(3);
+  
+  if (tagMatches && tagMatches.length > 0) {
+    return tagMatches.map((eq: any) => ({
+      id: eq.id,
+      name: eq.name,
+      latex: eq.latex,
+      variables: eq.variables || {},
+      when_to_use: eq.when_to_use || '',
+      from_cache: true,
+    }));
+  }
+  
+  return [];
+}
+
+/**
+ * Post-process structure to detect and attach missing equations
+ * This is the "aggressive" detection that finds equations even when AI didn't include them
+ */
+async function detectAndAttachMissingEquations(
+  supabase: any,
+  structure: LearningStructure,
+  blueprintId: string | null,
+  subjectArea: string,
+  userId: string | null
+): Promise<{ addedCount: number }> {
+  let addedCount = 0;
+  
+  console.log('[generate-structure] Running aggressive equation detection...');
+  
+  // Process prerequisites
+  if (structure.prerequisites_section?.learning_units) {
+    for (const unit of structure.prerequisites_section.learning_units) {
+      if (!unit.equations || unit.equations.length === 0) {
+        const foundEquations = await searchEquationsByTopic(
+          supabase,
+          unit.topic,
+          unit.description || '',
+          subjectArea
+        );
+        
+        if (foundEquations.length > 0) {
+          console.log(`[generate-structure] Found ${foundEquations.length} equations for prerequisite "${unit.topic}"`);
+          
+          // Add to unit structure
+          if (!unit.equations) {
+            unit.equations = [];
+          }
+          
+          for (const eq of foundEquations) {
+            unit.equations.push({
+              index: unit.equations.length + 1,
+              name: eq.name,
+              latex: eq.latex,
+              variables: eq.variables,
+              when_to_use: eq.when_to_use,
+            });
+            
+            // Link to blueprint if available
+            if (blueprintId) {
+              await supabase
+                .from('blueprint_unit_equations')
+                .upsert({
+                  blueprint_id: blueprintId,
+                  unit_id: unit.unit_id,
+                  equation_id: eq.id,
+                  display_index: unit.equations.length,
+                  from_cache: true,
+                }, {
+                  onConflict: 'blueprint_id,unit_id,equation_id',
+                });
+            }
+            
+            // Increment usage
+            await supabase.rpc('increment_equation_usage', { equation_uuid: eq.id });
+            addedCount++;
+          }
+        }
+      }
+    }
+  }
+  
+  // Process content sections
+  for (const section of structure.content_sections || []) {
+    for (const unit of section.learning_units || []) {
+      if (!unit.equations || unit.equations.length === 0) {
+        const foundEquations = await searchEquationsByTopic(
+          supabase,
+          unit.topic,
+          unit.description || '',
+          subjectArea
+        );
+        
+        if (foundEquations.length > 0) {
+          console.log(`[generate-structure] Found ${foundEquations.length} equations for unit "${unit.topic}"`);
+          
+          // Add to unit structure
+          if (!unit.equations) {
+            unit.equations = [];
+          }
+          
+          for (const eq of foundEquations) {
+            unit.equations.push({
+              index: unit.equations.length + 1,
+              name: eq.name,
+              latex: eq.latex,
+              variables: eq.variables,
+              when_to_use: eq.when_to_use,
+            });
+            
+            // Link to blueprint if available
+            if (blueprintId) {
+              await supabase
+                .from('blueprint_unit_equations')
+                .upsert({
+                  blueprint_id: blueprintId,
+                  unit_id: unit.unit_id,
+                  equation_id: eq.id,
+                  display_index: unit.equations.length,
+                  from_cache: true,
+                }, {
+                  onConflict: 'blueprint_id,unit_id,equation_id',
+                });
+            }
+            
+            // Increment usage
+            await supabase.rpc('increment_equation_usage', { equation_uuid: eq.id });
+            addedCount++;
+          }
+        }
+      }
+    }
+  }
+  
+  console.log(`[generate-structure] Aggressive detection added ${addedCount} equations`);
+  return { addedCount };
+}
+
+// ============================================================================
+// FIGURE PROCESSING
+// ============================================================================
+
+/**
+ * Process suggested figures from the structure and source them from Wikimedia Commons
+ */
+async function processSuggestedFigures(
+  supabase: any,
+  structure: LearningStructure,
+  blueprintId: string | null,
+  subjectArea: string,
+  userId: string | null
+): Promise<{ totalProcessed: number; totalCached: number; totalNew: number }> {
+  let totalProcessed = 0;
+  let totalCached = 0;
+  let totalNew = 0;
+  
+  console.log('[generate-structure] Processing suggested figures...');
+  
+  // Process prerequisites
+  if (structure.prerequisites_section?.learning_units) {
+    for (const unit of structure.prerequisites_section.learning_units) {
+      if (unit.suggested_figures && unit.suggested_figures.length > 0) {
+        for (const suggestedFigure of unit.suggested_figures) {
+          totalProcessed++;
+          
+          const figure = await findOrCreateFigure(
+            supabase,
+            suggestedFigure.name,
+            suggestedFigure.description,
+            suggestedFigure.figure_type,
+            suggestedFigure.search_terms,
+            subjectArea,
+            suggestedFigure.search_terms,
+            [unit.topic],
+            userId
+          );
+          
+          if (figure) {
+            if (figure.from_cache) {
+              totalCached++;
+            } else {
+              totalNew++;
+            }
+            
+            // Link figure to blueprint unit
+            if (blueprintId) {
+              await supabase
+                .from('blueprint_unit_figures')
+                .upsert({
+                  blueprint_id: blueprintId,
+                  unit_id: unit.unit_id,
+                  figure_id: figure.id,
+                  display_index: 1,
+                  from_cache: figure.from_cache,
+                  relevance_explanation: suggestedFigure.description,
+                }, {
+                  onConflict: 'blueprint_id,unit_id,figure_id',
+                });
+            }
+            
+            console.log(`[generate-structure] ✓ Figure "${suggestedFigure.name}" ${figure.from_cache ? 'from cache' : 'newly created'}`);
+          } else {
+            console.log(`[generate-structure] ✗ Could not source figure "${suggestedFigure.name}"`);
+          }
+        }
+      }
+    }
+  }
+  
+  // Process content sections
+  for (const section of structure.content_sections || []) {
+    for (const unit of section.learning_units || []) {
+      if (unit.suggested_figures && unit.suggested_figures.length > 0) {
+        for (const suggestedFigure of unit.suggested_figures) {
+          totalProcessed++;
+          
+          const figure = await findOrCreateFigure(
+            supabase,
+            suggestedFigure.name,
+            suggestedFigure.description,
+            suggestedFigure.figure_type,
+            suggestedFigure.search_terms,
+            subjectArea,
+            suggestedFigure.search_terms,
+            [unit.topic],
+            userId
+          );
+          
+          if (figure) {
+            if (figure.from_cache) {
+              totalCached++;
+            } else {
+              totalNew++;
+            }
+            
+            // Link figure to blueprint unit
+            if (blueprintId) {
+              await supabase
+                .from('blueprint_unit_figures')
+                .upsert({
+                  blueprint_id: blueprintId,
+                  unit_id: unit.unit_id,
+                  figure_id: figure.id,
+                  display_index: 1,
+                  from_cache: figure.from_cache,
+                  relevance_explanation: suggestedFigure.description,
+                }, {
+                  onConflict: 'blueprint_id,unit_id,figure_id',
+                });
+            }
+            
+            console.log(`[generate-structure] ✓ Figure "${suggestedFigure.name}" ${figure.from_cache ? 'from cache' : 'newly created'}`);
+          } else {
+            console.log(`[generate-structure] ✗ Could not source figure "${suggestedFigure.name}"`);
+          }
+        }
+      }
+    }
+  }
+  
+  console.log(`[generate-structure] Figures processed: ${totalProcessed} suggested, ${totalCached} cached, ${totalNew} new`);
+  return { totalProcessed, totalCached, totalNew };
+}
+
+// ============================================================================
 // MAIN HANDLER
 // ============================================================================
 
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { 
+      status: 204,
+      headers: corsHeaders 
+    });
   }
 
   let blueprint_id: string | null = null;
@@ -629,6 +952,28 @@ serve(async (req) => {
         
         console.log(`[generate-structure] Processed equations: ${equationResults.totalCached} cached, ${equationResults.totalNew} new`);
         
+        // Run aggressive equation detection for any units still missing equations
+        const aggressiveResults = await detectAndAttachMissingEquations(
+          supabase,
+          adaptedStructure,
+          blueprint_id,
+          analysisData.subject_area || 'General',
+          userId
+        );
+        
+        console.log(`[generate-structure] Aggressive detection added: ${aggressiveResults.addedCount} equations`);
+        
+        // Process suggested figures
+        const figureResults = await processSuggestedFigures(
+          supabase,
+          adaptedStructure,
+          blueprint_id,
+          analysisData.subject_area || 'General',
+          userId
+        );
+        
+        console.log(`[generate-structure] Figures: ${figureResults.totalCached} cached, ${figureResults.totalNew} new`);
+        
         // Count metrics
         const metrics = countStructureMetrics(adaptedStructure);
         const allSearchQueries = flattenSearchQueries(adaptedStructure);
@@ -758,6 +1103,28 @@ serve(async (req) => {
     console.log(`[generate-structure] Equations processed:`);
     console.log(`  - Cached (reused): ${equationResults.totalCached}`);
     console.log(`  - New (created): ${equationResults.totalNew}`);
+    
+    // Run aggressive equation detection for any units still missing equations
+    const aggressiveResults = await detectAndAttachMissingEquations(
+      supabase,
+      structure,
+      blueprint_id,
+      subjectArea,
+      userId
+    );
+    
+    console.log(`[generate-structure] Aggressive detection added: ${aggressiveResults.addedCount} equations`);
+    
+    // Process suggested figures
+    const figureResults = await processSuggestedFigures(
+      supabase,
+      structure,
+      blueprint_id,
+      subjectArea,
+      userId
+    );
+    
+    console.log(`[generate-structure] Figures: ${figureResults.totalCached} cached, ${figureResults.totalNew} new`);
 
     // Store the learning structure in the database
     const insertData = {

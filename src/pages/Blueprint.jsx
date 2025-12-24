@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import EquationDisplay from '../components/EquationDisplay';
+import FigureDisplay from '../components/FigureDisplay';
 import Sidebar from '../components/Sidebar';
 import ClassSidebar from '../components/ClassSidebar';
 
@@ -184,6 +185,7 @@ const TopicListItem = ({
   topicResponse, 
   topicResources,
   topicEquations,
+  topicFigures,
   onComfortSelect,
   onGenerateBlueprint,
   isSearching,
@@ -268,6 +270,13 @@ const TopicListItem = ({
               <EquationDisplay equations={equations} />
             </div>
           )}
+          
+          {/* Figures */}
+          {topicFigures && topicFigures.length > 0 && (
+            <div className="mb-6">
+              <FigureDisplay figures={topicFigures} />
+            </div>
+          )}
 
           {/* Action Buttons */}
           {!hasResources && !isComfortable && (
@@ -341,6 +350,7 @@ const Blueprint = () => {
   const [topicResponses, setTopicResponses] = useState({});
   const [topicResources, setTopicResources] = useState({});
   const [topicEquations, setTopicEquations] = useState({});
+  const [topicFigures, setTopicFigures] = useState({});
   
   // Track resources that are currently being loaded to prevent overwrites
   const loadingResourcesRef = useRef(new Set());
@@ -544,6 +554,28 @@ const Blueprint = () => {
         setTopicEquations(equationsMap);
       }
       
+      // Load Figures
+      const { data: figuresData } = await supabase
+        .from('blueprint_unit_figures')
+        .select(`*, curated_figures (*)`)
+        .eq('blueprint_id', id)
+        .order('display_index', { ascending: true });
+      
+      if (figuresData) {
+        const figuresMap = {};
+        figuresData.forEach(f => {
+          if (!figuresMap[f.unit_id]) figuresMap[f.unit_id] = [];
+          if (f.curated_figures) {
+            figuresMap[f.unit_id].push({
+              ...f.curated_figures,
+              relevance_explanation: f.relevance_explanation,
+              from_cache: f.from_cache,
+            });
+          }
+        });
+        setTopicFigures(figuresMap);
+      }
+      
     } catch (error) {
       console.error('Error fetching blueprint:', error);
       navigate('/dashboard');
@@ -558,11 +590,36 @@ const Blueprint = () => {
 
   // Set initial active tab when structure loads
   useEffect(() => {
+    console.log('[Blueprint] Tab initialization effect triggered');
+    console.log('[Blueprint]   - Has learningStructure:', !!learningStructure);
+    console.log('[Blueprint]   - Has structure:', !!learningStructure?.structure);
+    console.log('[Blueprint]   - Current activeTab:', activeTab);
+    
+    if (learningStructure?.structure) {
+      const struct = learningStructure.structure;
+      console.log('[Blueprint] Structure details:', {
+        has_prerequisites: !!struct.prerequisites_section,
+        prereq_unit_count: struct.prerequisites_section?.learning_units?.length || 0,
+        has_content_sections: !!struct.content_sections,
+        content_section_count: struct.content_sections?.length || 0,
+        structure_keys: Object.keys(struct)
+      });
+      
+      // Log full structure to console for inspection
+      console.log('[Blueprint] Full structure object:', struct);
+    }
+    
     if (learningStructure?.structure && !activeTab) {
       if (learningStructure.structure.prerequisites_section?.learning_units?.length > 0) {
+        console.log('[Blueprint] Setting activeTab to prerequisites');
         setActiveTab('prerequisites');
       } else if (learningStructure.structure.content_sections?.length > 0) {
-        setActiveTab(learningStructure.structure.content_sections[0].section_id || 'section-0');
+        const firstSectionId = learningStructure.structure.content_sections[0].section_id || 'section-0';
+        console.log('[Blueprint] Setting activeTab to first section:', firstSectionId);
+        setActiveTab(firstSectionId);
+      } else {
+        console.log('[Blueprint] ❌ No sections found to set as active tab');
+        console.log('[Blueprint] This means content_sections is empty or missing');
       }
     }
   }, [learningStructure, activeTab]);
@@ -878,13 +935,35 @@ const Blueprint = () => {
   if (activeTab === 'prerequisites') {
     currentUnits = structure?.prerequisites_section?.learning_units || [];
     currentSectionTitle = 'Prerequisites';
+    console.log('[Blueprint] Prerequisites tab active, units:', currentUnits.length);
   } else if (activeTab && structure?.content_sections) {
+    console.log('[Blueprint] Looking for activeTab:', activeTab);
+    console.log('[Blueprint] Available sections:', structure.content_sections.map((s, idx) => ({
+      section_id: s.section_id,
+      fallback: `section-${idx}`,
+      title: s.title,
+      has_units: !!s.learning_units,
+      unit_count: s.learning_units?.length || 0
+    })));
+    
     const activeSection = structure.content_sections.find(
       (s, idx) => (s.section_id || `section-${idx}`) === activeTab
     );
+    
+    console.log('[Blueprint] Found activeSection:', !!activeSection);
+    if (activeSection) {
+      console.log('[Blueprint] Active section details:', {
+        title: activeSection.title,
+        has_learning_units: !!activeSection.learning_units,
+        unit_count: activeSection.learning_units?.length || 0
+      });
+    }
+    
     currentUnits = activeSection?.learning_units || [];
     currentSectionTitle = activeSection?.title || '';
   }
+  
+  console.log('[Blueprint] Final currentUnits count:', currentUnits.length);
 
   const doc = blueprint.document || (blueprint.file_metadata ? {
     name: blueprint.file_metadata.name,
@@ -1299,6 +1378,7 @@ const Blueprint = () => {
                           topicResponse={topicResponses[unit.unit_id]}
                           topicResources={topicResources[unit.unit_id]}
                           topicEquations={topicEquations[unit.unit_id]}
+                          topicFigures={topicFigures[unit.unit_id]}
                           onComfortSelect={handleComfortSelect}
                           onGenerateBlueprint={handleGenerateBlueprint}
                           isSearching={searchingTopics.has(unit.unit_id)}

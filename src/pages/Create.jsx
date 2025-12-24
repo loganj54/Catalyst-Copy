@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Upload, FileText, Trash2, Sparkles, BookOpen, Briefcase, 
   ArrowRight, Layers, Command, Loader2, Paperclip, Plus, Check, X
@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 const Create = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef(null);
 
   // State
@@ -29,6 +30,16 @@ const Create = () => {
 
   // Reset state on mode change or unmount
   useEffect(() => {
+    // Check for initial class ID from navigation state
+    if (location.state?.initialClassId) {
+      setSelectedClassId(location.state.initialClassId);
+      setMode('classwork');
+      
+      // Clean up state to prevent it from persisting if they navigate away and back
+      // effectively consuming the "one-time" instruction
+      window.history.replaceState({}, document.title);
+    }
+
     return () => {
        setSelectedClassId(null);
        setIsCreatingClass(false);
