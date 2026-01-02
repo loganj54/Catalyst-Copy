@@ -124,9 +124,7 @@ const Auth = () => {
           </button>
         </div>
       </div>
-      <div className="fixed bottom-0 w-full left-0">
-        <Footer />
-      </div>
+      
     </div>
   );
 };

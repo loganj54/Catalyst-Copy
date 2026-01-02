@@ -280,11 +280,12 @@ const TopicListItem = ({
 
           {/* Action Buttons */}
           {!hasResources && !isComfortable && (
-            <div className="flex items-center gap-3 mb-6">
-               <button
+            <div className="flex flex-col gap-3 mb-6">
+              <div className="flex items-center gap-3">
+                <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onGenerateBlueprint(unit);
+                    onGenerateBlueprint(unit, 'youtube');
                   }}
                   disabled={isSearching}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-[#FF4A1C] border border-[#FF4A1C] hover:bg-[#FF4A1C]/5 dark:hover:bg-[#FF4A1C]/10`}
@@ -296,25 +297,66 @@ const TopicListItem = ({
                     </>
                   ) : (
                     <>
-                      {isWalkthrough ? <Play className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
-                      {isWalkthrough ? 'Find Worked Examples' : 'Find Resources'}
+                      <Youtube className="w-4 h-4" />
+                      {isWalkthrough ? 'Find with YouTube API' : 'Find Resources with YouTube API'}
                     </>
                   )}
                 </button>
-                {!isWalkthrough && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onComfortSelect(unit.unit_id, 'comfortable');
-                    }}
-                    disabled={isSearching}
-                    className="flex items-center gap-2 px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg 
-                               hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors font-medium text-sm border border-stone-200 dark:border-stone-700"
-                  >
-                    <Check className="w-4 h-4" />
-                    I know this
-                  </button>
-                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onGenerateBlueprint(unit, 'haiku');
+                  }}
+                  disabled={isSearching}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-purple-600 dark:text-purple-400 border border-purple-600 dark:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10`}
+                >
+                  {isSearching ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      {isWalkthrough ? 'Find with Haiku 4.5' : 'Find Resources with Haiku 4.5'}
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onGenerateBlueprint(unit, 'grok');
+                  }}
+                  disabled={isSearching}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-blue-600 dark:text-blue-400 border border-blue-600 dark:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10`}
+                >
+                  {isSearching ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4" />
+                      {isWalkthrough ? 'Find with Grok' : 'Find Resources with Grok'}
+                    </>
+                  )}
+                </button>
+              </div>
+              {!isWalkthrough && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onComfortSelect(unit.unit_id, 'comfortable');
+                  }}
+                  disabled={isSearching}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg 
+                             hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors font-medium text-sm border border-stone-200 dark:border-stone-700"
+                >
+                  <Check className="w-4 h-4" />
+                  I know this
+                </button>
+              )}
             </div>
           )}
 
@@ -512,12 +554,23 @@ const Blueprint = () => {
         resourcesData.forEach(r => {
           if (!resourcesMap[r.unit_id]) resourcesMap[r.unit_id] = [];
           if (r.curated_resources) {
-            resourcesMap[r.unit_id].push({
-              ...r.curated_resources,
-              relevance_score: r.relevance_score,
-              from_cache: r.from_cache,
-              resource_explanation: r.resource_explanation,
-            });
+            // Filter out ONLY explicitly irrelevant resources
+            const explanation = r.resource_explanation?.toLowerCase() || '';
+            const isExplicitlyIrrelevant = 
+              explanation === 'not_relevant' ||
+              explanation.includes('does not contain relevant content') ||
+              explanation.includes('not actually relevant to');
+            
+            if (!isExplicitlyIrrelevant) {
+              resourcesMap[r.unit_id].push({
+                ...r.curated_resources,
+                relevance_score: r.relevance_score,
+                from_cache: r.from_cache,
+                resource_explanation: r.resource_explanation,
+              });
+            } else {
+              console.log('[Blueprint] Filtered out explicitly irrelevant resource:', r.curated_resources.title);
+            }
           }
         });
         // Only update resources that aren't currently being loaded
@@ -646,7 +699,7 @@ const Blueprint = () => {
   };
 
   // Handle generation
-  const handleGenerateBlueprint = async (unit) => {
+  const handleGenerateBlueprint = async (unit, searchMethod = 'youtube') => {
     if (!session?.access_token) return;
     const unitId = unit.unit_id;
     
@@ -657,10 +710,20 @@ const Blueprint = () => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       
-      // Determine endpoint based on unit_type
+      // Determine endpoint based on unit_type and search method
       // walkthrough units should use search-problem-walkthroughs endpoint
       const isWalkthrough = unit.unit_type === 'walkthrough';
-      const endpoint = isWalkthrough ? 'search-problem-walkthroughs' : 'search-resources';
+      let endpoint = '';
+      
+      if (isWalkthrough) {
+        endpoint = 'search-problem-walkthroughs';
+      } else if (searchMethod === 'haiku') {
+        endpoint = 'search-resources-haiku';
+      } else if (searchMethod === 'grok') {
+        endpoint = 'search-resources-grok';
+      } else {
+        endpoint = 'search-resources';
+      }
       
       // For walkthrough units, try to get the problem statement from the document analysis
       let problemStatement = null;
@@ -706,7 +769,17 @@ const Blueprint = () => {
         search_queries: unit.search_queries || [],
       };
       
-      console.log(`[Blueprint] Fetching resources for unit ${unitId} (type: ${unit.unit_type})...`);
+      console.log(`[Blueprint] Fetching resources for unit ${unitId} (type: ${unit.unit_type}, method: ${searchMethod})...`);
+      console.log(`[Blueprint] Unit details:`, {
+        topic: unit.topic,
+        description: unit.description?.substring(0, 100),
+        learning_objective: unit.learning_objective?.substring(0, 100),
+        search_queries: unit.search_queries,
+        has_search_queries: !!unit.search_queries,
+        search_queries_length: unit.search_queries?.length,
+        search_method: searchMethod,
+      });
+      console.log(`[Blueprint] Request body:`, JSON.stringify(requestBody, null, 2));
       
       const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
         method: 'POST',
@@ -723,9 +796,31 @@ const Blueprint = () => {
       if (data.resources && data.resources.length > 0) {
         console.log(`[Blueprint] Received ${data.resources.length} resources for unit ${unitId}`);
         
+        // Filter out ONLY explicitly irrelevant resources (safety check)
+        const relevantResources = data.resources.filter(resource => {
+          const explanation = resource.resource_explanation?.toLowerCase() || '';
+          const isExplicitlyIrrelevant = 
+            explanation === 'not_relevant' ||
+            explanation.includes('does not contain relevant content') ||
+            explanation.includes('not actually relevant to');
+          
+          if (isExplicitlyIrrelevant) {
+            console.log('[Blueprint] Filtered out explicitly irrelevant resource from API response:', resource.title);
+            return false;
+          }
+          return true;
+        });
+        
+        if (relevantResources.length === 0) {
+          console.warn(`[Blueprint] All resources were explicitly marked as irrelevant for unit ${unitId}`);
+          loadingResourcesRef.current.delete(unitId);
+          alert('No relevant resources found for this topic. The search results were not related to your learning objective. Please try again.');
+          return;
+        }
+        
         // Update resources state - this will persist
         setTopicResources(prev => {
-          const updated = { ...prev, [unitId]: data.resources };
+          const updated = { ...prev, [unitId]: relevantResources };
           console.log(`[Blueprint] Updated topicResources for unit ${unitId}`, updated[unitId]);
           return updated;
         });
@@ -745,13 +840,23 @@ const Blueprint = () => {
         // No resources found
         console.warn(`[Blueprint] No resources found for unit ${unitId}`);
         loadingResourcesRef.current.delete(unitId);
-        alert('No resources found for this topic. Please try again later.');
+        
+        // Provide helpful message based on search method used
+        const helpMessage = searchMethod === 'haiku' 
+          ? 'No resources found with Haiku 4.5 search. Try the "Find Resources with YouTube API" or "Find Resources with Grok" button for more comprehensive results.'
+          : searchMethod === 'grok'
+          ? 'No resources found with Grok search. Try the "Find Resources with YouTube API" or "Find Resources with Haiku 4.5" button for alternative results.'
+          : 'No resources found for this topic. Please try adjusting your search terms or try the Haiku 4.5 or Grok search methods.';
+        
+        alert(helpMessage);
       }
       
     } catch (error) {
       console.error('[Blueprint] Error finding resources:', error);
       loadingResourcesRef.current.delete(unitId);
-      alert(`Failed to find resources: ${error.message}`);
+      
+      const methodName = searchMethod === 'haiku' ? 'Haiku 4.5' : searchMethod === 'grok' ? 'Grok' : 'YouTube API';
+      alert(`Failed to find resources using ${methodName}: ${error.message}\n\nTry another search method or try again later.`);
     } finally {
       setSearchingTopics(prev => {
         const next = new Set(prev);
@@ -1355,15 +1460,7 @@ const Blueprint = () => {
                 {/* Active Section Header */}
                 <div className="mt-4 flex items-center gap-3">
                   <h2 className="text-2xl font-bold text-[#2A2B2A] dark:text-stone-100">{currentSectionTitle}</h2>
-                  {learningStructure?.from_cache && (
-                    <span 
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg text-xs font-medium text-emerald-700 dark:text-emerald-300"
-                      title={`Reused cached structure (${(learningStructure.cache_similarity * 100).toFixed(1)}% similar) - saved ~24,000 tokens`}
-                    >
-                      <Zap className="w-3.5 h-3.5" />
-                      Optimized
-                    </span>
-                  )}
+                  
                 </div>
               </div>
 

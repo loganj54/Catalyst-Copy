@@ -675,20 +675,37 @@ async function generateResourceExplanations(
 
   const systemPrompt = `You are an expert educational tutor helping students understand why specific learning resources are helpful for their studies.
 
-Your task is to generate brief, contextual explanations for each educational resource (video) that:
-1. Explains what the resource covers and its main teaching approach
-2. Connects the resource to the student's specific learning objective
-3. Describes how watching this resource will help them understand the topic
+Your task is to evaluate and explain educational resources for relevance to the student's learning objective.
 
-Write each explanation in 2-3 sentences, speaking directly to the student using "you" and "your".
-Be encouraging and specific - don't just repeat the video title.
+CRITICAL: You should mark resources as irrelevant ONLY in extreme cases (e.g., a cooking video for calculus, a makeup tutorial for physics).
+
+For RELEVANT resources (99% of educational videos should be marked relevant):
+- Set "is_relevant": true
+- Write 2-3 sentences explaining what the resource covers and how it helps the student
+- Be encouraging and specific, speak directly using "you" and "your"
+- Don't just repeat the video title
+- Even if the video is broader or narrower than the exact topic, it's still RELEVANT if it teaches related concepts
+
+For COMPLETELY IRRELEVANT resources (EXTREME cases only - wrong subject entirely):
+- Set "is_relevant": false
+- Set "explanation": "NOT_RELEVANT"
+- ONLY use this if the video is about a completely different subject (e.g., skincare for physics, cooking for math)
+
+EXAMPLES OF WHAT TO KEEP AS RELEVANT:
+- A video about "heat transfer" for a topic about "cylindrical heat conduction" → RELEVANT
+- A video about "differential equations" for "heat conduction equations" → RELEVANT
+- A video about "Fourier's law" for "thermal conductivity" → RELEVANT
+- A broader tutorial that covers the concept as part of a larger topic → RELEVANT
+
+IMPORTANT: When in doubt, mark it as RELEVANT. It's better to include a somewhat-related resource than to exclude a helpful one.
 
 OUTPUT FORMAT (JSON only):
 {
   "explanations": [
     {
       "url": "the resource URL",
-      "explanation": "2-3 sentence explanation of what this resource covers and how it helps the student"
+      "is_relevant": true or false,
+      "explanation": "2-3 sentence explanation OR 'NOT_RELEVANT' if COMPLETELY off-topic"
     }
   ]
 }`;
@@ -704,19 +721,19 @@ OUTPUT FORMAT (JSON only):
     difficulty: r.difficulty_level,
   }));
 
-  const userPrompt = `Generate contextual explanations for these educational resources:
+  const userPrompt = `Evaluate and explain these educational resources for relevance:
 
 LEARNING TOPIC: ${topic}
 ${description ? `TOPIC DESCRIPTION: ${description}` : ''}
 ${learningObjective ? `LEARNING OBJECTIVE: ${learningObjective}` : ''}
 
-RESOURCES TO EXPLAIN:
+RESOURCES TO EVALUATE:
 ${JSON.stringify(resourceSummaries, null, 2)}
 
-For each resource, write a 2-3 sentence explanation that:
-- Describes what the resource will teach
-- Explains how it connects to the learning topic
-- Tells the student what they'll gain from watching it
+For each resource:
+1. Be GENEROUS - if it's even partially related, mark as relevant
+2. If relevant, write a 2-3 sentence explanation of what it covers and how it helps
+3. If COMPLETELY off-topic (like skincare for physics), mark is_relevant as false and use "NOT_RELEVANT"
 
 Output valid JSON only, no markdown.`;
 
@@ -751,7 +768,7 @@ Output valid JSON only, no markdown.`;
     const textContent = data.content?.find((block: any) => block.type === 'text')?.text || '';
     
     // Parse JSON from response
-    let explanations: Array<{ url: string; explanation: string }> = [];
+    let explanations: Array<{ url: string; is_relevant?: boolean; explanation: string }> = [];
     
     // Try to extract JSON from the response
     const jsonMatch = textContent.match(/\{[\s\S]*\}/);
@@ -765,16 +782,41 @@ Output valid JSON only, no markdown.`;
       }
     }
 
-    // Map explanations back to resources
+    // Filter out ONLY explicitly irrelevant resources and map explanations back
+    const relevantResources: ResourceResult[] = [];
+    let filteredCount = 0;
+    
     for (const resource of resources) {
       const matchingExplanation = explanations.find(e => e.url === resource.url);
+      
+      // Only filter if EXPLICITLY marked as not relevant
+      // Be conservative - when in doubt, keep the resource
       if (matchingExplanation) {
+        const explanation = matchingExplanation.explanation || '';
+        const isExplicitlyIrrelevant = 
+          matchingExplanation.is_relevant === false && 
+          (explanation === 'NOT_RELEVANT' || 
+           explanation.toLowerCase().includes('does not contain relevant content') ||
+           explanation.toLowerCase().includes('not actually relevant'));
+        
+        if (isExplicitlyIrrelevant) {
+          console.log(`[search-resources] Filtering out explicitly irrelevant resource: ${resource.title}`);
+          filteredCount++;
+          continue; // Skip this resource
+        }
+        
         resource.resource_explanation = matchingExplanation.explanation;
       }
+      
+      relevantResources.push(resource);
     }
 
-    console.log('[search-resources] Resource explanations generated successfully');
-    return resources;
+    if (filteredCount > 0) {
+      console.log(`[search-resources] Filtered out ${filteredCount} explicitly irrelevant resource(s)`);
+    }
+    console.log(`[search-resources] ${relevantResources.length} relevant resources remaining`);
+    
+    return relevantResources;
 
   } catch (error) {
     console.error('[search-resources] Error generating resource explanations:', error);
@@ -818,7 +860,10 @@ serve(async (req) => {
     console.log(`  - Blueprint: ${blueprint_id}`);
     console.log(`  - Unit: ${unit_id}`);
     console.log(`  - Topic: ${topic}`);
+    console.log(`  - Description: ${description}`);
+    console.log(`  - Learning objective: ${body.learning_objective}`);
     console.log(`  - Queries: ${search_queries?.length || 0}`);
+    console.log(`  - Query details:`, JSON.stringify(search_queries, null, 2));
 
     if (!blueprint_id || !unit_id || !topic) {
       throw new Error('Missing required fields: blueprint_id, unit_id, topic');
@@ -1209,6 +1254,10 @@ serve(async (req) => {
     // =========================================================================
     
     if (results.length > 0) {
+      console.log(`[search-resources] Generating explanations for ${results.length} resources...`);
+      const beforeCount = results.length;
+      const resultsBeforeFiltering = [...results]; // Keep a copy
+      
       results = await generateResourceExplanations(
         topic,
         description,
@@ -1216,16 +1265,26 @@ serve(async (req) => {
         results
       );
       
-      // Update junction table with resource explanations
-      console.log('[search-resources] Updating junction table with resource explanations...');
-      for (const resource of results) {
-        if (resource.id && resource.resource_explanation) {
-          await supabase
-            .from('blueprint_topic_resources')
-            .update({ resource_explanation: resource.resource_explanation })
-            .eq('blueprint_id', blueprint_id)
-            .eq('unit_id', unit_id)
-            .eq('resource_id', resource.id);
+      const afterCount = results.length;
+      console.log(`[search-resources] After explanation generation: ${afterCount} resources (filtered ${beforeCount - afterCount})`);
+      
+      // If ALL resources were filtered out, that's a problem - return the original results
+      if (afterCount === 0 && beforeCount > 0) {
+        console.error('[search-resources] ⚠️ ALL resources were filtered as irrelevant! This is likely an error.');
+        console.error('[search-resources] Explanation generation may have failed. Returning resources without explanations.');
+        results = resultsBeforeFiltering; // Restore original results
+      } else {
+        // Update junction table with resource explanations (only if we have results)
+        console.log('[search-resources] Updating junction table with resource explanations...');
+        for (const resource of results) {
+          if (resource.id && resource.resource_explanation) {
+            await supabase
+              .from('blueprint_topic_resources')
+              .update({ resource_explanation: resource.resource_explanation })
+              .eq('blueprint_id', blueprint_id)
+              .eq('unit_id', unit_id)
+              .eq('resource_id', resource.id);
+          }
         }
       }
     }
