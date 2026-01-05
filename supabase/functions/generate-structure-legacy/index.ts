@@ -1,5 +1,5 @@
 // ============================================================================
-// GENERATE STRUCTURE EDGE FUNCTION
+// GENERATE STRUCTURE EDGE FUNCTION (MONOLITHIC)
 // ============================================================================
 // Step 2 of the Pipeline: Transforms document analysis into a comprehensive
 // learning structure with intelligent search queries for each topic/concept
@@ -9,6 +9,7 @@
 // - Generates 3-5 progressive search queries per topic
 // - Organizes output by prerequisites and content sections
 // - Stores results in blueprint_structures table for search-resources step
+// - NOW USES SECTION-LEVEL CACHING (one row per section)
 //
 // INPUT: { blueprint_id } or { analysis: {...}, input_type: 'custom' }
 // OUTPUT: Structured learning path with search queries
@@ -23,12 +24,11 @@ import {
 } from '../_shared/supabase-client.ts';
 import { PROMPTS } from '../_shared/prompts.ts';
 import { generateEmbedding } from '../_shared/embeddings.ts';
+// NEW: Use section-level caching utilities
 import { 
-  checkStructureCache,
-  adaptCachedStructure,
-  cacheNewStructure,
-  incrementCacheUsage,
-} from '../_shared/structure-cache.ts';
+  generateAllSectionEmbeddings,
+  prepareSectionsForCache 
+} from '../_shared/section-embeddings.ts';
 import {
   findOrCreateFigure,
 } from '../_shared/figure-sourcing.ts';
@@ -992,131 +992,62 @@ serve(async (req) => {
       // =========================================================================
       
       console.log('[generate-structure] ========================================');
-      console.log('[generate-structure] CHECKING STRUCTURE CACHE');
+      console.log('[generate-structure] CHECKING SECTION-LEVEL CACHE');
       console.log('[generate-structure] ========================================');
       
-      const cacheCheck = await checkStructureCache(supabase, analysisData, 0.92);
+      // NEW: Check cache for each section individually
+      const sectionsWithEmbeddings = await generateAllSectionEmbeddings(analysisData);
+      console.log(`[generate-structure] Generated embeddings for ${sectionsWithEmbeddings.length} sections`);
       
-      if (cacheCheck.hit && cacheCheck.cachedStructure) {
-        console.log('[generate-structure] ✅ CACHE HIT! Adapting cached structure...');
-        console.log(`[generate-structure]   - Similarity: ${(cacheCheck.similarity! * 100).toFixed(1)}%`);
-        console.log(`[generate-structure]   - Times used: ${cacheCheck.timesUsed}`);
-        console.log(`[generate-structure]   - Quality: ${cacheCheck.qualityScore?.toFixed(2)}`);
-        console.log(`[generate-structure]   - Token savings: ~24,000 tokens (~$0.06)`);
+      // Check cache for each section
+      const cacheResults = [];
+      let cachedSectionsCount = 0;
+      
+      for (const sectionWithEmbedding of sectionsWithEmbeddings) {
+        const { data, error } = await supabase.rpc('search_similar_sections', {
+          query_embedding: sectionWithEmbedding.embedding,
+          p_section_type: sectionWithEmbedding.section_type,
+          p_subject_area: analysisData.subject_area,
+          p_document_type: analysisData.document_type,
+          similarity_threshold: 0.95,
+          max_results: 1
+        });
         
-        // Adapt the cached structure to the new document
-        const adaptedStructure = adaptCachedStructure(cacheCheck.cachedStructure, analysisData);
-        
-        // Increment cache usage stats
-        await incrementCacheUsage(supabase, cacheCheck.cacheId!);
-        
-        // Process equations as usual
-        const equationResults = await processStructureEquations(
-          supabase,
-          adaptedStructure,
-          blueprint_id,
-          analysisData.subject_area || 'General',
-          userId
-        );
-        
-        console.log(`[generate-structure] Processed equations: ${equationResults.totalCached} cached, ${equationResults.totalNew} new`);
-        
-        // Run aggressive equation detection for any units still missing equations
-        const aggressiveResults = await detectAndAttachMissingEquations(
-          supabase,
-          adaptedStructure,
-          blueprint_id,
-          analysisData.subject_area || 'General',
-          userId
-        );
-        
-        console.log(`[generate-structure] Aggressive detection added: ${aggressiveResults.addedCount} equations`);
-        
-        // Process suggested figures
-        const figureResults = await processSuggestedFigures(
-          supabase,
-          adaptedStructure,
-          blueprint_id,
-          analysisData.subject_area || 'General',
-          userId
-        );
-        
-        console.log(`[generate-structure] Figures: ${figureResults.totalCached} cached, ${figureResults.totalNew} new`);
-        
-        // Count metrics
-        const metrics = countStructureMetrics(adaptedStructure);
-        const allSearchQueries = flattenSearchQueries(adaptedStructure);
-        
-        // Generate embeddings for target resource profiles (NEW!)
-        console.log('[generate-structure] Pre-generating target resource embeddings for cached structure...');
-        await generateTargetResourceEmbeddings(adaptedStructure);
-        
-        // Store the adapted structure
-        const structureInsert = {
-          blueprint_id: blueprint_id,
-          analysis_id: analysisId,
-          document_id: documentId || null,
-          user_id: userId,
-          structure: adaptedStructure,
-          all_search_queries: allSearchQueries,
-          total_prerequisites: metrics.total_prerequisites,
-          total_sections: metrics.total_sections,
-          total_learning_units: metrics.total_learning_units,
-          total_search_queries: metrics.total_search_queries,
-          model_used: 'cached',
-          from_cache: true,
-          cache_source_id: cacheCheck.cacheId,
-          cache_similarity: cacheCheck.similarity,
-        };
-        
-        const { data: newStructure, error: structureError } = await supabase
-          .from('blueprint_structures')
-          .insert(structureInsert)
-          .select()
-          .single();
-        
-        if (structureError) {
-          console.error('[generate-structure] Error storing adapted structure:', structureError);
-          throw new Error(`Database error: ${structureError.message}`);
+        if (!error && data && data.length > 0) {
+          const cached = data[0];
+          console.log(`[generate-structure] ✅ CACHE HIT for ${sectionWithEmbedding.section_id}! Similarity: ${(cached.similarity * 100).toFixed(1)}%`);
+          cacheResults.push({
+            section_id: sectionWithEmbedding.section_id,
+            cache_hit: true,
+            cached_unit: cached.cached_unit,
+            similarity: cached.similarity
+          });
+          cachedSectionsCount++;
+          
+          // Increment usage
+          await supabase.rpc('increment_section_cache_usage', { cache_id: cached.id });
+        } else {
+          console.log(`[generate-structure] ❌ CACHE MISS for ${sectionWithEmbedding.section_id}`);
+          cacheResults.push({
+            section_id: sectionWithEmbedding.section_id,
+            cache_hit: false
+          });
         }
-        
-        // Update blueprint status
-        await supabase
-          .from('blueprints')
-          .update({ 
-            generation_status: 'structure_generated',
-            generation_error: null,
-          })
-          .eq('id', blueprint_id);
-        
-        // Return success response
-        return new Response(
-          JSON.stringify({
-            success: true,
-            step: 'generate_structure',
-            status: 'structure_generated',
-            structure_id: newStructure?.id,
-            structure: adaptedStructure,
-            metrics: metrics,
-            search_queries_count: allSearchQueries.length,
-            equations: {
-              cached: equationResults.totalCached,
-              new: equationResults.totalNew,
-              total: equationResults.totalCached + equationResults.totalNew,
-            },
-            from_cache: true,
-            cache_similarity: cacheCheck.similarity,
-            cache_times_used: cacheCheck.timesUsed,
-            token_savings: '~24,000 tokens',
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-          }
-        );
       }
       
-      console.log('[generate-structure] Cache miss - generating new structure with AI...');
+      const cacheHitRate = sectionsWithEmbeddings.length > 0 ? cachedSectionsCount / sectionsWithEmbeddings.length : 0;
+      console.log(`[generate-structure] Cache hit rate: ${(cacheHitRate * 100).toFixed(1)}% (${cachedSectionsCount}/${sectionsWithEmbeddings.length} sections)`);
+      
+      // For now, if we have ANY cache hits, we'll still generate the full structure
+      // but we could optimize this later to only generate cache-missed sections
+      if (cachedSectionsCount > 0) {
+        console.log('[generate-structure] ⚠️  Some sections cached, but generating full structure for consistency');
+        console.log(`[generate-structure]   - Token savings estimate: ~${cachedSectionsCount * 1000} tokens`);
+        console.log('[generate-structure]   - Future optimization: Use cached sections directly');
+        // Fall through to generate full structure below
+      }
+      
+      console.log('[generate-structure] Generating structure with AI...');
 
     } else if (body.analysis) {
       // Direct input mode
@@ -1143,11 +1074,12 @@ serve(async (req) => {
     
     // Use higher token limit for complex documents with many problems/prerequisites
     // Each problem can generate 3-5 search queries, so this can get large
-    // Haiku 4.5 supports up to 16,384 output tokens
+    // IMPORTANT: Need enough tokens for walkthrough units at the end of each problem
+    // Claude Haiku 4.5 max output tokens: 64,000
     const structure = await callClaudeJSON<LearningStructure>(
       PROMPTS.generateStructure.system,
       PROMPTS.generateStructure.user(analysisData, inputType),
-      { temperature: 0.4, maxTokens: 16384 } // Increased to max for Haiku 4.5 - handles very complex documents
+      { temperature: 0.4, maxTokens: 64000 } // Maximum for Haiku 4.5 - ensures walkthrough units are generated
     );
 
     console.log('[generate-structure] Structure generated:');
@@ -1240,11 +1172,88 @@ serve(async (req) => {
     // =========================================================================
     // Store this structure in the cache so similar documents can reuse it
     // This builds up a library of reusable learning structures over time
+    // NOW: Cache each section individually (ONE ROW PER SECTION)
     // =========================================================================
     
-    if (blueprint_id && analysisData) {
-      console.log('[generate-structure] Caching structure for future reuse...');
-      await cacheNewStructure(supabase, structure, analysisData, analysisId);
+    if (blueprint_id && analysisData && structure) {
+      console.log('[generate-structure] Caching sections individually for future reuse...');
+      
+      try {
+        // Generate embeddings for all sections
+        const sectionsWithEmbeddings = await generateAllSectionEmbeddings(analysisData);
+        
+        // Extract learning units from the generated structure
+        const generatedUnits = new Map();
+        
+        // Map content sections to their learning units
+        if (structure.content_sections) {
+          for (const contentSection of structure.content_sections) {
+            if (contentSection.learning_units && contentSection.learning_units.length > 0) {
+              generatedUnits.set(contentSection.section_id, contentSection.learning_units);
+            }
+          }
+        }
+        
+        // Prepare sections for cache
+        const sectionsToCache = prepareSectionsForCache(sectionsWithEmbeddings, generatedUnits);
+        
+        console.log(`[generate-structure] Caching ${sectionsToCache.length} sections...`);
+        
+        // Cache each section individually
+        let cachedCount = 0;
+        for (const sectionToCache of sectionsToCache) {
+          try {
+            // Get original section data
+            const originalSection = analysisData.sections?.find((s: any) => s.section_id === sectionToCache.section_id);
+            
+            // Prepare cache entry
+            const cacheEntry: any = {
+              section_id: sectionToCache.section_id,
+              section_type: sectionToCache.section_type,
+              section_title: sectionToCache.cached_unit?.topic || sectionToCache.section_id,
+              primary_embedding: sectionToCache.section_embedding,
+              embedding_source: sectionToCache.embedding_source,
+              cached_unit: sectionToCache.cached_unit,
+              concepts_tested: originalSection?.concepts_tested || [],
+              subject_area: analysisData.subject_area,
+              specific_topic: analysisData.specific_topic,
+              document_type: analysisData.document_type,
+              course_level: analysisData.course_level,
+              times_used: 0,
+              quality_score: 1.0,
+              source_analysis_id: analysisId
+            };
+            
+            // Add type-specific fields
+            if (sectionToCache.section_type === 'problem' && originalSection) {
+              cacheEntry.problem_statement_text = originalSection.problem_statement || null;
+              cacheEntry.problem_statement_embedding = sectionToCache.section_embedding;
+            } else if (sectionToCache.section_type === 'topic' && originalSection) {
+              cacheEntry.topic_summary_text = originalSection.topic_summary || null;
+              cacheEntry.topic_summary_embedding = sectionToCache.section_embedding;
+            }
+            
+            // Insert into database
+            const { error } = await supabase
+              .from('cached_blueprint_structures')
+              .insert([cacheEntry]);
+            
+            if (error) {
+              console.error(`[generate-structure] Error caching section ${sectionToCache.section_id}:`, error);
+            } else {
+              cachedCount++;
+              console.log(`[generate-structure] ✅ Cached section: ${sectionToCache.section_id}`);
+            }
+          } catch (err) {
+            console.error(`[generate-structure] Error caching section ${sectionToCache.section_id}:`, err);
+          }
+        }
+        
+        console.log(`[generate-structure] Successfully cached ${cachedCount}/${sectionsToCache.length} sections`);
+      } catch (err) {
+        console.error('[generate-structure] Error in section caching:', err);
+        // Don't fail the whole operation if caching fails
+      }
     }
 
     // Update blueprint status to indicate structure generation is complete

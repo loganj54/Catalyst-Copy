@@ -1,0 +1,22 @@
+// ============================================================================
+// DEPRECATED: FULL-STRUCTURE CACHING UTILITIES
+// ============================================================================
+// This file has been deprecated in favor of section-level caching.
+// 
+// DEPRECATED DATE: 2026-01-05
+// REASON: Replaced by section-level caching for better granularity
+//
+// NEW APPROACH:
+// - Individual sections are cached with their embeddings
+// - Cache lookups happen at the section level
+// - No need for full-structure adaptation
+// - See: section-embeddings.ts for new utilities
+// ============================================================================
+
+// This file is kept for reference but should not be used in new code.
+// If you need caching functionality, use:
+// - section-embeddings.ts for embedding generation
+// - check-structure-cache function for cache lookups
+// - cache-structure function for storing cached sections
+
+

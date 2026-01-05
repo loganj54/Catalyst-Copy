@@ -1293,7 +1293,12 @@ const Blueprint = () => {
   if (!blueprint) return null;
 
   const content = blueprint.content || {};
-  const structure = learningStructure?.structure;
+  // Handle both direct structure and wrapped structure
+  let structure = learningStructure?.structure;
+  // If structure is wrapped in learning_structure key, unwrap it
+  if (structure?.learning_structure) {
+    structure = structure.learning_structure;
+  }
   const StatusIcon = STATUS_CONFIG[generationStatus]?.icon || Loader2;
   const statusConfig = STATUS_CONFIG[generationStatus] || STATUS_CONFIG.pending;
 

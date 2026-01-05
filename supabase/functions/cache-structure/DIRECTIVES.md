@@ -1,126 +1,71 @@
 # Function: cache-structure
 
 ## Metadata
-- **Version**: 1.0.0
+- **Version**: 2.0.0
 - **Last Updated**: 2026-01-05
 - **Updated By**: manual
 - **Production Status**: DEVELOPMENT
 
 ## Purpose
-Store learning structure in cache for future reuse.
+Stores newly generated learning units in the cache at the SECTION LEVEL for future reuse.
 
 ## Responsibility
-This function caches structures. It ONLY stores in cache - it does NOT generate, adapt, or fetch. Delegates to shared helper.
+Accepts an array of sections with their embeddings and generated learning units. Stores each section individually in cached_blueprint_structures table for granular cache matching.
 
 ## Input Contract
 
 ### TypeScript Interface
 ```typescript
 interface CacheStructureInput {
-  structure: LearningStructure;
+  sections_to_cache: SectionToCache[];
   analysis: AnalysisResult;
   analysis_id: string;
 }
-```
 
-### Example Input
-```json
-{
-  "structure": {
-    "summary": {...},
-    "prerequisites_section": {...},
-    "content_sections": [...]
-  },
-  "analysis": {
-    "document_type": "problem_set",
-    "subject_area": "thermodynamics"
-  },
-  "analysis_id": "analysis-uuid"
+interface SectionToCache {
+  section_id: string;
+  section_type: 'problem' | 'topic';
+  section_embedding: number[];
+  embedding_source: string;
+  cached_unit: LearningUnit;
 }
 ```
-
-### Input Validation Rules
-- `structure`: Must be valid LearningStructure
-- `analysis`: Must be valid AnalysisResult
-- `analysis_id`: Must be non-empty string
 
 ## Output Contract
 
 ### TypeScript Interface
 ```typescript
 interface CacheStructureOutput {
-  cache_id: string;
+  cached_sections: number;
+  cache_ids: string[];
   metadata?: {
     cached_at: string;
   };
 }
 ```
 
-### Example Output (Success)
-```json
-{
-  "cache_id": "cache-uuid-123",
-  "metadata": {
-    "cached_at": "2026-01-05T12:00:00Z"
-  }
-}
-```
+## Workflow
 
-## Behavior Specification
-
-### Normal Flow
-1. Validate inputs
-2. Call `cacheNewStructure()` from _shared/structure-cache.ts
-3. Return cache_id
-
-### Edge Cases
-- **Duplicate Structure**: Updates existing cache entry
-- **Large Structure**: Compresses for storage
-
-### Performance Requirements
-- **Timeout**: 3 seconds
-- **Memory**: Max 50MB
+1. Validate input - ensure sections_to_cache array is provided
+2. If array is empty, return immediately with 0 cached
+3. For each section in sections_to_cache:
+   a. Prepare cache entry with all required fields
+   b. Insert into cached_blueprint_structures table
+   c. Store cache_id in results array
+4. Log success/failure for each section
+5. Return total cached count and cache_ids array
 
 ## Dependencies
-
-### External APIs
-- OpenAI API (for embedding generation)
-
-### Database Tables
-- `cached_structures`: Stores cached structures
-
-### Internal Functions
-- `cacheNewStructure()` from `_shared/structure-cache.ts`
-
-### Environment Variables
-- `OPENAI_API_KEY`: Required for embeddings
-
-## Error Handling
-
-### Error Codes
-- `INVALID_INPUT`: Missing required fields
-- `DATABASE_ERROR`: Cache storage failed
-
-### Error Recovery Strategies
-- **DATABASE_ERROR**: Retry once
-
-### Fallback Behavior
-- If caching fails, log error but don't block workflow
+- cached_blueprint_structures table
+- supabase-client.ts for database access
 
 ## Testing Examples
-
-### Test Case 1: Cache New Structure
-**Input:** Complete structure with analysis
-**Expected Output:** cache_id returned
-
-### Test Case 2: Missing analysis_id
-**Input:** Structure without analysis_id
-**Expected Output:** INVALID_INPUT error
+**Test Case 1**: 3 sections to cache → Returns cached_sections: 3 with 3 cache_ids
+**Test Case 2**: Empty sections_to_cache → Returns cached_sections: 0 immediately
+**Test Case 3**: Partial failure (1 of 3 fails) → Returns cached_sections: 2 with 2 cache_ids
 
 ## Known Issues & Fixes
-
-(This section will be populated by the self-healing agent)
+(Populated by self-healing agent)
 
 ## Change History
-- **2026-01-05**: Initial implementation - manual
-
+- **2026-01-05**: Revamped for section-level caching - manual

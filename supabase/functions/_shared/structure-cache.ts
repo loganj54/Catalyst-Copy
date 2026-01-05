@@ -1,8 +1,15 @@
 // ============================================================================
-// BLUEPRINT STRUCTURE CACHE HELPERS
+// DEPRECATED: BLUEPRINT STRUCTURE CACHE HELPERS
 // ============================================================================
-// Helper functions for caching and retrieving blueprint structures
+// THIS FILE IS DEPRECATED - DO NOT USE
+// Use section-embeddings.ts and the new section-level caching functions instead
 // ============================================================================
+
+// Throw error if anyone tries to import this
+throw new Error(
+  'structure-cache.ts is DEPRECATED. Use section-embeddings.ts and the new section-level caching Edge Functions instead. ' +
+  'See SECTION_LEVEL_CACHING.md for documentation.'
+);
 
 import { generateEmbedding, formatVectorForPostgres } from './embeddings.ts';
 

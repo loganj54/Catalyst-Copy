@@ -1,16 +1,16 @@
 # Function: store-structure
 
 ## Metadata
-- **Version**: 1.0.0
+- **Version**: 2.0.0
 - **Last Updated**: 2026-01-05
 - **Updated By**: manual
 - **Production Status**: DEVELOPMENT
 
 ## Purpose
-Store learning structure in blueprint_structures table.
+Store learning structure in blueprint_structures table with section-level cache metadata.
 
 ## Responsibility
-This function stores structures in database. It ONLY stores - it does NOT generate, cache, or fetch. Calculates metrics from structure.
+Stores structures in database (both fully cached, partially cached, or fully generated). Calculates metrics from structure. Logs cache performance metrics to section_cache_metrics table.
 
 ## Input Contract
 
@@ -19,34 +19,20 @@ This function stores structures in database. It ONLY stores - it does NOT genera
 interface StoreStructureInput {
   structure: LearningStructure;
   blueprint_id: string;
-  analysis_id: string;
+  analysis_id?: string;
   document_id?: string;
-  user_id: string;
-  from_cache?: boolean;
+  user_id?: string;
+  from_cache?: string | boolean; // 'full', 'partial', 'none', or boolean
   cache_source_id?: string;
+  cache_similarity?: number;
+  cache_metadata?: {
+    total_sections: number;
+    cached_sections: number;
+    generated_sections: number;
+    cache_hit_rate: number;
+  };
 }
 ```
-
-### Example Input
-```json
-{
-  "structure": {
-    "summary": {...},
-    "prerequisites_section": {...},
-    "content_sections": [...]
-  },
-  "blueprint_id": "bp-uuid",
-  "analysis_id": "analysis-uuid",
-  "user_id": "user-uuid",
-  "from_cache": false
-}
-```
-
-### Input Validation Rules
-- `structure`: Must be valid LearningStructure
-- `blueprint_id`: Must be non-empty string
-- `analysis_id`: Must be non-empty string
-- `user_id`: Must be non-empty string
 
 ## Output Contract
 
@@ -60,73 +46,33 @@ interface StoreStructureOutput {
 }
 ```
 
-### Example Output (Success)
-```json
-{
-  "structure_id": "structure-uuid-123",
-  "metadata": {
-    "stored_at": "2026-01-05T12:00:00Z"
-  }
-}
-```
+## Workflow
 
-## Behavior Specification
-
-### Normal Flow
-1. Validate inputs
-2. Calculate metrics (unit counts, time estimates)
-3. Insert into blueprint_structures table
-4. Return structure_id
-
-### Edge Cases
-- **Duplicate blueprint_id**: Updates existing structure
-- **Large Structure**: Stores as JSONB (compressed)
-
-### Performance Requirements
-- **Timeout**: 3 seconds
-- **Memory**: Max 50MB
+1. Validate inputs (structure and blueprint_id required)
+2. Calculate metrics from structure:
+   - Total learning units
+   - Total content sections
+   - Estimated completion time
+3. Prepare structure entry with cache metadata
+4. Insert into blueprint_structures table
+5. If cache_metadata provided:
+   - Log to section_cache_metrics table via RPC function
+6. Return structure_id
 
 ## Dependencies
-
-### External APIs
-- None
-
-### Database Tables
-- `blueprint_structures`: Stores learning structures
-
-### Internal Functions
-- None (atomic function)
-
-### Environment Variables
-- `SUPABASE_URL`: Required
-- `SUPABASE_SERVICE_ROLE_KEY`: Required
-
-## Error Handling
-
-### Error Codes
-- `INVALID_INPUT`: Missing required fields
-- `DATABASE_ERROR`: Insert failed
-
-### Error Recovery Strategies
-- **DATABASE_ERROR**: Retry once
-
-### Fallback Behavior
-- No fallback - storage must succeed
+- blueprint_structures table
+- section_cache_metrics table
+- log_section_cache_metrics() SQL function
+- supabase-client.ts for database access
 
 ## Testing Examples
-
-### Test Case 1: Store New Structure
-**Input:** Complete structure with all fields
-**Expected Output:** structure_id returned
-
-### Test Case 2: Missing blueprint_id
-**Input:** Structure without blueprint_id
-**Expected Output:** INVALID_INPUT error
+**Test Case 1**: Fully cached structure → Stores with from_cache: 'full', 100% hit rate
+**Test Case 2**: Partially cached structure → Stores with from_cache: 'partial', 60% hit rate
+**Test Case 3**: Fully generated structure → Stores with from_cache: 'none', 0% hit rate
 
 ## Known Issues & Fixes
-
-(This section will be populated by the self-healing agent)
+(Populated by self-healing agent)
 
 ## Change History
+- **2026-01-05**: Updated for section-level caching metadata - manual
 - **2026-01-05**: Initial implementation - manual
-

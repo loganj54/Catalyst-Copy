@@ -1,10 +1,18 @@
 // ============================================================================
-// SECTION-LEVEL STRUCTURE CACHE HELPERS (GRANULAR)
+// DEPRECATED: SECTION-LEVEL STRUCTURE CACHE HELPERS (OLD VERSION)
 // ============================================================================
-// Helper functions for caching and retrieving learning structures at the
-// PROBLEM/SECTION level, not entire documents.
-// This provides much better cache hit rates!
+// THIS FILE IS DEPRECATED - DO NOT USE
+// This was an intermediate version. Use the new Edge Functions instead:
+// - check-structure-cache
+// - cache-structure
+// - section-embeddings.ts
 // ============================================================================
+
+// Throw error if anyone tries to import this
+throw new Error(
+  'section-cache.ts is DEPRECATED. Use the new section-level caching Edge Functions instead. ' +
+  'See SECTION_LEVEL_CACHING.md for documentation.'
+);
 
 import { generateEmbedding, formatVectorForPostgres } from './embeddings.ts';
 

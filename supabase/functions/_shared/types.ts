@@ -345,15 +345,34 @@ export interface FetchAnalysisOutput {
   };
 }
 
-// 19. check-structure-cache
+// 19. check-structure-cache (UPDATED FOR SECTION-LEVEL CACHING)
 export interface CheckStructureCacheInput {
   analysis: AnalysisResult;
   threshold: number;
+  sections_with_embeddings: SectionWithEmbedding[];
+}
+
+export interface SectionWithEmbedding {
+  section_id: string;
+  section_type: 'problem' | 'topic';
+  embedding: number[];
+  embedding_source: string;
+  section_data: AnalysisSection; // The original section from analysis
 }
 
 export interface CheckStructureCacheOutput {
+  cache_results: SectionCacheResult[];
+  overall_cache_hit_rate: number;
+  total_sections: number;
+  cached_sections: number;
+  generated_sections: number;
+}
+
+export interface SectionCacheResult {
+  section_id: string;
+  section_type: 'problem' | 'topic';
   cache_hit: boolean;
-  cached_structure?: LearningStructure;
+  cached_unit?: LearningUnit;
   similarity?: number;
   cache_id?: string;
   times_used?: number;
@@ -387,6 +406,27 @@ export interface GenerateStructureWithAiOutput {
     tokens_used: number;
     generation_time_ms: number;
   };
+}
+
+// 21b. generate-structure-mixed (NEW - for partial generation)
+export interface GenerateStructureMixedInput {
+  analysis: AnalysisResult;
+  cache_results: SectionCacheResult[];
+  sections_to_generate: string[]; // Array of section IDs that need generation
+}
+
+export interface GenerateStructureMixedOutput {
+  generated_units: GeneratedUnitMap;
+  model: string;
+  metadata?: {
+    tokens_used: number;
+    generation_time_ms: number;
+    sections_generated: number;
+  };
+}
+
+export interface GeneratedUnitMap {
+  [section_id: string]: LearningUnit[];
 }
 
 // 22. process-equations
@@ -442,15 +482,25 @@ export interface StoreStructureOutput {
   };
 }
 
-// 25. cache-structure
+// 25. cache-structure (UPDATED FOR SECTION-LEVEL CACHING)
 export interface CacheStructureInput {
-  structure: LearningStructure;
+  sections_to_cache: SectionToCache[];
   analysis: AnalysisResult;
   analysis_id: string;
 }
 
+export interface SectionToCache {
+  section_id: string;
+  section_type: 'problem' | 'topic';
+  section_embedding: number[];
+  embedding_source: string;
+  cached_unit: LearningUnit | { units: LearningUnit[]; primary_unit: LearningUnit };
+  original_section?: AnalysisSection; // Original section data from analysis
+}
+
 export interface CacheStructureOutput {
-  cache_id: string;
+  cached_sections: number;
+  cache_ids: string[];
   metadata?: {
     cached_at: string;
   };
@@ -529,11 +579,33 @@ export interface AnalysisResult {
   specific_topic: string;
   course_level: 'introductory' | 'intermediate' | 'advanced' | 'graduate';
   content_classification?: any;
-  sections?: any[];
+  sections?: AnalysisSection[];
   problems?: any[];
   prerequisites?: any[];
   key_equations?: any[];
   study_recommendations?: any;
+}
+
+export interface AnalysisSection {
+  section_id: string;
+  section_type: 'problem' | 'topic';
+  // For problems
+  problem_statement?: string;
+  figure_description?: string;
+  given_variables?: any[];
+  unknown_variables?: any[];
+  assumptions?: string[];
+  solving_approach?: string[];
+  // For topics
+  topic_summary?: string;
+  key_concepts?: string[];
+  learning_objectives?: string[];
+  // Common fields
+  concepts_tested: string[];
+  equations_needed?: string[];
+  difficulty?: number;
+  estimated_minutes?: number;
+  common_mistakes?: string[];
 }
 
 export interface LearningStructure {
