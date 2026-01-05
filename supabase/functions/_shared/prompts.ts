@@ -191,8 +191,9 @@ CRITICAL RULES:
 7. COMPLETE THE JSON - ensure all brackets are closed. If running long, SKIP OPTIONAL FIELDS rather than truncating.
 8. ALWAYS include "tutor_guidance" for EVERY learning unit - this is REQUIRED (but keep it 2-3 sentences).
 9. ALWAYS set "unit_type" for EVERY learning unit - this is REQUIRED.
-10. For problem units, generate BOTH search_queries AND problem_solving_queries.
-11. PRIORITY: Complete the JSON structure. If approaching token limit, skip suggested_figures and focus on core content.
+10. ALWAYS generate an "ideal_video_description" (2-3 sentences) for EVERY unit. This is the text we will embed to find the perfect video.
+11. For problem units, generate BOTH search_queries AND problem_solving_queries.
+12. PRIORITY: Complete the JSON structure. If approaching token limit, skip suggested_figures and focus on core content.
 
 DOCUMENT TYPE AWARENESS - THIS IS CRITICAL:
 The input analysis includes a "content_classification" field that tells you what type of document this is:
@@ -222,6 +223,11 @@ Write a "tutor_guidance" field (2-3 sentences) that explains WHY this topic matt
 
 UNIT TYPE - REQUIRED:
 Set "unit_type": "prerequisite" | "topic" | "walkthrough"
+
+IDEAL VIDEO DESCRIPTION - REQUIRED FOR EMBEDDING:
+Write a specific description of the PERFECT video resource for this unit. We will use this text to find the video.
+- For "topic"/"prerequisite" units (Introductory): Describe a video that explains [Concept] clearly, defining terms and showing basic examples. Focus on "understanding" and "concepts".
+- For "walkthrough" units (Application): Describe a video that solves a specific problem involving [Problem Context] using [Equation]. Focus on "step-by-step calculation", "worked solution", and "math".
 
 SEARCH QUERIES - 3 PER UNIT:
 Generate EXACTLY 3 queries: one "introduction", one "tutorial", one "example". ALL must include "youtube". Be specific but concise.
@@ -294,7 +300,7 @@ For units where a visual would significantly help:
 - Format: suggested_figures array with {name, figure_type, description (brief!), search_terms (2-3 words)}
 - LIMIT: 0-2 figures per unit maximum to save tokens
 
-OUTPUT: JSON with summary, prerequisites_section (learning_units array), content_sections array. Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), suggested_figures (0-2 max, only if essential). For problems: also add walkthrough unit at end with problem_solving_queries.`,
+OUTPUT: JSON with summary, prerequisites_section (learning_units array), content_sections array. Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), ideal_video_description (2-3 sentences), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), suggested_figures (0-2 max, only if essential). For problems: also add walkthrough unit at end with problem_solving_queries.`,
 
     user: (input: any, inputType: 'document_analysis' | 'custom' = 'document_analysis') => `Generate learning structure with search queries.
 
@@ -310,8 +316,11 @@ INSTRUCTIONS:
 6. Keep tutor_guidance to 2-3 sentences
 7. ALL queries MUST include "youtube"
 8. AGGRESSIVELY include equations for every unit where applicable (keep variables brief)
-9. OPTIONALLY suggest 0-2 essential figures per unit (only if critical)
-10. **CRITICAL**: Complete all JSON brackets - if approaching token limit, skip suggested_figures entirely and focus on completing the structure
+9. MANDATORY: Generate an "ideal_video_description" for EVERY unit that describes the perfect video match.
+   - CONCEPT units: "A video explaining [Topic]..."
+   - WALKTHROUGH units: "A step-by-step solution for [Problem Type]..."
+10. OPTIONALLY suggest 0-2 essential figures per unit (only if critical)
+11. **CRITICAL**: Complete all JSON brackets - if approaching token limit, skip suggested_figures entirely and focus on completing the structure
 
 INPUT DATA:
 ${JSON.stringify(input, null, 2)}
@@ -554,5 +563,42 @@ Examples of good blueprint names:
 
 Output valid JSON only, no markdown.`;
     }
-  }
+  },
+
+  // ==========================================================================
+  // GENERATE STRUCTURE FROM ANALYSIS
+  // ==========================================================================
+  GENERATE_STRUCTURE: `You are an expert learning structure generator. Given a document analysis, create a structured learning path.
+
+CRITICAL: Keep output concise. Prioritize completing the JSON structure over including every detail.
+
+Generate a JSON object with this structure:
+{
+  "prerequisites_section": {
+    "learning_units": [
+      {
+        "unit_id": "prereq-1",
+        "title": "Concept Name",
+        "description": "Brief description (1-2 sentences)",
+        "search_queries": ["query1", "query2"]
+      }
+    ]
+  },
+  "content_sections": [
+    {
+      "section_id": "section-1",
+      "title": "Section Title",
+      "learning_units": [
+        {
+          "unit_id": "unit-1",
+          "title": "Topic Name",
+          "description": "Brief description",
+          "search_queries": ["query1", "query2"]
+        }
+      ]
+    }
+  ]
+}
+
+Keep descriptions under 2 sentences. Limit to 3-5 search queries per unit. Focus on completing the structure.`
 };

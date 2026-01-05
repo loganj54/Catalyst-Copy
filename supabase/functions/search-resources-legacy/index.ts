@@ -63,6 +63,7 @@ interface SearchRequest {
   topic: string;
   description?: string;
   learning_objective?: string;
+  semantic_search_phrase?: string;
   search_queries: Array<{
     query: string;
     query_type: string;
@@ -854,7 +855,7 @@ serve(async (req) => {
     }
 
     const body: SearchRequest = await req.json();
-    const { blueprint_id, unit_id, topic, description, search_queries } = body;
+    const { blueprint_id, unit_id, topic, description, search_queries, semantic_search_phrase } = body;
 
     console.log('[search-resources] Starting resource search');
     console.log(`  - Blueprint: ${blueprint_id}`);
@@ -862,6 +863,7 @@ serve(async (req) => {
     console.log(`  - Topic: ${topic}`);
     console.log(`  - Description: ${description}`);
     console.log(`  - Learning objective: ${body.learning_objective}`);
+    console.log(`  - Semantic search phrase: ${semantic_search_phrase ? 'Provided' : 'None'}`);
     console.log(`  - Queries: ${search_queries?.length || 0}`);
     console.log(`  - Query details:`, JSON.stringify(search_queries, null, 2));
 
@@ -873,15 +875,23 @@ serve(async (req) => {
     // STEP 1: Generate embedding for the topic (using need-based format)
     // =========================================================================
     
-    // Use the new need-based embedding text that matches against rich resource signatures
-    const queryText = createNeedEmbeddingText(
-      topic,
-      description,
-      body.learning_objective, // Optional learning objective from blueprint
-      search_queries?.map(q => q.query)
-    );
+    // Use the semantic search phrase if available (PREFERRED), otherwise fall back to constructed text
+    let queryText = semantic_search_phrase;
     
-    console.log('[search-resources] Generating query embedding (need-based format)...');
+    if (!queryText) {
+      // Use the new need-based embedding text that matches against rich resource signatures
+      queryText = createNeedEmbeddingText(
+        topic,
+        description,
+        body.learning_objective, // Optional learning objective from blueprint
+        search_queries?.map(q => q.query)
+      );
+      console.log('[search-resources] No semantic search phrase provided, using constructed need-based text');
+    } else {
+      console.log('[search-resources] Using generated semantic search phrase for embedding');
+    }
+    
+    console.log('[search-resources] Generating query embedding...');
     console.log(`  - Query text length: ${queryText.length} chars`);
     const { embedding: queryEmbedding } = await generateEmbedding(queryText);
     const vectorString = formatVectorForPostgres(queryEmbedding);

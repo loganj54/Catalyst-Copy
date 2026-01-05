@@ -60,7 +60,17 @@ const handler = async (req: Request): Promise<Response> => {
 
     // STEP 1: Generate embedding for topic
     console.log('[orchestrate-search-resources] Step 1: Generating embedding...');
-    const embeddingText = `${input.topic} ${input.description || ''} ${input.learning_objective || ''}`;
+    
+    // Use the semantic search phrase if available (PREFERRED), otherwise fall back to constructed text
+    let embeddingText = input.semantic_search_phrase;
+    
+    if (!embeddingText) {
+      console.log('[orchestrate-search-resources] No semantic search phrase provided, constructing from topic/desc');
+      embeddingText = `${input.topic} ${input.description || ''} ${input.learning_objective || ''}`;
+    } else {
+      console.log('[orchestrate-search-resources] Using generated semantic search phrase for embedding');
+    }
+
     const embeddingResult = await callFunction('generate-embedding', {
       text: embeddingText.trim(),
     }, authHeader);

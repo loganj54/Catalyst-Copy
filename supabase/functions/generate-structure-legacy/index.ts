@@ -87,6 +87,7 @@ interface LearningUnit {
   suggested_figures?: SuggestedFigure[]; // Suggested figures/diagrams for this unit
   search_queries: SearchQuery[]; // For videos (concept videos for topic units, problem walkthroughs for walkthrough units)
   problem_solving_queries?: SearchQuery[]; // DEPRECATED - now incorporated into walkthrough units
+  semantic_search_phrase?: string; // Natural language description of the ideal video resource for semantic search
 }
 
 // Prerequisite section structure

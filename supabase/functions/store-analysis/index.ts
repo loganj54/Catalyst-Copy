@@ -31,14 +31,6 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    if (!input.document_id || input.document_id.trim().length === 0) {
-      return errorResponse({
-        error: 'document_id is required',
-        code: 'INVALID_INPUT',
-        details: { field: 'document_id' },
-      });
-    }
-
     if (!input.user_id || input.user_id.trim().length === 0) {
       return errorResponse({
         error: 'user_id is required',
@@ -47,8 +39,18 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    // document_id is optional - if not provided, we'll use blueprint_id as fallback
+    if (!input.document_id && !input.blueprint_id) {
+      return errorResponse({
+        error: 'Either document_id or blueprint_id is required',
+        code: 'INVALID_INPUT',
+        details: { fields: ['document_id', 'blueprint_id'] },
+      });
+    }
+
     console.log('[store-analysis] Storing analysis...');
-    console.log('  - Document ID:', input.document_id);
+    console.log('  - Document ID:', input.document_id || '(none - using blueprint_id)');
+    console.log('  - Blueprint ID:', input.blueprint_id || '(none)');
     console.log('  - User ID:', input.user_id);
 
     const { analysis } = input;
@@ -71,7 +73,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Build insert data
     const insertData: any = {
-      document_id: input.document_id,
+      document_id: input.document_id || null,
       user_id: input.user_id,
       blueprint_id: input.blueprint_id || null,
       class_id: input.class_id || null,

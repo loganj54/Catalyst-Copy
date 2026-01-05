@@ -58,6 +58,7 @@ interface SearchRequest {
   topic: string;
   description?: string;
   learning_objective?: string;
+  semantic_search_phrase?: string;
   problem_statement?: string; // The actual problem text from the homework
   problem_details?: {
     original_problem_id?: string;

@@ -12,6 +12,7 @@ import EquationDisplay from '../components/EquationDisplay';
 import FigureDisplay from '../components/FigureDisplay';
 import Sidebar from '../components/Sidebar';
 import ClassSidebar from '../components/ClassSidebar';
+import StructureGenerationProgress from '../components/StructureGenerationProgress';
 
 // Generation status display configuration
 const STATUS_CONFIG = {
@@ -188,6 +189,7 @@ const TopicListItem = ({
   topicFigures,
   onComfortSelect,
   onGenerateBlueprint,
+  onTriggerWebhook,
   isSearching,
   isExpanded,
   onToggle
@@ -271,6 +273,25 @@ const TopicListItem = ({
               <EquationDisplay equations={equations} />
             </div>
           )}
+
+          {/* Ideal Video Description (Target Resource) */}
+          {(unit.ideal_video_description || unit.semantic_search_phrase) && (
+            <div className="mb-6 p-4 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50">
+              <div className="flex items-start gap-3">
+                <div className="shrink-0 mt-0.5">
+                  <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide mb-1 text-indigo-900 dark:text-indigo-300">
+                    Target Resource Profile
+                  </p>
+                  <p className="text-stone-700 dark:text-stone-300 text-m leading-relaxed italic">
+                    "{unit.ideal_video_description || unit.semantic_search_phrase}"
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Figures */}
           {topicFigures && topicFigures.length > 0 && (
@@ -283,7 +304,7 @@ const TopicListItem = ({
           {!hasResources && !isComfortable && (
             <>
             <div className="flex flex-col gap-3 mb-6">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -295,12 +316,12 @@ const TopicListItem = ({
                   {isSearching ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Searching Resources...
+                      Searching...
                     </>
                   ) : (
                     <>
                       <Youtube className="w-4 h-4" />
-                      {isWalkthrough ? 'Find with YouTube API' : 'Find Resources with YouTube API'}
+                      YouTube API
                     </>
                   )}
                 </button>
@@ -320,7 +341,7 @@ const TopicListItem = ({
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4" />
-                      {isWalkthrough ? 'Find with Haiku 4.5' : 'Find Resources with Haiku 4.5'}
+                      Haiku 4.5
                     </>
                   )}
                 </button>
@@ -340,9 +361,43 @@ const TopicListItem = ({
                   ) : (
                     <>
                       <Zap className="w-4 h-4" />
-                      {isWalkthrough ? 'Find with Grok' : 'Find Resources with Grok'}
+                      Grok
                     </>
                   )}
+                </button>
+                
+                {/* Database Search Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onGenerateBlueprint(unit, 'database');
+                  }}
+                  disabled={isSearching}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-emerald-600 dark:text-emerald-400 border border-emerald-600 dark:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10`}
+                >
+                  {isSearching ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <Target className="w-4 h-4" />
+                      Search DB
+                    </>
+                  )}
+                </button>
+
+                {/* Webhook Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTriggerWebhook(unit);
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors bg-white dark:bg-stone-800 text-orange-600 dark:text-orange-400 border border-orange-600 dark:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10`}
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Activate Webhook
                 </button>
               </div>
 
@@ -524,6 +579,10 @@ const Blueprint = () => {
   const [showDebug, setShowDebug] = useState(false);
   const [documentAnalysis, setDocumentAnalysis] = useState(null);
   const [structureGenerationResult, setStructureGenerationResult] = useState(null);
+  
+  // Progress Panel State
+  const [showProgressPanel, setShowProgressPanel] = useState(false);
+  const [isGeneratingWithProgress, setIsGeneratingWithProgress] = useState(false);
 
   // Fetch blueprint data
   const fetchBlueprint = useCallback(async () => {
@@ -571,12 +630,13 @@ const Blueprint = () => {
         .maybeSingle();
       
       if (structureData) {
+        // The database column is 'structure', just use it directly
         setLearningStructure(structureData);
         // Also set structure generation result for debug panel
         setStructureGenerationResult({
           success: true,
           structure_id: structureData.id,
-          structure: structureData.structure,
+          structure: structureData.structure_data || structureData.structure, // Handle both column names
           metrics: {
             total_prerequisites: structureData.total_prerequisites,
             total_sections: structureData.total_sections,
@@ -811,6 +871,41 @@ const Blueprint = () => {
     }
   };
 
+  // Handle webhook trigger
+  const handleTriggerWebhook = async (unit) => {
+    if (!session?.access_token) return;
+    
+    try {
+      // Direct call to Make.com webhook
+      // Note: This URL was provided by the user. 
+      // Using 'no-cors' mode to avoid CORS errors if the webhook doesn't support OPTIONS,
+      // though this means we can't read the response status.
+      await fetch('https://hook.us2.make.com/4biukvihdmvo4aianlpqk5sbnewjbonh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          unit_id: unit.unit_id,
+          topic: unit.topic,
+          description: unit.description,
+          learning_objective: unit.learning_objective,
+          blueprint_id: id,
+          user_id: user.id,
+          triggered_at: new Date().toISOString()
+        })
+      });
+      
+      // Since we might not get a readable response due to CORS/opaque response in some cases,
+      // we'll optimistically show success. If the webhook URL supports CORS properly, 
+      // we could check response.ok.
+      alert('Webhook triggered successfully!');
+    } catch (error) {
+      console.error('Error triggering webhook:', error);
+      alert('Failed to trigger webhook. Please try again.');
+    }
+  };
+
   // Handle generation
   const handleGenerateBlueprint = async (unit, searchMethod = 'youtube') => {
     if (!session?.access_token) return;
@@ -821,96 +916,121 @@ const Blueprint = () => {
     setSearchingTopics(prev => new Set([...prev, unitId]));
 
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      
-      // Determine endpoint based on unit_type and search method
-      // walkthrough units should use search-problem-walkthroughs endpoint
-      const isWalkthrough = unit.unit_type === 'walkthrough';
-      let endpoint = '';
-      
-      if (isWalkthrough) {
-        endpoint = 'search-problem-walkthroughs';
-      } else if (searchMethod === 'haiku') {
-        endpoint = 'search-resources-haiku';
-      } else if (searchMethod === 'grok') {
-        endpoint = 'search-resources-grok';
-      } else {
-        endpoint = 'search-resources';
-      }
-      
-      // For walkthrough units, try to get the problem statement from the document analysis
-      let problemStatement = null;
-      if (isWalkthrough && documentAnalysis?.raw_analysis) {
-        // Find the problem statement from the document analysis
-        // The unit should be part of a content_section, so we need to find the matching section
-        const sections = documentAnalysis.raw_analysis.sections || [];
+      let foundResources = [];
+
+      if (searchMethod === 'database') {
+        console.log(`[Blueprint] Searching database for unit ${unitId}...`);
         
-        // Try to find a matching section by looking at the current active section
-        const currentSection = structure?.content_sections?.find(s => 
-          s.learning_units?.some(u => u.unit_id === unitId)
+        // Search using the fulltext RPC function
+        const { data: dbResources, error: dbError } = await supabase.rpc(
+          'search_resources_from_make_fulltext', 
+          { 
+            search_query: unit.topic, 
+            max_results: 10 
+          }
         );
         
-        if (currentSection && currentSection.section_id) {
-          // Find the corresponding section in the raw analysis
-          const analysisSection = sections.find(s => 
-            s.section_id === currentSection.section_id || 
-            s.section_id === currentSection.section_id.replace('_walkthroughs', '')
+        if (dbError) throw dbError;
+        
+        // Map DB resources to the expected format
+        foundResources = (dbResources || []).map(r => ({
+          id: r.id,
+          title: r.title,
+          url: r.url,
+          platform: r.platform || 'Database',
+          channel_name: r.channel_name || 'Internal Resource',
+          thumbnail_url: r.thumbnail_url,
+          duration_seconds: r.duration_seconds,
+          resource_explanation: r.summary || r.description || 'Found in internal knowledge base.',
+          from_cache: true // Mark as trusted/internal
+        }));
+        
+      } else {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        
+        // Determine endpoint based on unit_type and search method
+        // walkthrough units should use search-problem-walkthroughs endpoint
+        const isWalkthrough = unit.unit_type === 'walkthrough';
+        let endpoint = '';
+        
+        if (isWalkthrough) {
+          endpoint = 'search-problem-walkthroughs';
+        } else if (searchMethod === 'haiku') {
+          endpoint = 'search-resources-haiku';
+        } else if (searchMethod === 'grok') {
+          endpoint = 'search-resources-grok';
+        } else {
+          endpoint = 'search-resources';
+        }
+        
+        // For walkthrough units, try to get the problem statement from the document analysis
+        let problemStatement = null;
+        if (isWalkthrough && documentAnalysis?.raw_analysis) {
+          // Find the problem statement from the document analysis
+          // The unit should be part of a content_section, so we need to find the matching section
+          const sections = documentAnalysis.raw_analysis.sections || [];
+          
+          // Try to find a matching section by looking at the current active section
+          const currentSection = structure?.content_sections?.find(s => 
+            s.learning_units?.some(u => u.unit_id === unitId)
           );
           
-          if (analysisSection && analysisSection.problem_statement) {
-            problemStatement = analysisSection.problem_statement;
-            console.log('[Blueprint] Found problem statement for walkthrough unit:', problemStatement.substring(0, 100));
+          if (currentSection && currentSection.section_id) {
+            // Find the corresponding section in the raw analysis
+            const analysisSection = sections.find(s => 
+              s.section_id === currentSection.section_id || 
+              s.section_id === currentSection.section_id.replace('_walkthroughs', '')
+            );
+            
+            if (analysisSection && analysisSection.problem_statement) {
+              problemStatement = analysisSection.problem_statement;
+              console.log('[Blueprint] Found problem statement for walkthrough unit:', problemStatement.substring(0, 100));
+            }
           }
         }
+        
+        const requestBody = isWalkthrough ? {
+          blueprint_id: id,
+          unit_id: unitId,
+          topic: unit.topic,
+          description: unit.description,
+          learning_objective: unit.learning_objective,
+          problem_statement: problemStatement, // Include the actual problem text
+          problem_solving_queries: unit.search_queries || [], // For walkthrough units, search_queries contain the problem-solving queries
+          problem_details: unit.problem_details || {},
+          semantic_search_phrase: unit.semantic_search_phrase,
+        } : {
+          blueprint_id: id,
+          unit_id: unitId,
+          topic: unit.topic,
+          description: unit.description,
+          learning_objective: unit.learning_objective,
+          search_queries: unit.search_queries || [],
+          semantic_search_phrase: unit.semantic_search_phrase,
+        };
+        
+        console.log(`[Blueprint] Fetching resources for unit ${unitId} (type: ${unit.unit_type}, method: ${searchMethod})...`);
+        
+        const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Search failed');
+        
+        foundResources = data.resources || [];
       }
-      
-      const requestBody = isWalkthrough ? {
-        blueprint_id: id,
-        unit_id: unitId,
-        topic: unit.topic,
-        description: unit.description,
-        learning_objective: unit.learning_objective,
-        problem_statement: problemStatement, // Include the actual problem text
-        problem_solving_queries: unit.search_queries || [], // For walkthrough units, search_queries contain the problem-solving queries
-        problem_details: unit.problem_details || {},
-      } : {
-        blueprint_id: id,
-        unit_id: unitId,
-        topic: unit.topic,
-        description: unit.description,
-        learning_objective: unit.learning_objective,
-        search_queries: unit.search_queries || [],
-      };
-      
-      console.log(`[Blueprint] Fetching resources for unit ${unitId} (type: ${unit.unit_type}, method: ${searchMethod})...`);
-      console.log(`[Blueprint] Unit details:`, {
-        topic: unit.topic,
-        description: unit.description?.substring(0, 100),
-        learning_objective: unit.learning_objective?.substring(0, 100),
-        search_queries: unit.search_queries,
-        has_search_queries: !!unit.search_queries,
-        search_queries_length: unit.search_queries?.length,
-        search_method: searchMethod,
-      });
-      console.log(`[Blueprint] Request body:`, JSON.stringify(requestBody, null, 2));
-      
-      const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
 
-      const data = await response.json();
-      if (!data.success) throw new Error(data.error || 'Search failed');
-
-      if (data.resources && data.resources.length > 0) {
-        console.log(`[Blueprint] Received ${data.resources.length} resources for unit ${unitId}`);
+      if (foundResources && foundResources.length > 0) {
+        console.log(`[Blueprint] Received ${foundResources.length} resources for unit ${unitId}`);
         
         // Filter out ONLY explicitly irrelevant resources (safety check)
-        const relevantResources = data.resources.filter(resource => {
+        const relevantResources = foundResources.filter(resource => {
           const explanation = resource.resource_explanation?.toLowerCase() || '';
           const isExplicitlyIrrelevant = 
             explanation === 'not_relevant' ||
@@ -959,6 +1079,8 @@ const Blueprint = () => {
           ? 'No resources found with Haiku 4.5 search. Try the "Find Resources with YouTube API" or "Find Resources with Grok" button for more comprehensive results.'
           : searchMethod === 'grok'
           ? 'No resources found with Grok search. Try the "Find Resources with YouTube API" or "Find Resources with Haiku 4.5" button for alternative results.'
+          : searchMethod === 'database'
+          ? 'No matching resources found in the database. Try searching with one of the external API buttons.'
           : 'No resources found for this topic. Please try adjusting your search terms or try the Haiku 4.5 or Grok search methods.';
         
         alert(helpMessage);
@@ -968,7 +1090,7 @@ const Blueprint = () => {
       console.error('[Blueprint] Error finding resources:', error);
       loadingResourcesRef.current.delete(unitId);
       
-      const methodName = searchMethod === 'haiku' ? 'Haiku 4.5' : searchMethod === 'grok' ? 'Grok' : 'YouTube API';
+      const methodName = searchMethod === 'haiku' ? 'Haiku 4.5' : searchMethod === 'grok' ? 'Grok' : searchMethod === 'database' ? 'Database' : 'YouTube API';
       alert(`Failed to find resources using ${methodName}: ${error.message}\n\nTry another search method or try again later.`);
     } finally {
       setSearchingTopics(prev => {
@@ -1021,7 +1143,7 @@ const Blueprint = () => {
 
       // Generate Structure
       setGenerationStatus('generating');
-      response = await fetch(`${supabaseUrl}/functions/v1/generate-structure`, {
+      response = await fetch(`${supabaseUrl}/functions/v1/orchestrate-generate-structure`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ blueprint_id: id }),
@@ -1077,6 +1199,7 @@ const Blueprint = () => {
 
   const runStructureStep = async () => {
     if (!session?.access_token) return;
+    
     setGenerating(true);
     setGenerationError(null);
     setGenerationStatus('generating');
@@ -1084,7 +1207,7 @@ const Blueprint = () => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       
-      const response = await fetch(`${supabaseUrl}/functions/v1/generate-structure`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1/generate-structure-legacy`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ blueprint_id: id }),
@@ -1093,6 +1216,7 @@ const Blueprint = () => {
       if (!data.success) throw new Error(data.error);
       
       setStructureGenerationResult(data);
+      setGenerationStatus('completed');
       await fetchBlueprint();
     } catch (error) {
       setGenerationError(error.message);
@@ -1100,6 +1224,41 @@ const Blueprint = () => {
     } finally {
       setGenerating(false);
     }
+  };
+
+  const handleProgressComplete = async (data) => {
+    console.log('[Blueprint] Structure generation complete:', data);
+    console.log('[Blueprint] Structure ID:', data.structure_id);
+    console.log('[Blueprint] From cache:', data.from_cache);
+    
+    setStructureGenerationResult(data);
+    setGenerationStatus('completed');
+    setGenerating(false);
+    setIsGeneratingWithProgress(false);
+    
+    // Wait a moment for database consistency
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Reload blueprint data to show new structure
+    console.log('[Blueprint] Fetching updated blueprint data...');
+    await fetchBlueprint();
+    
+    // Auto-close progress panel after 3 seconds
+    setTimeout(() => {
+      setShowProgressPanel(false);
+    }, 3000);
+  };
+
+  const handleProgressError = async (error) => {
+    console.error('[Blueprint] Structure generation failed:', error);
+    
+    setGenerationError(error.message);
+    setGenerationStatus('failed');
+    setGenerating(false);
+    setIsGeneratingWithProgress(false);
+    
+    // Reload to get updated status from backend
+    await fetchBlueprint();
   };
 
   const toggleTopic = (unitId) => {
@@ -1234,6 +1393,15 @@ const Blueprint = () => {
                 >
                   <Bug className={`w-5 h-5 ${showDebug ? 'text-[#FF4A1C]' : 'text-stone-400'}`} />
                 </button>
+                {structure && (
+                  <button
+                    onClick={() => setShowProgressPanel(!showProgressPanel)}
+                    className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                    title="View Generation Progress"
+                  >
+                    <Sparkles className={`w-5 h-5 ${showProgressPanel ? 'text-[#FF4A1C]' : 'text-stone-400'}`} />
+                  </button>
+                )}
               </div>
               <p className="text-stone-500 text-lg dark:text-stone-400 mt-2">
                 {blueprint.class?.name ? `${blueprint.class.name} ` : ''}
@@ -1443,6 +1611,26 @@ const Blueprint = () => {
             </div>
           )}
 
+          {/* Progress Panel Modal */}
+          {showProgressPanel && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+              <div className="w-full max-w-2xl animate-scale-in">
+                <StructureGenerationProgress
+                  blueprintId={id}
+                  authToken={session?.access_token}
+                  onComplete={handleProgressComplete}
+                  onError={handleProgressError}
+                />
+                <button
+                  onClick={() => setShowProgressPanel(false)}
+                  className="mt-4 w-full px-4 py-2 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors text-sm font-medium"
+                >
+                  Close Panel
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* No Structure State - Show Generation UI */}
           {!structure && (
             <div className="bg-white dark:bg-stone-900 rounded-3xl p-8 shadow-sm border border-stone-300 dark:border-stone-600 mt-8">
@@ -1486,12 +1674,17 @@ const Blueprint = () => {
                     
                     <button
                       onClick={runStructureStep}
-                      disabled={(!documentAnalysis && generationStatus === 'pending' || generationStatus === 'analyzing' || generationStatus === 'failed') || (generating && generationStatus === 'generating')}
+                      disabled={
+                        !documentAnalysis || 
+                        generationStatus === 'analyzing' || 
+                        (generating && generationStatus === 'generating')
+                      }
                       className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 border rounded-lg transition-all font-medium ${
                         generationStatus === 'structure_generated' || generationStatus === 'completed'
                           ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-600 text-green-900 dark:text-green-100'
                           : 'bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-600 text-purple-900 dark:text-purple-100 hover:bg-purple-200 dark:hover:bg-purple-800/40'
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      title={!documentAnalysis ? 'Please run Step 1 (Analyze Document) first' : 'Generate learning structure'}
                     >
                       {generationStatus === 'structure_generated' || generationStatus === 'completed' ? (
                         <>
@@ -1513,6 +1706,13 @@ const Blueprint = () => {
                   </div>
                   
                   {/* Status message */}
+                  {!documentAnalysis && generationStatus === 'pending' && (
+                    <div className="inline-flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100 text-sm">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>Start by analyzing your document (Step 1), then generate the structure (Step 2).</span>
+                    </div>
+                  )}
+                  
                   {(documentAnalysis || generationStatus === 'analyzed') && !structure && (
                     <div className="inline-flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-900 dark:text-green-100 text-sm">
                       <Check className="w-4 h-4" />
@@ -1591,6 +1791,7 @@ const Blueprint = () => {
                           topicFigures={topicFigures[unit.unit_id]}
                           onComfortSelect={handleComfortSelect}
                           onGenerateBlueprint={handleGenerateBlueprint}
+                          onTriggerWebhook={handleTriggerWebhook}
                           isSearching={searchingTopics.has(unit.unit_id)}
                           isExpanded={expandedTopics[unit.unit_id]}
                           onToggle={() => toggleTopic(unit.unit_id)}

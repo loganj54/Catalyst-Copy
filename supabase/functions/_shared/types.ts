@@ -202,6 +202,7 @@ export interface OrchestrateSearchResourcesInput {
   search_queries: SearchQuery[];
   description?: string;
   learning_objective?: string;
+  semantic_search_phrase?: string;
 }
 
 export interface OrchestrateSearchResourcesOutput {
@@ -578,6 +579,7 @@ export interface LearningUnit {
   suggested_figures?: SuggestedFigure[];
   search_queries: SearchQuery[];
   problem_solving_queries?: SearchQuery[];
+  semantic_search_phrase?: string;
 }
 
 export interface Equation {
