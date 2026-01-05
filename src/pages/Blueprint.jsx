@@ -4,7 +4,7 @@ import {
   ArrowLeft, BookOpen, Target, Calendar, FileText, Loader2, Download, 
   ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp, 
   ChevronRight, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
-  Layout, Grid, Circle, Eye
+  Layout, Grid, Circle, Eye, Info
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -192,6 +192,7 @@ const TopicListItem = ({
   isExpanded,
   onToggle
 }) => {
+  const [showSearchContext, setShowSearchContext] = useState(false);
   const hasResources = topicResources && topicResources.length > 0;
   const isComfortable = topicResponse?.response === 'comfortable';
   const isWalkthrough = unit.unit_type === 'walkthrough';
@@ -280,6 +281,7 @@ const TopicListItem = ({
 
           {/* Action Buttons */}
           {!hasResources && !isComfortable && (
+            <>
             <div className="flex flex-col gap-3 mb-6">
               <div className="flex items-center gap-3">
                 <button
@@ -343,23 +345,134 @@ const TopicListItem = ({
                   )}
                 </button>
               </div>
-              {!isWalkthrough && (
+
+              <div className="flex items-center gap-2">
+                {!isWalkthrough && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onComfortSelect(unit.unit_id, 'comfortable');
+                    }}
+                    disabled={isSearching}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg 
+                               hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors font-medium text-sm border border-stone-200 dark:border-stone-700"
+                  >
+                    <Check className="w-4 h-4" />
+                    I know this
+                  </button>
+                )}
+                
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onComfortSelect(unit.unit_id, 'comfortable');
+                    setShowSearchContext(!showSearchContext);
                   }}
-                  disabled={isSearching}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg 
-                             hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors font-medium text-sm border border-stone-200 dark:border-stone-700"
+                  className={`p-2 rounded-lg transition-colors border ${
+                    showSearchContext 
+                      ? 'bg-stone-200 dark:bg-stone-700 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600' 
+                      : 'bg-transparent text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 border-transparent hover:bg-stone-100 dark:hover:bg-stone-800'
+                  }`}
+                  title="View Search Logic & Queries"
                 >
-                  <Check className="w-4 h-4" />
-                  I know this
+                  <Info className="w-5 h-5" />
                 </button>
-              )}
+              </div>
             </div>
-          )}
 
+            {showSearchContext && (
+              <div className="mb-6 p-5 rounded-xl bg-stone-100 dark:bg-stone-900/50 border border-stone-200 dark:border-stone-700 text-sm animate-fade-in relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-5">
+                   <Target className="w-32 h-32" />
+                </div>
+                
+                <h5 className="font-semibold text-stone-900 dark:text-stone-100 mb-4 flex items-center gap-2">
+                  <Target className="w-4 h-4 text-[#FF4A1C]" />
+                  Search Intelligence Logic
+                </h5>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10">
+                  <div className="space-y-4">
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 block mb-2">
+                        Generated Search Queries
+                      </span>
+                      <div className="bg-white dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700 p-3">
+                        {unit.search_queries && unit.search_queries.length > 0 ? (
+                          <ul className="space-y-2">
+                            {unit.search_queries.map((q, i) => (
+                              <li key={i} className="flex items-start gap-2 text-stone-600 dark:text-stone-300 font-mono text-xs">
+                                <span className="text-stone-400 select-none">{'>'}</span>
+                                {q}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="text-stone-400 italic text-xs">
+                            No specific queries pre-generated. The search will use the topic and description.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 block mb-2">
+                        Context Payload
+                      </span>
+                      <div className="bg-white dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700 p-3 space-y-3">
+                        <div>
+                          <span className="text-xs text-stone-400 block mb-0.5">Topic Target</span>
+                          <p className="text-stone-700 dark:text-stone-300 font-medium">{unit.topic}</p>
+                        </div>
+                        {unit.learning_objective && (
+                          <div>
+                            <span className="text-xs text-stone-400 block mb-0.5">Learning Objective</span>
+                            <p className="text-stone-600 dark:text-stone-400 leading-relaxed text-xs">
+                              {unit.learning_objective}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 block mb-2">
+                        Search Mechanism Logic
+                      </span>
+                      <div className="space-y-3">
+                        <div className="flex gap-3 p-3 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
+                           <div className="shrink-0 pt-0.5">
+                             <Youtube className="w-4 h-4 text-red-500" />
+                           </div>
+                           <div>
+                             <h6 className="font-medium text-stone-900 dark:text-stone-100 text-xs mb-1">YouTube Data API</h6>
+                             <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+                               Executes the exact search queries generated above against the YouTube Data API. Results are filtered for duration and relevance.
+                             </p>
+                           </div>
+                        </div>
+
+                        <div className="flex gap-3 p-3 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
+                           <div className="shrink-0 pt-0.5">
+                             <Sparkles className="w-4 h-4 text-purple-500" />
+                           </div>
+                           <div>
+                             <h6 className="font-medium text-stone-900 dark:text-stone-100 text-xs mb-1">Haiku 4.5 / Grok Analysis</h6>
+                             <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+                               Constructs a prompt containing the Topic, Learning Objective, and Search Queries. The LLM acts as a research assistant to find, validate, and summarize high-quality web resources that match the specific educational context.
+                             </p>
+                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            </>
+          )}
+          
           {/* Resources Table */}
           {hasResources && (
             <div className="mt-4">
