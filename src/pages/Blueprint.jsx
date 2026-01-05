@@ -275,7 +275,7 @@ const TopicListItem = ({
           )}
 
           {/* Ideal Video Description (Target Resource) */}
-          {(unit.ideal_video_description || unit.semantic_search_phrase) && (
+          {(unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase) && (
             <div className="mb-6 p-4 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50">
               <div className="flex items-start gap-3">
                 <div className="shrink-0 mt-0.5">
@@ -286,7 +286,7 @@ const TopicListItem = ({
                     Target Resource Profile
                   </p>
                   <p className="text-stone-700 dark:text-stone-300 text-m leading-relaxed italic">
-                    "{unit.ideal_video_description || unit.semantic_search_phrase}"
+                    "{unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase}"
                   </p>
                 </div>
               </div>
@@ -989,6 +989,17 @@ const Blueprint = () => {
           }
         }
         
+        // NEW: Get the pre-computed target resource embedding from the unit
+        // This avoids redundant embedding generation during search
+        const targetResourceEmbedding = unit.target_resource_embedding;
+        const targetResourceProfile = unit.target_resource_profile;
+        
+        if (targetResourceEmbedding && Array.isArray(targetResourceEmbedding) && targetResourceEmbedding.length === 1536) {
+          console.log(`[Blueprint] ✅ Using pre-computed target resource embedding for unit ${unitId} (${targetResourceEmbedding.length} dimensions)`);
+        } else {
+          console.log(`[Blueprint] ⚠️ No pre-computed target resource embedding found for unit ${unitId}, will generate on-demand`);
+        }
+        
         const requestBody = isWalkthrough ? {
           blueprint_id: id,
           unit_id: unitId,
@@ -999,6 +1010,8 @@ const Blueprint = () => {
           problem_solving_queries: unit.search_queries || [], // For walkthrough units, search_queries contain the problem-solving queries
           problem_details: unit.problem_details || {},
           semantic_search_phrase: unit.semantic_search_phrase,
+          target_resource_profile: targetResourceProfile, // NEW: Pass target resource profile
+          target_resource_embedding: targetResourceEmbedding, // NEW: Pass pre-computed embedding
         } : {
           blueprint_id: id,
           unit_id: unitId,
@@ -1007,6 +1020,8 @@ const Blueprint = () => {
           learning_objective: unit.learning_objective,
           search_queries: unit.search_queries || [],
           semantic_search_phrase: unit.semantic_search_phrase,
+          target_resource_profile: targetResourceProfile, // NEW: Pass target resource profile
+          target_resource_embedding: targetResourceEmbedding, // NEW: Pass pre-computed embedding
         };
         
         console.log(`[Blueprint] Fetching resources for unit ${unitId} (type: ${unit.unit_type}, method: ${searchMethod})...`);

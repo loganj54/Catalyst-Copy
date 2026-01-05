@@ -88,6 +88,8 @@ interface LearningUnit {
   search_queries: SearchQuery[]; // For videos (concept videos for topic units, problem walkthroughs for walkthrough units)
   problem_solving_queries?: SearchQuery[]; // DEPRECATED - now incorporated into walkthrough units
   semantic_search_phrase?: string; // Natural language description of the ideal video resource for semantic search
+  target_resource_profile?: string; // Description of the ideal resource for this unit
+  target_resource_embedding?: number[]; // Pre-computed embedding (1536 dimensions) of the target resource profile
 }
 
 // Prerequisite section structure
@@ -182,6 +184,72 @@ function flattenSearchQueries(structure: LearningStructure): FlatSearchQuery[] {
   }
   
   return queries;
+}
+
+/**
+ * Generate embeddings for target resource profiles in all learning units
+ * This pre-computes embeddings to avoid redundant generation during search phase
+ * Embeddings are stored directly in each learning unit in the structure
+ */
+async function generateTargetResourceEmbeddings(structure: LearningStructure): Promise<void> {
+  let totalUnits = 0;
+  let successCount = 0;
+  let failCount = 0;
+  
+  // Process prerequisite units
+  if (structure.prerequisites_section?.learning_units) {
+    totalUnits += structure.prerequisites_section.learning_units.length;
+    
+    for (const unit of structure.prerequisites_section.learning_units) {
+      try {
+        // Use target_resource_profile if available, otherwise construct from semantic_search_phrase or topic
+        const embeddingText = unit.target_resource_profile 
+          || unit.semantic_search_phrase 
+          || `${unit.topic} ${unit.description || ''} ${unit.learning_objective || ''}`;
+        
+        const result = await generateEmbedding(embeddingText.trim());
+        
+        // Store embedding directly in the unit
+        unit.target_resource_embedding = result.embedding;
+        
+        successCount++;
+      } catch (error) {
+        console.error(`[generate-structure] Failed to generate embedding for unit "${unit.topic}":`, error);
+        failCount++;
+      }
+    }
+  }
+  
+  // Process content section units
+  for (const section of structure.content_sections || []) {
+    if (section.learning_units) {
+      totalUnits += section.learning_units.length;
+      
+      for (const unit of section.learning_units) {
+        try {
+          // Use target_resource_profile if available, otherwise construct from semantic_search_phrase or topic
+          const embeddingText = unit.target_resource_profile 
+            || unit.semantic_search_phrase 
+            || `${unit.topic} ${unit.description || ''} ${unit.learning_objective || ''}`;
+          
+          const result = await generateEmbedding(embeddingText.trim());
+          
+          // Store embedding directly in the unit
+          unit.target_resource_embedding = result.embedding;
+          
+          successCount++;
+        } catch (error) {
+          console.error(`[generate-structure] Failed to generate embedding for unit "${unit.topic}":`, error);
+          failCount++;
+        }
+      }
+    }
+  }
+  
+  console.log(`[generate-structure] Target resource embedding generation complete:`);
+  console.log(`  - Total units: ${totalUnits}`);
+  console.log(`  - Success: ${successCount}`);
+  console.log(`  - Failed: ${failCount}`);
 }
 
 /**
@@ -979,6 +1047,10 @@ serve(async (req) => {
         const metrics = countStructureMetrics(adaptedStructure);
         const allSearchQueries = flattenSearchQueries(adaptedStructure);
         
+        // Generate embeddings for target resource profiles (NEW!)
+        console.log('[generate-structure] Pre-generating target resource embeddings for cached structure...');
+        await generateTargetResourceEmbeddings(adaptedStructure);
+        
         // Store the adapted structure
         const structureInsert = {
           blueprint_id: blueprint_id,
@@ -1071,10 +1143,11 @@ serve(async (req) => {
     
     // Use higher token limit for complex documents with many problems/prerequisites
     // Each problem can generate 3-5 search queries, so this can get large
+    // Haiku 4.5 supports up to 16,384 output tokens
     const structure = await callClaudeJSON<LearningStructure>(
       PROMPTS.generateStructure.system,
       PROMPTS.generateStructure.user(analysisData, inputType),
-      { temperature: 0.4, maxTokens: 12288 } // Increased from 8192 - need enough for complete JSON
+      { temperature: 0.4, maxTokens: 16384 } // Increased to max for Haiku 4.5 - handles very complex documents
     );
 
     console.log('[generate-structure] Structure generated:');
@@ -1085,6 +1158,11 @@ serve(async (req) => {
     // Flatten all search queries for easy access by search-resources
     const allSearchQueries = flattenSearchQueries(structure);
     console.log(`  - Total search queries: ${allSearchQueries.length}`);
+
+    // Generate embeddings for target resource profiles (NEW!)
+    // This pre-computes embeddings to avoid redundant generation during search phase
+    console.log('[generate-structure] Pre-generating target resource embeddings...');
+    await generateTargetResourceEmbeddings(structure);
 
     // Calculate metrics
     const metrics = countStructureMetrics(structure);

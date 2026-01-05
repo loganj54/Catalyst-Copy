@@ -203,6 +203,8 @@ export interface OrchestrateSearchResourcesInput {
   description?: string;
   learning_objective?: string;
   semantic_search_phrase?: string;
+  target_resource_profile?: string; // Description of the ideal resource for this unit
+  target_resource_embedding?: number[]; // Pre-computed embedding (1536 dimensions) of the target resource profile
 }
 
 export interface OrchestrateSearchResourcesOutput {

@@ -191,7 +191,9 @@ CRITICAL RULES:
 7. COMPLETE THE JSON - ensure all brackets are closed. If running long, SKIP OPTIONAL FIELDS rather than truncating.
 8. ALWAYS include "tutor_guidance" for EVERY learning unit - this is REQUIRED (but keep it 2-3 sentences).
 9. ALWAYS set "unit_type" for EVERY learning unit - this is REQUIRED.
-10. ALWAYS generate an "ideal_video_description" (2-3 sentences) for EVERY unit. This is the text we will embed to find the perfect video.
+10. ALWAYS generate a "target_resource_profile" for EVERY unit. This is the text we will embed to find the perfect video.
+    - For topic/prerequisite units: 2-3 sentences describing the ideal explanatory video
+    - For walkthrough units: Include the COMPLETE original problem statement with ALL details, followed by the solution approach description
 11. For problem units, generate BOTH search_queries AND problem_solving_queries.
 12. PRIORITY: Complete the JSON structure. If approaching token limit, skip suggested_figures and focus on core content.
 
@@ -224,10 +226,20 @@ Write a "tutor_guidance" field (2-3 sentences) that explains WHY this topic matt
 UNIT TYPE - REQUIRED:
 Set "unit_type": "prerequisite" | "topic" | "walkthrough"
 
-IDEAL VIDEO DESCRIPTION - REQUIRED FOR EMBEDDING:
+TARGET RESOURCE PROFILE - REQUIRED FOR EMBEDDING:
 Write a specific description of the PERFECT video resource for this unit. We will use this text to find the video.
-- For "topic"/"prerequisite" units (Introductory): Describe a video that explains [Concept] clearly, defining terms and showing basic examples. Focus on "understanding" and "concepts".
-- For "walkthrough" units (Application): Describe a video that solves a specific problem involving [Problem Context] using [Equation]. Focus on "step-by-step calculation", "worked solution", and "math".
+
+FOR "topic"/"prerequisite" units (Introductory/Concept videos):
+- Keep it concise (2-3 sentences)
+- Describe a video that explains [Concept] clearly, defining terms and showing basic examples
+- Focus on "understanding" and "concepts"
+- Example: "A video explaining Newton's Second Law clearly, defining force, mass, and acceleration. The video should cover the relationship F=ma with real-world examples and demonstrate how to apply it to simple problems."
+
+FOR "walkthrough" units (Problem-solving videos):
+- Include the COMPLETE problem statement with ALL details from the input
+- Then describe the solution approach
+- Format: "A video solving this problem: [COPY THE ENTIRE problem_statement FIELD FROM THE INPUT - include ALL given values with units, unknowns, conditions, and full context]. The video should show step-by-step calculations using [specific equations], explaining [key concepts], and demonstrating [solving approach]."
+- Example: "A video solving this problem: A 2000 kg car accelerates from rest to 25 m/s in 8 seconds on a level road. The coefficient of friction is 0.15. Calculate the force applied by the engine and the distance traveled during acceleration. The video should show step-by-step calculations using Newton's Second Law and kinematic equations, explaining the relationship between force, friction, and acceleration, and demonstrating how to solve for both the applied force and distance."
 
 SEARCH QUERIES - 3 PER UNIT:
 Generate EXACTLY 3 queries: one "introduction", one "tutorial", one "example". ALL must include "youtube". Be specific but concise.
@@ -300,7 +312,7 @@ For units where a visual would significantly help:
 - Format: suggested_figures array with {name, figure_type, description (brief!), search_terms (2-3 words)}
 - LIMIT: 0-2 figures per unit maximum to save tokens
 
-OUTPUT: JSON with summary, prerequisites_section (learning_units array), content_sections array. Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), ideal_video_description (2-3 sentences), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), suggested_figures (0-2 max, only if essential). For problems: also add walkthrough unit at end with problem_solving_queries.`,
+OUTPUT: JSON with summary, prerequisites_section (learning_units array), content_sections array. Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), target_resource_profile (2-3 sentences for topic/prerequisite units, FULL PROBLEM STATEMENT + solution description for walkthrough units), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), suggested_figures (0-2 max, only if essential). For problems: also add walkthrough unit at end with problem_solving_queries.`,
 
     user: (input: any, inputType: 'document_analysis' | 'custom' = 'document_analysis') => `Generate learning structure with search queries.
 
@@ -316,11 +328,12 @@ INSTRUCTIONS:
 6. Keep tutor_guidance to 2-3 sentences
 7. ALL queries MUST include "youtube"
 8. AGGRESSIVELY include equations for every unit where applicable (keep variables brief)
-9. MANDATORY: Generate an "ideal_video_description" for EVERY unit that describes the perfect video match.
-   - CONCEPT units: "A video explaining [Topic]..."
-   - WALKTHROUGH units: "A step-by-step solution for [Problem Type]..."
-10. OPTIONALLY suggest 0-2 essential figures per unit (only if critical)
-11. **CRITICAL**: Complete all JSON brackets - if approaching token limit, skip suggested_figures entirely and focus on completing the structure
+9. MANDATORY: Generate a "target_resource_profile" for EVERY unit that describes the perfect video match.
+   - CONCEPT/PREREQUISITE units: "A video explaining [Topic] clearly, covering [key concepts], with examples demonstrating [applications]..." (2-3 sentences)
+   - WALKTHROUGH units: "A video solving this problem: [COPY THE COMPLETE problem_statement FROM THE INPUT SECTION - include ALL given values with units, unknowns, conditions, assumptions, and full context]. The video should demonstrate step-by-step calculations using [specific equations from equations_needed], explain [concepts from concepts_tested], and show [steps from solving_approach]." (Include the ENTIRE problem_statement field from the input)
+10. FOR WALKTHROUGH UNITS: Extract the problem_statement from the corresponding section in the input data and include it verbatim in the target_resource_profile
+11. OPTIONALLY suggest 0-2 essential figures per unit (only if critical)
+12. **CRITICAL**: Complete all JSON brackets - if approaching token limit, skip suggested_figures entirely and focus on completing the structure
 
 INPUT DATA:
 ${JSON.stringify(input, null, 2)}

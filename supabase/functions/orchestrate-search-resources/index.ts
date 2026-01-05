@@ -58,25 +58,34 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('  - Topic:', input.topic);
     console.log('  - Queries:', input.search_queries?.length || 0);
 
-    // STEP 1: Generate embedding for topic
-    console.log('[orchestrate-search-resources] Step 1: Generating embedding...');
+    // STEP 1: Get or generate embedding for topic
+    console.log('[orchestrate-search-resources] Step 1: Getting embedding...');
     
-    // Use the semantic search phrase if available (PREFERRED), otherwise fall back to constructed text
-    let embeddingText = input.semantic_search_phrase;
+    let embedding: number[];
     
-    if (!embeddingText) {
-      console.log('[orchestrate-search-resources] No semantic search phrase provided, constructing from topic/desc');
-      embeddingText = `${input.topic} ${input.description || ''} ${input.learning_objective || ''}`;
+    // NEW: Check if target_resource_embedding was pre-computed and passed in the input
+    if (input.target_resource_embedding && Array.isArray(input.target_resource_embedding) && input.target_resource_embedding.length === 1536) {
+      console.log('[orchestrate-search-resources] ✅ Using pre-computed target resource embedding from structure generation');
+      embedding = input.target_resource_embedding;
+      // No API call needed - embedding already available!
     } else {
-      console.log('[orchestrate-search-resources] Using generated semantic search phrase for embedding');
+      // Fallback: Generate embedding on-demand (legacy behavior)
+      console.log('[orchestrate-search-resources] ⚠️ No pre-computed target resource embedding found, generating on-demand...');
+      
+      // Use the target_resource_profile if available (PREFERRED), otherwise semantic_search_phrase, otherwise construct
+      let embeddingText = input.target_resource_profile 
+        || input.semantic_search_phrase
+        || `${input.topic} ${input.description || ''} ${input.learning_objective || ''}`;
+      
+      console.log('[orchestrate-search-resources] Generating embedding from:', embeddingText.substring(0, 100) + '...');
+
+      const embeddingResult = await callFunction('generate-embedding', {
+        text: embeddingText.trim(),
+      }, authHeader);
+      stepsCompleted.push('generate-embedding');
+      
+      embedding = embeddingResult.embedding;
     }
-
-    const embeddingResult = await callFunction('generate-embedding', {
-      text: embeddingText.trim(),
-    }, authHeader);
-    stepsCompleted.push('generate-embedding');
-
-    const embedding = embeddingResult.embedding;
 
     // STEP 2: Search cache for similar resources
     console.log('[orchestrate-search-resources] Step 2: Searching cache...');

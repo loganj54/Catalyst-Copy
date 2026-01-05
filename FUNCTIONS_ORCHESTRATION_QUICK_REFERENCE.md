@@ -29,10 +29,22 @@ User searches for "Thermodynamics" →
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  1. generate-embedding                                       │
-│  Input:  { text: "thermodynamics basics" }                  │
+│  1. get-or-generate-embedding  ⚡ OPTIMIZED!                 │
+│  Input:  {                                                   │
+│    text: "thermodynamics basics",                            │
+│    embedding?: [pre-computed from structure generation]      │
+│  }                                                           │
+│  Process:                                                    │
+│    - IF embedding provided (from blueprint_structures):      │
+│      • Use it directly (FAST PATH - no API call!)           │
+│      • Time: ~0ms                                            │
+│    - ELSE (legacy/fallback):                                 │
+│      • Generate embedding via OpenAI API (SLOW PATH)         │
+│      • Time: ~200ms                                          │
 │  Output: { embedding: [0.123, 0.456, ...] } (1536 floats)   │
-│  Time:   ~200ms                                              │
+│  Time:   ~0ms (cached) or ~200ms (generated)                 │
+│  Optimization: 75% faster when using pre-computed embeddings │
+│  See: QUERY_EMBEDDING_OPTIMIZATION.md                       │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -347,6 +359,8 @@ User requests "Generate Blueprint" →
 │    cached_structure: {...},                                  │
 │    new_analysis: {...}                                       │
 │  }                                                           │
+│  Note: After adaptation, embeddings are generated for        │
+│        all search queries (see step 5a)                      │
 │  Process:                                                    │
 │    - Keep learning flow and structure                        │
 │    - Update titles to match new document                     │
@@ -415,7 +429,30 @@ User requests "Generate Blueprint" →
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  5. process-equations                                        │
+│  5a. generate-query-embeddings  ⚡ NEW OPTIMIZATION!         │
+│  Input:  {                                                   │
+│    all_search_queries: [{                                    │
+│      unit_id, query, target_content, semantic_search_phrase │
+│    }]                                                        │
+│  }                                                           │
+│  Process:                                                    │
+│    - For each search query:                                  │
+│      • Use semantic_search_phrase (preferred) or construct   │
+│        from topic + target_content + query                   │
+│      • Generate 1536-dim embedding via OpenAI API            │
+│      • Attach embedding to query object                      │
+│    - Store embeddings in blueprint_structures table          │
+│  Output: {                                                   │
+│    all_search_queries: [{ ...query, embedding: [1536 dims] }]│
+│  }                                                           │
+│  Time:   ~2-5s (depends on number of queries)                │
+│  Benefit: Eliminates redundant embedding generation during   │
+│           resource search (75% faster searches!)             │
+│  See: QUERY_EMBEDDING_OPTIMIZATION.md for details           │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  5b. process-equations                                       │
 │  Input:  {                                                   │
 │    structure: {...with all units/sections...},              │
 │    analysis: {...}                                           │
@@ -473,6 +510,7 @@ User requests "Generate Blueprint" →
 │  }                                                           │
 │  Process:                                                    │
 │    - Store in blueprint_structures table                     │
+│    - Store all_search_queries with embeddings ⚡ NEW!        │
 │    - Calculate metrics:                                      │
 │      • Total units                                           │
 │      • Total sections                                        │
