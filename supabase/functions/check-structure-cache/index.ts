@@ -173,10 +173,33 @@ async function searchCacheForSection(
 
     // Cache hit!
     const cachedEntry = data[0];
-    console.log(`[check-structure-cache] Cache HIT for section ${sectionWithEmbedding.section_id}`);
+    console.log(`[check-structure-cache] ✅ Cache HIT for section ${sectionWithEmbedding.section_id}`);
     console.log(`  - Similarity: ${(cachedEntry.similarity * 100).toFixed(2)}%`);
     console.log(`  - Times used: ${cachedEntry.times_used}`);
     console.log(`  - Quality score: ${cachedEntry.quality_score}`);
+    
+    // VERIFY cached_unit contains COMPLETE data
+    const cachedUnit = cachedEntry.cached_unit;
+    if (cachedUnit) {
+      if (cachedUnit.units && Array.isArray(cachedUnit.units)) {
+        console.log(`  - Multi-unit cache: ${cachedUnit.units.length} units`);
+        for (let i = 0; i < cachedUnit.units.length; i++) {
+          const unit = cachedUnit.units[i];
+          console.log(`    Unit ${i + 1}: tutor_guidance=${unit.tutor_guidance ? '✓' : '✗'}, target_resource_profile=${unit.target_resource_profile ? '✓' : '✗'}, equations=${unit.equations?.length || 0}`);
+        }
+      } else if (cachedUnit.topic) {
+        console.log(`  - Single-unit cache: "${cachedUnit.topic}"`);
+        console.log(`    - tutor_guidance: ${cachedUnit.tutor_guidance ? '✓' : '✗ MISSING!'} (${cachedUnit.tutor_guidance?.length || 0} chars)`);
+        console.log(`    - target_resource_profile: ${cachedUnit.target_resource_profile ? '✓' : '✗ MISSING!'} (${cachedUnit.target_resource_profile?.length || 0} chars)`);
+        console.log(`    - target_resource_embedding: ${cachedUnit.target_resource_embedding ? '✓' : '✗'} (${cachedUnit.target_resource_embedding?.length || 0} dims)`);
+        console.log(`    - equations: ${cachedUnit.equations?.length || 0}`);
+        console.log(`    - search_queries: ${cachedUnit.search_queries?.length || 0}`);
+      } else {
+        console.warn(`  - ⚠️ Unexpected cached_unit format:`, Object.keys(cachedUnit));
+      }
+    } else {
+      console.warn(`  - ⚠️ cached_unit is NULL or undefined!`);
+    }
 
     // Increment usage counter
     await supabase.rpc('increment_section_cache_usage', {
@@ -187,7 +210,7 @@ async function searchCacheForSection(
       section_id: sectionWithEmbedding.section_id,
       section_type: sectionWithEmbedding.section_type,
       cache_hit: true,
-      cached_unit: cachedEntry.cached_unit,
+      cached_unit: cachedEntry.cached_unit, // Return COMPLETE cached data
       similarity: cachedEntry.similarity,
       cache_id: cachedEntry.id,
       times_used: cachedEntry.times_used + 1, // Reflect the increment

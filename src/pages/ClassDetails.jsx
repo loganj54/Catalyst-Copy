@@ -699,7 +699,7 @@ const ClassDetails = () => {
                       Create and manage your engineering blueprints and diagrams for this class.
                     </p>
                     <button 
-                      onClick={() => setIsBlueprintModalOpen(true)}
+                      onClick={() => navigate('/create', { state: { initialClassId: id } })}
                       className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 shadow-sm"
                     >
                       <Plus className="w-5 h-5" />

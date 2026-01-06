@@ -8,6 +8,7 @@
 // ============================================================================
 
 import { generateEmbedding } from './embeddings.ts';
+import { upsertVectors, queryVectors } from './pinecone-client.ts';
 import type { 
   AnalysisResult, 
   AnalysisSection, 
@@ -103,7 +104,7 @@ export async function generateSectionEmbedding(
   console.log(`  - Source: ${source}`);
   console.log(`  - Text length: ${text.length} chars`);
   
-  // Generate the embedding using the shared embeddings utility
+  // Generate 3072-dim embedding for Pinecone section caching
   const embeddingResponse = await generateEmbedding(text);
   
   // Extract just the embedding array (not the full response object)
@@ -152,6 +153,14 @@ export async function generateAllSectionEmbeddings(
  * 
  * IMPORTANT: This creates ONE cache entry PER SECTION (not per unit)
  * Each section gets its own row in the database with all its details
+ * 
+ * CRITICAL: Store the COMPLETE learning unit data including:
+ * - tutor_guidance (core overview/explanation)
+ * - target_resource_profile (description of ideal resource)
+ * - target_resource_embedding (pre-computed embedding)
+ * - equations (key equations with LaTeX)
+ * - search_queries (for resource finding)
+ * - All other unit fields
  */
 export function prepareSectionsForCache(
   sectionsWithEmbeddings: SectionWithEmbedding[],
@@ -169,9 +178,31 @@ export function prepareSectionsForCache(
       continue;
     }
     
+    // VERIFY all required fields are present before caching
+    console.log(`[section-embeddings] Preparing ${units.length} unit(s) for section ${sectionWithEmbedding.section_id}:`);
+    for (let i = 0; i < units.length; i++) {
+      const unit = units[i];
+      console.log(`[section-embeddings]   Unit ${i + 1} (${unit.unit_id || 'no-id'}):`);
+      console.log(`[section-embeddings]     - topic: ${unit.topic ? '✓' : '✗ MISSING'}`);
+      console.log(`[section-embeddings]     - tutor_guidance: ${unit.tutor_guidance ? '✓' : '✗ MISSING'} (${unit.tutor_guidance?.length || 0} chars)`);
+      console.log(`[section-embeddings]     - target_resource_profile: ${unit.target_resource_profile ? '✓' : '✗ MISSING'} (${unit.target_resource_profile?.length || 0} chars)`);
+      console.log(`[section-embeddings]     - target_resource_embedding: ${unit.target_resource_embedding ? '✓' : '✗ MISSING'} (${unit.target_resource_embedding?.length || 0} dims)`);
+      console.log(`[section-embeddings]     - equations: ${unit.equations ? '✓' : '✗'} (${unit.equations?.length || 0} equations)`);
+      console.log(`[section-embeddings]     - search_queries: ${unit.search_queries ? '✓' : '✗'} (${unit.search_queries?.length || 0} queries)`);
+      
+      // Warn if critical fields are missing
+      if (!unit.tutor_guidance) {
+        console.warn(`[section-embeddings] ⚠️ WARNING: Unit "${unit.topic}" is missing tutor_guidance!`);
+      }
+      if (!unit.target_resource_profile) {
+        console.warn(`[section-embeddings] ⚠️ WARNING: Unit "${unit.topic}" is missing target_resource_profile!`);
+      }
+    }
+    
     // Cache ONE entry per section
     // If multiple units were generated for a section, we store them all in cached_unit
     // (typically there should be 1-3 units per section)
+    // IMPORTANT: Store the COMPLETE unit objects with ALL fields
     const cachedUnit = units.length === 1 ? units[0] : {
       units: units,
       primary_unit: units[0] // First unit is the primary one
@@ -182,12 +213,12 @@ export function prepareSectionsForCache(
       section_type: sectionWithEmbedding.section_type,
       section_embedding: sectionWithEmbedding.embedding,
       embedding_source: sectionWithEmbedding.embedding_source,
-      cached_unit: cachedUnit,
+      cached_unit: cachedUnit, // Contains COMPLETE learning unit data
       // Include original section data for database columns
       original_section: sectionWithEmbedding.section_data
     });
     
-    console.log(`[section-embeddings] Prepared section ${sectionWithEmbedding.section_id} for caching with ${units.length} unit(s)`);
+    console.log(`[section-embeddings] ✅ Prepared section ${sectionWithEmbedding.section_id} for caching with ${units.length} unit(s) (COMPLETE data)`);
   }
   
   console.log(`[section-embeddings] Total sections prepared for caching: ${sectionsToCache.length}`);
@@ -251,6 +282,257 @@ export function getValidSections(analysis: AnalysisResult): AnalysisSection[] {
   console.log(`[section-embeddings] Validated ${validSections.length}/${sections.length} sections`);
   
   return validSections;
+}
+
+/**
+ * Store section embeddings in Pinecone for caching
+ * @param sectionsWithEmbeddings - Sections with their embeddings
+ * @param generatedUnits - Map of section_id to generated learning units
+ * @param blueprintId - Blueprint ID for tracking
+ */
+export async function storeSectionsInPinecone(
+  sectionsWithEmbeddings: SectionWithEmbedding[],
+  generatedUnits: Map<string, any>,
+  blueprintId: string
+): Promise<{ stored: number; failed: number }> {
+  let stored = 0;
+  let failed = 0;
+  const vectors: any[] = [];
+
+  for (const sectionWithEmbedding of sectionsWithEmbeddings) {
+    const units = generatedUnits.get(sectionWithEmbedding.section_id);
+    
+    if (!units || units.length === 0) {
+      console.warn(`[section-embeddings] No units for section ${sectionWithEmbedding.section_id}, skipping Pinecone storage`);
+      failed++;
+      continue;
+    }
+
+    // Prepare cached unit data (same format as Supabase)
+    const cachedUnit = units.length === 1 ? units[0] : {
+      units: units,
+      primary_unit: units[0]
+    };
+
+    // Create Pinecone vector (DON'T store cached_unit - too large!)
+    // We'll fetch the full unit from Supabase using blueprint_id + section_id
+    // Use timestamp to ensure uniqueness even for same blueprint/section
+    const timestamp = Date.now();
+    const pineconeId = `section-${blueprintId}-${sectionWithEmbedding.section_id}-${timestamp}`;
+    vectors.push({
+      id: pineconeId,
+      values: sectionWithEmbedding.embedding,
+      metadata: {
+        blueprint_id: blueprintId,
+        section_id: sectionWithEmbedding.section_id,
+        section_type: sectionWithEmbedding.section_type,
+        embedding_source: sectionWithEmbedding.embedding_source,
+        timestamp: timestamp.toString(),
+        // Store only searchable metadata, not the full cached_unit
+        problem_statement: sectionWithEmbedding.section_data.problem_statement?.substring(0, 500),
+        topic_summary: sectionWithEmbedding.section_data.topic_summary?.substring(0, 500),
+        concepts_tested: sectionWithEmbedding.section_data.concepts_tested?.join(', ').substring(0, 500),
+        type: 'section'
+      }
+    });
+  }
+
+  // Batch upsert to Pinecone
+  if (vectors.length > 0) {
+    try {
+      console.log(`[section-embeddings] Upserting ${vectors.length} sections to Pinecone...`);
+      await upsertVectors(vectors, 'sections');
+      stored = vectors.length;
+      console.log(`[section-embeddings] Successfully stored ${stored} sections in Pinecone`);
+    } catch (error) {
+      console.error('[section-embeddings] Failed to store sections in Pinecone:', error);
+      failed = vectors.length;
+    }
+  }
+
+  return { stored, failed };
+}
+
+/**
+ * Query Pinecone for similar cached sections
+ * Note: Pinecone only stores metadata for matching, not the full cached_unit
+ * After finding matches, we need to fetch the full cached_unit from Supabase
+ * 
+ * The Pinecone vector similarity (≥95%) already validates that the content is
+ * semantically similar, so we fetch from Supabase by section_id only.
+ * 
+ * @param sectionEmbedding - The embedding of the section to match
+ * @param sectionType - Type of section (problem/topic)
+ * @param similarityThreshold - Minimum similarity score (0-1)
+ * @param supabase - Supabase client to fetch full cached_unit
+ * @param subjectArea - DEPRECATED: No longer used (kept for backwards compatibility)
+ * @param specificTopic - DEPRECATED: No longer used (kept for backwards compatibility)
+ * @returns Array of matching cached sections with full data
+ */
+export async function querySimilarSectionsFromPinecone(
+  sectionEmbedding: number[],
+  sectionType: string,
+  similarityThreshold: number = 0.95,
+  supabase?: any,
+  subjectArea?: string,
+  specificTopic?: string
+): Promise<any[]> {
+  try {
+    console.log(`[section-embeddings] Querying Pinecone for similar ${sectionType} sections...`);
+    
+    const results = await queryVectors(
+      sectionEmbedding,
+      5, // Get top 5 matches
+      { type: 'section', section_type: sectionType }, // Filter by section type
+      'sections',
+      true // Include metadata
+    );
+
+    if (!results.matches || results.matches.length === 0) {
+      console.log('[section-embeddings] No similar sections found in Pinecone');
+      return [];
+    }
+
+    // Filter by similarity threshold
+    const highQualityMatches = results.matches.filter(m => m.score >= similarityThreshold);
+    
+    if (highQualityMatches.length === 0) {
+      console.log(`[section-embeddings] No matches above ${similarityThreshold * 100}% similarity`);
+      return [];
+    }
+
+    console.log(`[section-embeddings] Found ${highQualityMatches.length} similar sections in Pinecone (>${similarityThreshold * 100}% similarity)`);
+
+    // If we have Supabase client, fetch full cached_unit data
+    if (supabase && highQualityMatches.length > 0) {
+      // Build array of section_ids from Pinecone matches
+      // NOTE: blueprint_id is optional - we can match by section_id alone
+      const sectionKeys = highQualityMatches
+        .map(m => ({
+          section_id: m.metadata?.section_id,
+          blueprint_id: m.metadata?.blueprint_id // May be undefined
+        }))
+        .filter(k => k.section_id); // Only require section_id, not blueprint_id
+      
+      console.log(`[section-embeddings] Found ${sectionKeys.length} section keys from ${highQualityMatches.length} Pinecone matches`);
+      
+      if (sectionKeys.length > 0) {
+        console.log(`[section-embeddings] Fetching full cached_unit data from Supabase for ${sectionKeys.length} sections...`);
+        console.log(`[section-embeddings] Section keys:`, JSON.stringify(sectionKeys));
+        
+        // Fetch all matching sections by section_id
+        const sectionIds = [...new Set(sectionKeys.map(k => k.section_id))]; // Deduplicate
+        console.log(`[section-embeddings] Querying Supabase for section_ids:`, sectionIds);
+        
+        console.log(`[section-embeddings] Executing Supabase query for cached_blueprint_structures...`);
+        console.log(`[section-embeddings] Querying by section_id only (Pinecone already validated semantic similarity)`);
+        
+        // Query by section_id ONLY
+        // The Pinecone vector match already confirmed semantic similarity (≥95%),
+        // so we trust that match and just fetch the cached_unit by section_id.
+        // This avoids issues where subject_area or specific_topic have slight variations.
+        const { data: cachedSections, error } = await supabase
+          .from('cached_blueprint_structures')
+          .select('section_id, cached_unit, subject_area, specific_topic')
+          .in('section_id', sectionIds);
+        
+        if (error) {
+          console.error(`[section-embeddings] ❌ Supabase query error:`, error);
+          console.error(`[section-embeddings] Error details:`, JSON.stringify(error));
+        }
+        
+        console.log(`[section-embeddings] Supabase query complete. Returned ${cachedSections?.length || 0} rows`);
+        
+        if (cachedSections && cachedSections.length > 0) {
+          console.log(`[section-embeddings] First row sample:`, {
+            section_id: cachedSections[0].section_id,
+            subject_area: cachedSections[0].subject_area,
+            specific_topic: cachedSections[0].specific_topic,
+            has_cached_unit: !!cachedSections[0].cached_unit,
+            cached_unit_type: typeof cachedSections[0].cached_unit
+          });
+        }
+        
+        if (!error && cachedSections && cachedSections.length > 0) {
+          console.log(`[section-embeddings] Found ${cachedSections.length} potential matches in Supabase`);
+          console.log(`[section-embeddings] Available in Supabase:`, cachedSections.map(s => s.section_id));
+          
+          // Map Pinecone matches to Supabase data by section_id
+          const validMatches = [];
+          
+          for (const match of highQualityMatches) {
+            const matchSectionId = match.metadata?.section_id;
+            const matchBlueprintId = match.metadata?.blueprint_id;
+            
+            console.log(`[section-embeddings] Looking for section "${matchSectionId}"`);
+            
+            // Match by section_id only (cached data is reusable across blueprints)
+            const supabaseData = cachedSections.find(s => s.section_id === matchSectionId);
+            
+            if (!supabaseData) {
+              console.warn(`[section-embeddings] ❌ No Supabase data found for section "${matchSectionId}"`);
+              continue;
+            }
+            
+            // VERIFY cached_unit contains data
+            const cachedUnit = supabaseData.cached_unit;
+            if (!cachedUnit) {
+              console.warn(`[section-embeddings] ❌ cached_unit is NULL for section "${matchSectionId}"`);
+              continue;
+            }
+            
+            console.log(`[section-embeddings] ✅ Retrieved cached section ${matchSectionId}:`);
+            
+            // Check if it's a multi-unit or single-unit cache entry
+            if (cachedUnit?.units && Array.isArray(cachedUnit.units)) {
+              console.log(`[section-embeddings]   - Multi-unit cache: ${cachedUnit.units.length} units`);
+              for (let i = 0; i < cachedUnit.units.length; i++) {
+                const unit = cachedUnit.units[i];
+                console.log(`[section-embeddings]   Unit ${i + 1}: tutor_guidance=${unit.tutor_guidance ? '✓' : '✗'}, target_resource_profile=${unit.target_resource_profile ? '✓' : '✗'}, equations=${unit.equations?.length || 0}`);
+              }
+            } else if (cachedUnit?.topic) {
+              console.log(`[section-embeddings]   - Single-unit cache: "${cachedUnit.topic}"`);
+              console.log(`[section-embeddings]   - tutor_guidance: ${cachedUnit.tutor_guidance ? '✓' : '✗ MISSING'} (${cachedUnit.tutor_guidance?.length || 0} chars)`);
+              console.log(`[section-embeddings]   - target_resource_profile: ${cachedUnit.target_resource_profile ? '✓' : '✗ MISSING'} (${cachedUnit.target_resource_profile?.length || 0} chars)`);
+              console.log(`[section-embeddings]   - equations: ${cachedUnit.equations?.length || 0}`);
+              console.log(`[section-embeddings]   - search_queries: ${cachedUnit.search_queries?.length || 0}`);
+            } else {
+              console.warn(`[section-embeddings] ⚠️ Unexpected cached_unit format:`, Object.keys(cachedUnit || {}));
+            }
+            
+            validMatches.push({
+              section_id: matchSectionId,
+              section_type: match.metadata?.section_type,
+              cached_unit: cachedUnit, // Return COMPLETE cached data
+              similarity: match.score,
+              source: 'pinecone',
+              pinecone_id: match.id,
+              blueprint_id: matchBlueprintId
+            });
+          }
+          
+          console.log(`[section-embeddings] Returning ${validMatches.length} valid cached sections`);
+          return validMatches;
+        } else {
+          console.warn(`[section-embeddings] ⚠️ No matching sections found in Supabase for section_ids:`, sectionIds);
+        }
+      }
+    }
+
+    // Fallback: return matches without cached_unit (caller will need to handle)
+    return highQualityMatches.map(match => ({
+      section_id: match.metadata?.section_id,
+      section_type: match.metadata?.section_type,
+      cached_unit: null, // Will need to be fetched separately
+      similarity: match.score,
+      source: 'pinecone',
+      pinecone_id: match.id
+    }));
+
+  } catch (error) {
+    console.error('[section-embeddings] Error querying Pinecone for sections:', error);
+    return [];
+  }
 }
 
 

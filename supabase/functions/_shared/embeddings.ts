@@ -1,13 +1,13 @@
 // ============================================================================
 // EMBEDDING GENERATION HELPER
 // ============================================================================
-// Generates vector embeddings using OpenAI's text-embedding-3-small model
+// Generates vector embeddings using OpenAI's text-embedding-3-large model
 // for semantic similarity matching in the resource caching system.
 // ============================================================================
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-const EMBEDDING_MODEL = 'text-embedding-3-small';
-const EMBEDDING_DIMENSIONS = 1536;
+const EMBEDDING_MODEL = 'text-embedding-3-large';
+const EMBEDDING_DIMENSIONS = 3072;
 
 export interface EmbeddingResponse {
   embedding: number[];
@@ -15,10 +15,93 @@ export interface EmbeddingResponse {
 }
 
 /**
- * Generate a vector embedding for the given text using OpenAI's embedding API.
+ * Generate a 1536-dimensional embedding for Supabase pgvector (section caching)
+ * Uses text-embedding-3-large with dimensions parameter set to 1536
  * 
  * @param text - The text to generate an embedding for
  * @returns The embedding vector (1536 dimensions) and token count
+ * @throws Error if the API call fails or returns invalid data
+ */
+export async function generateEmbedding1536(text: string): Promise<EmbeddingResponse> {
+  if (!OPENAI_API_KEY) {
+    throw new Error(
+      'OPENAI_API_KEY is not set. Run: supabase secrets set OPENAI_API_KEY=your-key'
+    );
+  }
+
+  if (!text || text.trim().length === 0) {
+    throw new Error('Cannot generate embedding for empty text');
+  }
+
+  // Truncate very long text to avoid token limits
+  const maxChars = 30000;
+  const truncatedText = text.length > maxChars 
+    ? text.substring(0, maxChars) + '...'
+    : text;
+
+  console.log('[embeddings] Generating 1536-dim embedding for section caching...');
+  console.log(`  - Model: ${EMBEDDING_MODEL}`);
+  console.log(`  - Dimensions: 1536 (for Supabase pgvector)`);
+  console.log(`  - Text length: ${truncatedText.length} chars`);
+
+  const response = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: EMBEDDING_MODEL,
+      input: truncatedText,
+      dimensions: 1536, // Force 1536 for Supabase compatibility
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[embeddings] OpenAI API error:', response.status, errorText);
+    throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+
+  if (!data.data || !data.data[0] || !data.data[0].embedding) {
+    console.error('[embeddings] Invalid response structure:', JSON.stringify(data));
+    throw new Error('Invalid embedding response from OpenAI');
+  }
+
+  const embedding = data.data[0].embedding;
+  const tokensUsed = data.usage?.total_tokens || 0;
+
+  console.log(`[embeddings] Generated ${embedding.length}-dimension embedding`);
+  console.log(`  - Tokens used: ${tokensUsed}`);
+
+  // CRITICAL: Ensure embedding is exactly 1536 dimensions
+  // The API *should* return 1536 because we requested it, but if it returns 3072,
+  // we must slice it to avoid database constraint errors.
+  // text-embedding-3-large supports variable dimensions via truncation.
+  let finalEmbedding = embedding;
+  if (embedding.length > 1536) {
+    console.warn(`[embeddings] Warning: API returned ${embedding.length} dimensions despite requesting 1536. Truncating to 1536.`);
+    finalEmbedding = embedding.slice(0, 1536);
+  } else if (embedding.length < 1536) {
+    console.warn(`[embeddings] Warning: API returned ${embedding.length} dimensions. Padding to 1536.`);
+    // Pad with zeros if too short (unlikely)
+    finalEmbedding = [...embedding, ...new Array(1536 - embedding.length).fill(0)];
+  }
+
+  return {
+    embedding: finalEmbedding,
+    tokens_used: tokensUsed,
+  };
+}
+
+/**
+ * Generate a vector embedding for the given text using OpenAI's embedding API.
+ * Uses 3072 dimensions for Pinecone storage (target profiles, resources)
+ * 
+ * @param text - The text to generate an embedding for
+ * @returns The embedding vector (3072 dimensions) and token count
  * @throws Error if the API call fails or returns invalid data
  */
 export async function generateEmbedding(text: string): Promise<EmbeddingResponse> {
@@ -52,6 +135,7 @@ export async function generateEmbedding(text: string): Promise<EmbeddingResponse
     body: JSON.stringify({
       model: EMBEDDING_MODEL,
       input: truncatedText,
+      dimensions: EMBEDDING_DIMENSIONS, // Specify 3072 dims for Pinecone
     }),
   });
 
@@ -120,6 +204,7 @@ export async function generateEmbeddings(texts: string[]): Promise<EmbeddingResp
     body: JSON.stringify({
       model: EMBEDDING_MODEL,
       input: processedTexts,
+      dimensions: EMBEDDING_DIMENSIONS, // Specify 3072 dims for Pinecone
     }),
   });
 

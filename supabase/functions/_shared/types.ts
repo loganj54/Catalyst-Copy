@@ -608,6 +608,25 @@ export interface AnalysisSection {
   common_mistakes?: string[];
 }
 
+/**
+ * Learning Structure Hierarchy:
+ * 
+ * LEVEL 1 - SECTION LEVEL (appears as tabs in UI):
+ *   - Prerequisites (optional)
+ *   - Problem 1, Problem 2, Problem 3... (for homework/problem_set documents)
+ *   - Topic 1, Topic 2, Topic 3... (for lecture documents)
+ * 
+ * LEVEL 2 - CONCEPT LEVEL (appears as dropdown items in UI):
+ *   - Individual concepts within each section
+ *   - Represented as LearningUnit objects in the learning_units array
+ *   - Each concept has: tutor_guidance, target_resource_profile, equations, figures, search_queries
+ * 
+ * Example for Homework:
+ *   Problem 1 (section) → [Force Analysis (concept), Energy Conservation (concept), Walkthrough (concept)]
+ * 
+ * Example for Lecture:
+ *   Topic 1 (section) → [Newton's Laws (concept), Free Body Diagrams (concept), Force Analysis (concept)]
+ */
 export interface LearningStructure {
   summary: {
     title: string;
@@ -624,13 +643,19 @@ export interface PrerequisitesSection {
   learning_units: LearningUnit[];
 }
 
+/**
+ * ContentSection represents a SECTION (Level 1 in hierarchy)
+ * - For homework: This is a "Problem" (e.g., "Problem 1", "Problem 2")
+ * - For lectures: This is a "Topic" (e.g., "Topic 1", "Topic 2")
+ * - Contains multiple learning_units (concepts) that appear as dropdown items
+ */
 export interface ContentSection {
   section_id: string;
   section_type: 'problem' | 'topic' | 'chapter';
   title: string;
   description: string;
   concepts: string[];
-  learning_units: LearningUnit[];
+  learning_units: LearningUnit[]; // CONCEPT LEVEL - each unit is a dropdown item in UI
   problem_details?: {
     original_problem_id: string;
     key_equations: string[];
@@ -638,10 +663,17 @@ export interface ContentSection {
   };
 }
 
+/**
+ * LearningUnit represents a CONCEPT (Level 2 in hierarchy)
+ * - This is what appears as a dropdown item in the UI
+ * - For homework: Individual concepts like "Force Analysis", "Energy Conservation"
+ * - For lectures: Individual concepts like "Newton's Laws", "Free Body Diagrams"
+ * - Each concept has full structure: tutor_guidance, target_resource_profile, equations, figures, search queries
+ */
 export interface LearningUnit {
   unit_id: string;
   unit_type: 'prerequisite' | 'topic' | 'walkthrough';
-  topic: string;
+  topic: string; // The concept name (e.g., "Newton's Second Law", "Force Analysis")
   description?: string;
   learning_objective?: string;
   tutor_guidance: string;

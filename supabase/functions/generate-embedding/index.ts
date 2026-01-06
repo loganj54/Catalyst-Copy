@@ -10,7 +10,7 @@ import { withSelfHealing } from '../_shared/error-wrapper.ts';
 import type { GenerateEmbeddingInput, GenerateEmbeddingOutput, FunctionError } from '../_shared/types.ts';
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-const EMBEDDING_MODEL = 'text-embedding-3-small';
+const EMBEDDING_MODEL = 'text-embedding-3-large';
 const MAX_TEXT_LENGTH = 8000;
 const MAX_RETRIES = 3;
 const TIMEOUT_MS = 10000;

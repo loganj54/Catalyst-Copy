@@ -1193,7 +1193,7 @@ const Blueprint = () => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       
-      const response = await fetch(`${supabaseUrl}/functions/v1/analyze-document`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1/analyze-document-legacy`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ blueprint_id: id }),

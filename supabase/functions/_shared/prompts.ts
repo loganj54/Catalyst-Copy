@@ -213,6 +213,23 @@ When the document is a lecture (content_classification.primary_type is "lecture"
 - Worked examples mentioned in topics are teaching aids, not problems to solve
 - Generate search queries that help students LEARN the concepts, not solve homework
 
+LECTURE CONCEPT EXPANSION - CRITICAL:
+For lecture documents, each topic section should contain INDIVIDUAL CONCEPTS as separate learning_units:
+- Look at the key_concepts array in each section of the input
+- Convert EACH key_concept into a FULL learning_unit with ALL required fields
+- CONSOLIDATE similar/duplicate concepts first (e.g., "Newton's 2nd Law" and "F=ma relationship" → one concept)
+- LIMIT to maximum 5 concepts per topic section (prioritize most important/unique concepts)
+- Each concept learning_unit must have:
+  * unit_id: "topic-X-concept-Y" format
+  * unit_type: "topic"
+  * topic: The concept name (from key_concepts)
+  * tutor_guidance: 2-3 sentences explaining THIS SPECIFIC CONCEPT
+  * target_resource_profile: Description of ideal video for THIS SPECIFIC CONCEPT (2-3 sentences)
+  * search_queries: 3 queries specific to THIS CONCEPT
+  * equations: Equations relevant to THIS CONCEPT (if applicable)
+  * suggested_figures: 0-2 figures for THIS CONCEPT (if essential)
+- Example: If Topic 1 has key_concepts ["Newton's Laws", "Free Body Diagrams", "Force Analysis"], create 3 separate learning_units, one for each concept
+
 DYNAMIC SECTION NAMING:
 - For sections with section_type: "problem" → title should be "Problem X: [Description]"
 - For sections with section_type: "topic" → title should be "Topic X: [Description]"
@@ -324,16 +341,18 @@ INSTRUCTIONS:
 2. Create prerequisites_section with units (unit_type: "prerequisite")
 3. Create content_sections for ALL sections in the input
 4. For PROBLEM sections: Break into concept units + final walkthrough unit
-5. Generate EXACTLY 3 search queries per unit (introduction, tutorial, example)
-6. Keep tutor_guidance to 2-3 sentences
-7. ALL queries MUST include "youtube"
-8. AGGRESSIVELY include equations for every unit where applicable (keep variables brief)
-9. MANDATORY: Generate a "target_resource_profile" for EVERY unit that describes the perfect video match.
-   - CONCEPT/PREREQUISITE units: "A video explaining [Topic] clearly, covering [key concepts], with examples demonstrating [applications]..." (2-3 sentences)
-   - WALKTHROUGH units: "A video solving this problem: [COPY THE COMPLETE problem_statement FROM THE INPUT SECTION - include ALL given values with units, unknowns, conditions, assumptions, and full context]. The video should demonstrate step-by-step calculations using [specific equations from equations_needed], explain [concepts from concepts_tested], and show [steps from solving_approach]." (Include the ENTIRE problem_statement field from the input)
-10. FOR WALKTHROUGH UNITS: Extract the problem_statement from the corresponding section in the input data and include it verbatim in the target_resource_profile
-11. OPTIONALLY suggest 0-2 essential figures per unit (only if critical)
-12. **CRITICAL**: Complete all JSON brackets - if approaching token limit, skip suggested_figures entirely and focus on completing the structure
+5. For LECTURE/TOPIC sections: Convert each key_concept into a FULL learning_unit (consolidate similar ones, max 5 per topic)
+6. Generate EXACTLY 3 search queries per unit (introduction, tutorial, example)
+7. Keep tutor_guidance to 2-3 sentences
+8. ALL queries MUST include "youtube"
+9. AGGRESSIVELY include equations for every unit where applicable (keep variables brief)
+10. MANDATORY: Generate a "target_resource_profile" for EVERY unit that describes the perfect video match.
+    - CONCEPT/PREREQUISITE units: "A video explaining [Topic] clearly, covering [key concepts], with examples demonstrating [applications]..." (2-3 sentences)
+    - WALKTHROUGH units: "A video solving this problem: [COPY THE COMPLETE problem_statement FROM THE INPUT SECTION - include ALL given values with units, unknowns, conditions, assumptions, and full context]. The video should demonstrate step-by-step calculations using [specific equations from equations_needed], explain [concepts from concepts_tested], and show [steps from solving_approach]." (Include the ENTIRE problem_statement field from the input)
+11. FOR WALKTHROUGH UNITS: Extract the problem_statement from the corresponding section in the input data and include it verbatim in the target_resource_profile
+12. FOR LECTURE CONCEPTS: Each key_concept becomes its own learning_unit with all fields (tutor_guidance, target_resource_profile, search_queries, equations, etc.)
+13. OPTIONALLY suggest 0-2 essential figures per unit (only if critical)
+14. **CRITICAL**: Complete all JSON brackets - if approaching token limit, skip suggested_figures entirely and focus on completing the structure
 
 INPUT DATA:
 ${JSON.stringify(input, null, 2)}

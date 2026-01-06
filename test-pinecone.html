@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Pinecone Integration</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        button {
+            background: #FF4A1C;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #e03d15;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border-left: 4px solid #FF4A1C;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .success {
+            border-left-color: #10b981;
+        }
+        .error {
+            border-left-color: #ef4444;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Pinecone Integration</h1>
+        
+        <div class="test-section" style="background: #fff3cd; border-left: 4px solid #ffc107;">
+            <h3>⚠️ Setup Required</h3>
+            <p><strong>Before testing, you need to add your Supabase anon key:</strong></p>
+            <ol>
+                <li>Go to: <a href="https://supabase.com/dashboard/project/breeiehhmibttsugorly/settings/api" target="_blank">Supabase API Settings</a></li>
+                <li>Copy the <strong>anon public</strong> key</li>
+                <li>Open this HTML file in a text editor</li>
+                <li>Replace <code>YOUR_ANON_KEY_HERE</code> with your actual key (around line 107)</li>
+                <li>Save and refresh this page</li>
+            </ol>
+        </div>
+        
+        <div class="test-section">
+            <h3>1. Store a Test Vector</h3>
+            <p>This will generate a 3072-dimensional embedding and store it in Pinecone.</p>
+            <input type="text" id="storeText" placeholder="Enter text to store (e.g., Newton's Laws of Motion)" value="Newton's Laws of Motion explain force, mass, and acceleration">
+            <button onclick="testStore()">Store Vector in Pinecone</button>
+            <div id="storeResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Search for Similar Vectors</h3>
+            <p>Search for vectors similar to your query.</p>
+            <input type="text" id="searchText" placeholder="Enter search query (e.g., force and acceleration)" value="force and acceleration">
+            <button onclick="testSearch()">Search Pinecone</button>
+            <div id="searchResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Search Target Profiles Namespace</h3>
+            <p>Search for similar target resource profiles from blueprints.</p>
+            <input type="text" id="targetSearchText" placeholder="Enter search query (e.g., Newton's Laws explanation)" value="Newton's Laws with examples">
+            <button onclick="searchTargetProfiles()">Search Target Profiles</button>
+            <div id="targetSearchResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Search Sections Namespace</h3>
+            <p>Search for cached blueprint sections (problems/topics).</p>
+            <input type="text" id="sectionSearchText" placeholder="Enter problem/topic description" value="block sliding down incline">
+            <button onclick="searchSectionsNamespace()">Search Sections</button>
+            <div id="sectionSearchResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>5. Search Resources Namespace</h3>
+            <p>Search for cached educational resources.</p>
+            <input type="text" id="resourceSearchText" placeholder="Enter search query (e.g., physics tutorial)" value="physics tutorial video">
+            <button onclick="searchResourcesNamespace()">Search Resources</button>
+            <div id="resourceSearchResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>6. Get Index Statistics</h3>
+            <p>See how many vectors are in each namespace.</p>
+            <button onclick="getStats()">Get Stats</button>
+            <div id="statsResult"></div>
+        </div>
+
+        <div class="test-section" style="background: #ffebee; border-left: 4px solid #ef5350;">
+            <h3>⚠️ 7. Cleanup (Danger Zone)</h3>
+            <p><strong>Delete all vectors from a namespace. This cannot be undone!</strong></p>
+            <button onclick="cleanupNamespace('sections')" style="background: #ef5350;">Delete All Sections</button>
+            <button onclick="cleanupNamespace('target_profiles')" style="background: #ef5350;">Delete All Target Profiles</button>
+            <button onclick="cleanupNamespace('resources')" style="background: #ef5350;">Delete All Resources</button>
+            <div id="cleanupResult"></div>
+        </div>
+    </div>
+
+    <script>
+        // ⚠️ REPLACE THESE WITH YOUR ACTUAL VALUES ⚠️
+        // Get these from: https://supabase.com/dashboard/project/breeiehhmibttsugorly/settings/api
+        const SUPABASE_URL = 'https://breeiehhmibttsugorly.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJyZWVpZWhobWlidHRzdWdvcmx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUyMjYzNzIsImV4cCI6MjA4MDgwMjM3Mn0.OrEFC1dFWehvUVakN-JK6weB39auoTajhYohu2UgjPw'; // ⬅️ Replace this!
+
+        async function callFunction(action, text, namespace) {
+            // Check if anon key is set
+            if (SUPABASE_ANON_KEY === 'YOUR_ANON_KEY_HERE') {
+                alert('⚠️ Please set your SUPABASE_ANON_KEY first!\n\nSee the yellow box above for instructions.');
+                return { error: 'Anon key not configured' };
+            }
+
+            const button = event.target;
+            button.disabled = true;
+            const originalText = button.textContent;
+            button.textContent = 'Loading...';
+
+            try {
+                const body = { action, text };
+                if (namespace) {
+                    body.namespace = namespace;
+                }
+
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/test-pinecone`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                return { error: error.message };
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        async function testStore() {
+            const text = document.getElementById('storeText').value;
+            const resultDiv = document.getElementById('storeResult');
+            
+            resultDiv.innerHTML = '<div class="result">⏳ Generating embedding and storing in Pinecone...</div>';
+            
+            const result = await callFunction('test_store', text);
+            
+            if (result.success) {
+                resultDiv.innerHTML = `<div class="result success">✅ Success!
+                
+Vector ID: ${result.vector_id}
+Dimensions: ${result.dimensions}
+Text: ${result.text}
+
+Check your Pinecone dashboard - you should see a new vector!</div>`;
+            } else {
+                resultDiv.innerHTML = `<div class="result error">❌ Error: ${result.error}</div>`;
+            }
+        }
+
+        async function testSearch() {
+            const text = document.getElementById('searchText').value;
+            const resultDiv = document.getElementById('searchResult');
+            
+            resultDiv.innerHTML = '<div class="result">⏳ Searching Pinecone...</div>';
+            
+            const result = await callFunction('test_search', text);
+            
+            if (result.success) {
+                const matchesText = result.matches.length > 0 
+                    ? result.matches.map((m, i) => `
+Match ${i + 1}:
+  ID: ${m.id}
+  Similarity: ${(m.score * 100).toFixed(2)}%
+  Text: ${m.metadata?.text || 'N/A'}
+`).join('\n')
+                    : 'No matches found. Store some vectors first!';
+                
+                resultDiv.innerHTML = `<div class="result success">✅ Search Complete!
+
+Query: ${result.query}
+Found: ${result.matches.length} matches
+
+${matchesText}</div>`;
+            } else {
+                resultDiv.innerHTML = `<div class="result error">❌ Error: ${result.error}</div>`;
+            }
+        }
+
+        async function searchTargetProfiles() {
+            const text = document.getElementById('targetSearchText').value;
+            const resultDiv = document.getElementById('targetSearchResult');
+            
+            resultDiv.innerHTML = '<div class="result">⏳ Searching target_profiles namespace...</div>';
+            
+            const result = await callFunction('search_namespace', text, 'target_profiles');
+            
+            if (result.success) {
+                const matchesText = result.matches.length > 0 
+                    ? result.matches.map((m, i) => `
+Match ${i + 1}:
+  ID: ${m.id}
+  Similarity: ${(m.score * 100).toFixed(2)}%
+  Topic: ${m.metadata?.topic || 'N/A'}
+  Unit Type: ${m.metadata?.unit_type || 'N/A'}
+  Section: ${m.metadata?.section_type || 'N/A'}
+  Blueprint ID: ${m.metadata?.blueprint_id || 'N/A'}
+  Target Profile: ${m.metadata?.target_profile?.substring(0, 150) || 'N/A'}...
+`).join('\n')
+                    : 'No target profiles found. Generate a blueprint first!';
+                
+                resultDiv.innerHTML = `<div class="result success">✅ Search Complete!
+
+Query: ${result.query}
+Namespace: target_profiles
+Found: ${result.matches.length} matches
+
+${matchesText}</div>`;
+            } else {
+                resultDiv.innerHTML = `<div class="result error">❌ Error: ${result.error}</div>`;
+            }
+        }
+
+        async function searchSectionsNamespace() {
+            const text = document.getElementById('sectionSearchText').value;
+            const resultDiv = document.getElementById('sectionSearchResult');
+            
+            resultDiv.innerHTML = '<div class="result">⏳ Searching sections namespace...</div>';
+            
+            const result = await callFunction('search_namespace', text, 'sections');
+            
+            if (result.success) {
+                const matchesText = result.matches.length > 0 
+                    ? result.matches.map((m, i) => `
+Match ${i + 1}:
+  ID: ${m.id}
+  Similarity: ${(m.score * 100).toFixed(2)}%
+  Section ID: ${m.metadata?.section_id || 'N/A'}
+  Section Type: ${m.metadata?.section_type || 'N/A'}
+  Blueprint ID: ${m.metadata?.blueprint_id || 'N/A'}
+  Problem: ${m.metadata?.problem_statement?.substring(0, 100) || 'N/A'}...
+  Topic: ${m.metadata?.topic_summary?.substring(0, 100) || 'N/A'}...
+  Concepts: ${m.metadata?.concepts_tested || 'N/A'}
+`).join('\n')
+                    : 'No sections found. Generate a blueprint first!';
+                
+                resultDiv.innerHTML = `<div class="result success">✅ Search Complete!
+
+Query: ${result.query}
+Namespace: sections
+Found: ${result.matches.length} matches
+
+${matchesText}</div>`;
+            } else {
+                resultDiv.innerHTML = `<div class="result error">❌ Error: ${result.error}</div>`;
+            }
+        }
+
+        async function searchResourcesNamespace() {
+            const text = document.getElementById('resourceSearchText').value;
+            const resultDiv = document.getElementById('resourceSearchResult');
+            
+            resultDiv.innerHTML = '<div class="result">⏳ Searching resources namespace...</div>';
+            
+            const result = await callFunction('search_namespace', text, 'resources');
+            
+            if (result.success) {
+                const matchesText = result.matches.length > 0 
+                    ? result.matches.map((m, i) => `
+Match ${i + 1}:
+  ID: ${m.id}
+  Similarity: ${(m.score * 100).toFixed(2)}%
+  Title: ${m.metadata?.title || 'N/A'}
+  Platform: ${m.metadata?.platform || 'N/A'}
+  URL: ${m.metadata?.url || 'N/A'}
+  Signature: ${m.metadata?.topic_signature?.substring(0, 150) || 'N/A'}...
+`).join('\n')
+                    : 'No resources found. Search for resources in the app first!';
+                
+                resultDiv.innerHTML = `<div class="result success">✅ Search Complete!
+
+Query: ${result.query}
+Namespace: resources
+Found: ${result.matches.length} matches
+
+${matchesText}</div>`;
+            } else {
+                resultDiv.innerHTML = `<div class="result error">❌ Error: ${result.error}</div>`;
+            }
+        }
+
+        async function getStats() {
+            const resultDiv = document.getElementById('statsResult');
+            
+            resultDiv.innerHTML = '<div class="result">⏳ Getting index statistics...</div>';
+            
+            const result = await callFunction('get_stats');
+            
+            if (result.success) {
+                const stats = result.stats;
+                resultDiv.innerHTML = `<div class="result success">✅ Index Statistics:
+
+${JSON.stringify(stats, null, 2)}
+
+Total Vectors: ${stats.totalVectorCount || 0}
+Dimension: ${stats.dimension || 'N/A'}
+Index Fullness: ${stats.indexFullness || 0}
+
+${stats.namespaces ? `Namespaces: ${JSON.stringify(stats.namespaces, null, 2)}` : ''}</div>`;
+            } else {
+                resultDiv.innerHTML = `<div class="result error">❌ Error: ${result.error}</div>`;
+            }
+        }
+
+        async function cleanupNamespace(namespace) {
+            const resultDiv = document.getElementById('cleanupResult');
+            
+            if (!confirm(`⚠️ Are you sure you want to delete ALL vectors from the "${namespace}" namespace?\n\nThis cannot be undone!`)) {
+                return;
+            }
+            
+            resultDiv.innerHTML = `<div class="result">⏳ Deleting all vectors from ${namespace} namespace...</div>`;
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/cleanup-pinecone`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ namespace })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = `<div class="result success">✅ ${result.message}
+
+Namespace: ${result.namespace}
+
+Refresh stats to verify deletion.</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="result error">❌ Error: ${result.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error">❌ Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
+

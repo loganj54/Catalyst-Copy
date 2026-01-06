@@ -302,6 +302,20 @@ User uploads "Physics_HW_5.pdf" →
 
 **Purpose**: Create learning structure (units, sections, resources) for document
 
+**IMPORTANT TERMINOLOGY**:
+- **Section Level** (Level 1): Appears as tabs in UI
+  - For homework: "Problem 1", "Problem 2", "Problem 3"
+  - For lectures: "Topic 1", "Topic 2", "Topic 3"
+- **Concept Level** (Level 2): Appears as dropdown items within each section
+  - Individual concepts like "Force Analysis", "Newton's Laws", etc.
+  - Each concept is a full learning_unit with tutor_guidance, target_resource_profile, equations, figures, search queries
+
+**LECTURE DOCUMENTS - NEW BEHAVIOR**:
+- For lecture documents, key_concepts are converted into full learning_units
+- Each concept becomes a dropdown item with complete structure
+- Concepts are consolidated (similar ones merged) and limited to max 5 per topic
+- Each concept gets its own target_resource_profile embedding (3072 dims)
+
 ### Functions & Flow
 
 ```
@@ -439,15 +453,17 @@ User requests "Generate Blueprint" →
 │    - For each search query:                                  │
 │      • Use semantic_search_phrase (preferred) or construct   │
 │        from topic + target_content + query                   │
-│      • Generate 1536-dim embedding via OpenAI API            │
+│      • Generate 3072-dim embedding via OpenAI API            │
+│        (text-embedding-3-large model)                        │
 │      • Attach embedding to query object                      │
 │    - Store embeddings in blueprint_structures table          │
 │  Output: {                                                   │
-│    all_search_queries: [{ ...query, embedding: [1536 dims] }]│
+│    all_search_queries: [{ ...query, embedding: [3072 dims] }]│
 │  }                                                           │
 │  Time:   ~2-5s (depends on number of queries)                │
 │  Benefit: Eliminates redundant embedding generation during   │
 │           resource search (75% faster searches!)             │
+│  Model: text-embedding-3-large for improved precision        │
 │  See: QUERY_EMBEDDING_OPTIMIZATION.md for details           │
 └─────────────────────────────────────────────────────────────┘
                             ↓

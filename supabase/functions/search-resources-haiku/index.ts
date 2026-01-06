@@ -30,6 +30,7 @@ import {
   createNeedEmbeddingText,
   formatVectorForPostgres,
 } from '../_shared/embeddings.ts';
+import { upsertVectors, queryVectors } from '../_shared/pinecone-client.ts';
 import { 
   fetchTranscript, 
   extractVideoId as extractVideoIdFromTranscript,
@@ -630,23 +631,68 @@ serve(async (req) => {
     const { embedding: queryEmbedding } = await generateEmbedding(queryText);
     const vectorString = formatVectorForPostgres(queryEmbedding);
 
-    // Search cache first
-    console.log('[search-resources-haiku] Searching cache with vector similarity...');
-    const { data: cachedResources, error: searchError } = await supabase.rpc(
-      'search_similar_resources',
-      {
-        query_embedding: vectorString,
-        similarity_threshold: 0.95, // Same as original
-        max_results: 3,
-      }
-    );
-
-    if (searchError) {
-      console.error('[search-resources-haiku] Cache search error:', searchError);
-    }
-
     let results: ResourceResult[] = [];
     let cacheHit = false;
+    let cachedResources: any[] = [];
+
+    // =========================================================================
+    // Try Pinecone first (3072-dim vectors for better precision)
+    // =========================================================================
+    try {
+      console.log('[search-resources-haiku] Searching Pinecone with 3072-dim vector...');
+      const pineconeResults = await queryVectors(
+        queryEmbedding, // Full 3072-dim vector
+        3,
+        { type: 'resource' }, // Filter by resource type
+        'resources',
+        true
+      );
+
+      if (pineconeResults.matches && pineconeResults.matches.length > 0) {
+        // Filter by similarity threshold (0.95 = 95%)
+        const highQualityMatches = pineconeResults.matches.filter(m => m.score >= 0.95);
+        
+        if (highQualityMatches.length > 0) {
+          console.log(`[search-resources-haiku] Pinecone HIT! Found ${highQualityMatches.length} high-quality matches`);
+          
+          // Fetch full resource details from Supabase using pinecone_vector_id
+          const pineconeIds = highQualityMatches.map(m => m.id);
+          const { data: pineconeResources } = await supabase
+            .from('curated_resources')
+            .select('*')
+            .in('pinecone_vector_id', pineconeIds);
+          
+          if (pineconeResources && pineconeResources.length > 0) {
+            cachedResources = pineconeResources;
+            console.log(`[search-resources-haiku] Retrieved ${cachedResources.length} resources from Pinecone cache`);
+          }
+        }
+      }
+    } catch (pineconeError) {
+      console.error('[search-resources-haiku] Pinecone search error (falling back to Supabase):', pineconeError);
+    }
+
+    // =========================================================================
+    // Fallback to Supabase pgvector if Pinecone didn't return results
+    // =========================================================================
+    if (cachedResources.length === 0) {
+      console.log('[search-resources-haiku] Falling back to Supabase pgvector search...');
+      const { data: supabaseResources, error: searchError } = await supabase.rpc(
+        'search_similar_resources',
+        {
+          query_embedding: vectorString,
+          similarity_threshold: 0.95,
+          max_results: 3,
+        }
+      );
+
+      if (searchError) {
+        console.error('[search-resources-haiku] Supabase cache search error:', searchError);
+      } else if (supabaseResources && supabaseResources.length > 0) {
+        cachedResources = supabaseResources;
+        console.log(`[search-resources-haiku] Supabase cache HIT! Found ${cachedResources.length} resources`);
+      }
+    }
 
     // =========================================================================
     // STEP 2: Check if we have cached results
@@ -837,12 +883,34 @@ serve(async (req) => {
             console.log(`[search-resources-haiku] Generated rich signature (${richSignature.length} chars)`);
           }
 
-          // Generate embedding from rich signature
+          // Generate embedding from rich signature (3072 dims for Pinecone)
+          let resourceEmbedding: number[] | null = null;
+          let pineconeVectorId: string | null = null;
+          
           try {
-            const { embedding: resourceEmbedding } = await generateEmbedding(richSignature);
+            const embeddingResult = await generateEmbedding(richSignature);
+            resourceEmbedding = embeddingResult.embedding;
+            
+            // Store in Pinecone with full 3072 dimensions
+            pineconeVectorId = `resource-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+            await upsertVectors([{
+              id: pineconeVectorId,
+              values: resourceEmbedding,
+              metadata: {
+                url: resource.url,
+                title: resource.title,
+                platform: resource.platform,
+                topic_signature: richSignature,
+                type: 'resource'
+              }
+            }], 'resources');
+            
+            console.log(`[search-resources-haiku] Stored vector in Pinecone: ${pineconeVectorId}`);
+            
+            // Also format for Supabase pgvector (for backwards compatibility)
             resourceVector = formatVectorForPostgres(resourceEmbedding);
           } catch (embedError) {
-            console.error('[search-resources-haiku] Error generating embedding, will store without:', embedError);
+            console.error('[search-resources-haiku] Error generating/storing embedding:', embedError);
           }
 
           // =========================================================
@@ -873,7 +941,12 @@ serve(async (req) => {
             analyzed_at: new Date().toISOString(),
           };
           
-          // Only include embedding if we have one
+          // Include Pinecone vector ID
+          if (pineconeVectorId) {
+            upsertData.pinecone_vector_id = pineconeVectorId;
+          }
+          
+          // Only include embedding if we have one (for backwards compatibility)
           if (resourceVector) {
             upsertData.topic_embedding = resourceVector;
           }

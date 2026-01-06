@@ -7,10 +7,10 @@
 - **Production Status**: DEVELOPMENT
 
 ## Purpose
-Generate semantic embeddings from text using OpenAI's text-embedding-3-small model for vector similarity search.
+Generate semantic embeddings from text using OpenAI's text-embedding-3-large model for vector similarity search.
 
 ## Responsibility
-This function takes a text string and returns a 1536-dimensional embedding vector. It ONLY generates embeddings - it does NOT perform searches, store results, or handle any other operations. This is a pure transformation function.
+This function takes a text string and returns a 3072-dimensional embedding vector. It ONLY generates embeddings - it does NOT perform searches, store results, or handle any other operations. This is a pure transformation function.
 
 ## Input Contract
 
@@ -38,7 +38,7 @@ interface GenerateEmbeddingInput {
 ### TypeScript Interface
 ```typescript
 interface GenerateEmbeddingOutput {
-  embedding: number[];  // 1536-dimensional vector
+  embedding: number[];  // 3072-dimensional vector
   model: string;        // Model name used
   metadata?: {
     timestamp: string;
@@ -51,7 +51,7 @@ interface GenerateEmbeddingOutput {
 ```json
 {
   "embedding": [0.0023, -0.0154, 0.0089, ...],
-  "model": "text-embedding-3-small",
+  "model": "text-embedding-3-large",
   "metadata": {
     "timestamp": "2026-01-05T12:00:00Z",
     "text_length": 45
@@ -77,7 +77,7 @@ interface GenerateEmbeddingOutput {
 1. Validate input text is non-empty
 2. Trim and truncate text to max 8000 characters
 3. Call OpenAI embeddings API with text
-4. Return 1536-dimensional embedding vector
+4. Return 3072-dimensional embedding vector
 5. Include metadata with timestamp and text length
 
 ### Edge Cases
@@ -95,7 +95,7 @@ interface GenerateEmbeddingOutput {
 ## Dependencies
 
 ### External APIs
-- OpenAI Embeddings API (text-embedding-3-small)
+- OpenAI Embeddings API (text-embedding-3-large)
 
 ### Database Tables
 - None (pure computation function)
@@ -135,14 +135,14 @@ interface GenerateEmbeddingOutput {
 ```json
 {
   "embedding": [0.0023, -0.0154, ...],
-  "model": "text-embedding-3-small",
+  "model": "text-embedding-3-large",
   "metadata": {
     "timestamp": "2026-01-05T12:00:00Z",
     "text_length": 31
   }
 }
 ```
-**Validation**: embedding array has exactly 1536 elements
+**Validation**: embedding array has exactly 3072 elements
 
 ### Test Case 2: Empty Input - Error
 **Input:**
@@ -167,7 +167,7 @@ interface GenerateEmbeddingOutput {
 ```json
 {
   "embedding": [...],
-  "model": "text-embedding-3-small",
+  "model": "text-embedding-3-large",
   "metadata": {
     "timestamp": "2026-01-05T12:00:00Z",
     "text_length": 8000,
@@ -187,7 +187,7 @@ interface GenerateEmbeddingOutput {
 ```json
 {
   "embedding": [...],
-  "model": "text-embedding-3-small",
+  "model": "text-embedding-3-large",
   "metadata": {
     "timestamp": "2026-01-05T12:00:00Z",
     "text_length": 4,
@@ -201,5 +201,6 @@ interface GenerateEmbeddingOutput {
 (This section will be populated by the self-healing agent as errors are encountered and fixed)
 
 ## Change History
+- **2026-01-06**: Upgraded to text-embedding-3-large model (3072 dimensions) - manual
 - **2026-01-05**: Initial implementation - manual
 
