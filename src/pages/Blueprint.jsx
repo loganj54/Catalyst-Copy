@@ -4,7 +4,7 @@ import {
   ArrowLeft, BookOpen, Target, Calendar, FileText, Loader2, Download, 
   ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp, 
   ChevronRight, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
-  Layout, Grid, Circle, Eye, Info
+  Layout, Grid, Circle, Eye, Info, Database
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -190,6 +190,7 @@ const TopicListItem = ({
   onComfortSelect,
   onGenerateBlueprint,
   onTriggerWebhook,
+  onLoadResourcesToDatabase,
   isSearching,
   isExpanded,
   onToggle
@@ -398,6 +399,28 @@ const TopicListItem = ({
                 >
                   <RefreshCw className="w-4 h-4" />
                   Activate Webhook
+                </button>
+
+                {/* Load Resources Database Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLoadResourcesToDatabase(unit);
+                  }}
+                  disabled={isSearching}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-cyan-600 dark:text-cyan-400 border border-cyan-600 dark:border-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10`}
+                >
+                  {isSearching ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <Database className="w-4 h-4" />
+                      Load Resources DB
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -890,6 +913,10 @@ const Blueprint = () => {
           topic: unit.topic,
           description: unit.description,
           learning_objective: unit.learning_objective,
+          search_queries: unit.search_queries || [],
+          target_resource_profile: unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase || `Video tutorial explaining ${unit.topic}: ${unit.description || ''}`,
+          ideal_video_description: unit.ideal_video_description || null,
+          semantic_search_phrase: unit.semantic_search_phrase || null,
           blueprint_id: id,
           user_id: user.id,
           triggered_at: new Date().toISOString()
@@ -903,6 +930,64 @@ const Blueprint = () => {
     } catch (error) {
       console.error('Error triggering webhook:', error);
       alert('Failed to trigger webhook. Please try again.');
+    }
+  };
+
+  // Handle Load Resources to Database
+  const handleLoadResourcesToDatabase = async (unit) => {
+    if (!session?.access_token) return;
+    const unitId = unit.unit_id;
+    
+    // Mark this unit as currently loading
+    setSearchingTopics(prev => new Set([...prev, unitId]));
+
+    try {
+      console.log(`[Blueprint] Loading resources to database for unit ${unitId}...`);
+      
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/load-resources-database`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          unit_id: unitId,
+          topic: unit.topic,
+          search_queries: unit.search_queries || [],
+          blueprint_id: id,
+          description: unit.description,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to load resources to database');
+      }
+      
+      console.log('[Blueprint] Resources loaded successfully:', data.summary);
+      
+      // Show success message with summary
+      const { total, successful, failed } = data.summary;
+      alert(
+        `✅ Resource loading complete!\n\n` +
+        `Total videos processed: ${total}\n` +
+        `Successfully loaded: ${successful}\n` +
+        `Failed: ${failed}\n\n` +
+        `Resources are now available in the database. Click "Search DB" to find them!`
+      );
+      
+    } catch (error) {
+      console.error('[Blueprint] Error loading resources to database:', error);
+      alert(`Failed to load resources to database: ${error.message}\n\nPlease try again or check the console for details.`);
+    } finally {
+      setSearchingTopics(prev => {
+        const next = new Set(prev);
+        next.delete(unitId);
+        return next;
+      });
     }
   };
 
@@ -921,30 +1006,63 @@ const Blueprint = () => {
       if (searchMethod === 'database') {
         console.log(`[Blueprint] Searching database for unit ${unitId}...`);
         
-        // Search using the fulltext RPC function
-        const { data: dbResources, error: dbError } = await supabase.rpc(
-          'search_resources_from_make_fulltext', 
-          { 
-            search_query: unit.topic, 
-            max_results: 10 
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const targetResourceProfile = unit.target_resource_profile;
+        
+        const response = await fetch(`${supabaseUrl}/functions/v1/search-resources-database`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            unit_id: unitId,
+            topic: unit.topic,
+            target_resource_profile: targetResourceProfile,
+            blueprint_id: id
+          }),
+        });
+
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Database search failed');
+        
+        foundResources = data.resources || [];
+        
+        // After successfully finding resources from the database,
+        // trigger the AI explanation generation for context
+        if (foundResources.length > 0) {
+          console.log(`[Blueprint] Generating explanations for ${foundResources.length} database resources...`);
+          
+          try {
+            // Trigger explanation generation (non-blocking for UI, but updates in background)
+            // We use a separate function call to keep the search fast
+            const explanationResponse = await fetch(`${supabaseUrl}/functions/v1/generate-resource-explanation`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                resources: foundResources,
+                topic: unit.topic,
+                description: unit.description,
+                learning_objective: unit.learning_objective,
+                blueprint_id: id,
+                unit_id: unitId
+              }),
+            });
+            
+            const explanationData = await explanationResponse.json();
+            if (explanationData.success && explanationData.resources) {
+              console.log('[Blueprint] Explanations generated successfully');
+              // Update the resources with the new explanations
+              foundResources = explanationData.resources;
+            }
+          } catch (explanationError) {
+            console.error('[Blueprint] Error generating explanations:', explanationError);
+            // We continue with the original resources if explanation generation fails
           }
-        );
-        
-        if (dbError) throw dbError;
-        
-        // Map DB resources to the expected format
-        foundResources = (dbResources || []).map(r => ({
-          id: r.id,
-          title: r.title,
-          url: r.url,
-          platform: r.platform || 'Database',
-          channel_name: r.channel_name || 'Internal Resource',
-          thumbnail_url: r.thumbnail_url,
-          duration_seconds: r.duration_seconds,
-          resource_explanation: r.summary || r.description || 'Found in internal knowledge base.',
-          from_cache: true // Mark as trusted/internal
-        }));
-        
+        }
       } else {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         
@@ -1812,6 +1930,7 @@ const Blueprint = () => {
                           onComfortSelect={handleComfortSelect}
                           onGenerateBlueprint={handleGenerateBlueprint}
                           onTriggerWebhook={handleTriggerWebhook}
+                          onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
                           isSearching={searchingTopics.has(unit.unit_id)}
                           isExpanded={expandedTopics[unit.unit_id]}
                           onToggle={() => toggleTopic(unit.unit_id)}
