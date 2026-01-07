@@ -1510,21 +1510,13 @@ serve(async (req) => {
           }
           
           if (generatedUnits.size > 0) {
-            // Store sections in Pinecone (3072-dim, high precision)
-            console.log(`[generate-structure] Storing ${generatedUnits.size} NEW sections in Pinecone...`);
-            const pineconeResult = await storeSectionsInPinecone(
-              sectionsWithEmbeddings,
-              generatedUnits,
-              blueprint_id
-            );
-            
-            console.log(`[generate-structure] Pinecone storage: ${pineconeResult.stored} stored, ${pineconeResult.failed} failed`);
-            
-            // Also store in Supabase for backwards compatibility and redundancy
+            // STEP 1: Store in Supabase FIRST to get cache IDs
             const sectionsToCache = prepareSectionsForCache(sectionsWithEmbeddings, generatedUnits);
-            console.log(`[generate-structure] Also caching ${sectionsToCache.length} NEW sections in Supabase (fallback)...`);
+            console.log(`[generate-structure] Caching ${sectionsToCache.length} NEW sections in Supabase...`);
             
             let supabaseCachedCount = 0;
+            const supabaseCacheIds = new Map<string, string>(); // Map section_id -> Supabase row id
+            
             for (const sectionToCache of sectionsToCache) {
               try {
                 // Use the original section data attached to the cache object (more reliable)
@@ -1565,10 +1557,9 @@ serve(async (req) => {
                   subject_area: analysisData.subject_area,
                   specific_topic: analysisData.specific_topic,
                   document_type: analysisData.document_type,
+                  source_blueprint_id: blueprint_id, // CRITICAL: Links cache to source blueprint for unique identification
                   times_used: 0,
                   quality_score: 1.0
-                  // NOTE: Removed source_analysis_id, source_blueprint_id, course_level
-                  // as these columns may not exist in all deployments
                 };
             
                 // Ensure embedding is 1536 dimensions for Supabase pgvector
@@ -1616,16 +1607,32 @@ serve(async (req) => {
                   console.error(`[generate-structure] ❌ Error caching section in Supabase ${sectionToCache.section_id}:`, error);
                   console.error(`[generate-structure]   Error details:`, JSON.stringify(error));
                 } else {
-                  console.log(`[generate-structure] ✅ Successfully cached section ${sectionToCache.section_id} with COMPLETE data (ID: ${data?.id})`);
+                  const cacheId = data?.id;
+                  console.log(`[generate-structure] ✅ Successfully cached section ${sectionToCache.section_id} with COMPLETE data (ID: ${cacheId})`);
                   supabaseCachedCount++;
+                  
+                  // Store the cache ID for Pinecone linking
+                  if (cacheId) {
+                    supabaseCacheIds.set(sectionToCache.section_id, cacheId);
+                  }
                 }
               } catch (err) {
                 console.error(`[generate-structure] ❌ Exception caching section ${sectionToCache.section_id}:`, err);
               }
             }
         
-            console.log(`[generate-structure] Successfully cached in Pinecone: ${pineconeResult.stored}/${sectionsToCache.length} NEW sections`);
             console.log(`[generate-structure] Successfully cached in Supabase: ${supabaseCachedCount}/${sectionsToCache.length} NEW sections`);
+            
+            // STEP 2: Store in Pinecone with cache IDs linking back to Supabase
+            console.log(`[generate-structure] Storing ${generatedUnits.size} NEW sections in Pinecone with cache IDs...`);
+            const pineconeResult = await storeSectionsInPinecone(
+              sectionsWithEmbeddings,
+              generatedUnits,
+              blueprint_id,
+              supabaseCacheIds // Pass the Supabase row IDs for linking
+            );
+            
+            console.log(`[generate-structure] Successfully cached in Pinecone: ${pineconeResult.stored}/${sectionsToCache.length} NEW sections`);
           } else {
             console.log('[generate-structure] No new sections to cache (all sections were from cache or none generated)');
           }

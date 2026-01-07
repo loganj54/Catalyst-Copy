@@ -289,11 +289,13 @@ export function getValidSections(analysis: AnalysisResult): AnalysisSection[] {
  * @param sectionsWithEmbeddings - Sections with their embeddings
  * @param generatedUnits - Map of section_id to generated learning units
  * @param blueprintId - Blueprint ID for tracking
+ * @param supabaseCacheIds - Map of section_id to Supabase cache row ID (for linking)
  */
 export async function storeSectionsInPinecone(
   sectionsWithEmbeddings: SectionWithEmbedding[],
   generatedUnits: Map<string, any>,
-  blueprintId: string
+  blueprintId: string,
+  supabaseCacheIds?: Map<string, string>
 ): Promise<{ stored: number; failed: number }> {
   let stored = 0;
   let failed = 0;
@@ -314,16 +316,25 @@ export async function storeSectionsInPinecone(
       primary_unit: units[0]
     };
 
-    // Create Pinecone vector (DON'T store cached_unit - too large!)
-    // We'll fetch the full unit from Supabase using blueprint_id + section_id
-    // Use timestamp to ensure uniqueness even for same blueprint/section
+    // Get the Supabase cache row ID for this section (if provided)
+    const supabaseCacheId = supabaseCacheIds?.get(sectionWithEmbedding.section_id);
+    
+    if (!supabaseCacheId) {
+      console.warn(`[section-embeddings] No Supabase cache ID for section ${sectionWithEmbedding.section_id}, skipping Pinecone storage`);
+      failed++;
+      continue;
+    }
+
+    // Create Pinecone vector with cache_id linking to Supabase row
+    // CRITICAL: cache_id is the PRIMARY KEY (id column) from cached_blueprint_structures
+    // This allows us to fetch the exact cached data: SELECT * FROM cached_blueprint_structures WHERE id = cache_id
     const timestamp = Date.now();
-    const pineconeId = `section-${blueprintId}-${sectionWithEmbedding.section_id}-${timestamp}`;
+    const pineconeId = `section-${supabaseCacheId}-${timestamp}`;
     vectors.push({
       id: pineconeId,
       values: sectionWithEmbedding.embedding,
       metadata: {
-        blueprint_id: blueprintId,
+        cache_id: supabaseCacheId, // CRITICAL: Links to Supabase row id
         section_id: sectionWithEmbedding.section_id,
         section_type: sectionWithEmbedding.section_type,
         embedding_source: sectionWithEmbedding.embedding_source,
@@ -405,36 +416,25 @@ export async function querySimilarSectionsFromPinecone(
 
     // If we have Supabase client, fetch full cached_unit data
     if (supabase && highQualityMatches.length > 0) {
-      // Build array of section_ids from Pinecone matches
-      // NOTE: blueprint_id is optional - we can match by section_id alone
-      const sectionKeys = highQualityMatches
-        .map(m => ({
-          section_id: m.metadata?.section_id,
-          blueprint_id: m.metadata?.blueprint_id // May be undefined
-        }))
-        .filter(k => k.section_id); // Only require section_id, not blueprint_id
+      // Extract cache_id from Pinecone metadata
+      // cache_id is the PRIMARY KEY (id column) from cached_blueprint_structures table
+      const cacheIds = highQualityMatches
+        .map(m => m.metadata?.cache_id)
+        .filter(id => id); // Only include matches that have cache_id
       
-      console.log(`[section-embeddings] Found ${sectionKeys.length} section keys from ${highQualityMatches.length} Pinecone matches`);
+      console.log(`[section-embeddings] Found ${cacheIds.length} cache IDs from ${highQualityMatches.length} Pinecone matches`);
       
-      if (sectionKeys.length > 0) {
-        console.log(`[section-embeddings] Fetching full cached_unit data from Supabase for ${sectionKeys.length} sections...`);
-        console.log(`[section-embeddings] Section keys:`, JSON.stringify(sectionKeys));
+      if (cacheIds.length > 0) {
+        console.log(`[section-embeddings] Fetching cached data from Supabase by cache IDs...`);
+        console.log(`[section-embeddings] Cache IDs:`, cacheIds);
         
-        // Fetch all matching sections by section_id
-        const sectionIds = [...new Set(sectionKeys.map(k => k.section_id))]; // Deduplicate
-        console.log(`[section-embeddings] Querying Supabase for section_ids:`, sectionIds);
-        
-        console.log(`[section-embeddings] Executing Supabase query for cached_blueprint_structures...`);
-        console.log(`[section-embeddings] Querying by section_id only (Pinecone already validated semantic similarity)`);
-        
-        // Query by section_id ONLY
-        // The Pinecone vector match already confirmed semantic similarity (≥95%),
-        // so we trust that match and just fetch the cached_unit by section_id.
-        // This avoids issues where subject_area or specific_topic have slight variations.
+        // Query Supabase by PRIMARY KEY (id column)
+        // This is a direct lookup - no filtering needed!
+        // Each cache_id maps to exactly ONE row in cached_blueprint_structures
         const { data: cachedSections, error } = await supabase
           .from('cached_blueprint_structures')
-          .select('section_id, cached_unit, subject_area, specific_topic')
-          .in('section_id', sectionIds);
+          .select('id, section_id, cached_unit, source_blueprint_id, subject_area, specific_topic')
+          .in('id', cacheIds);
         
         if (error) {
           console.error(`[section-embeddings] ❌ Supabase query error:`, error);
@@ -454,25 +454,33 @@ export async function querySimilarSectionsFromPinecone(
         }
         
         if (!error && cachedSections && cachedSections.length > 0) {
-          console.log(`[section-embeddings] Found ${cachedSections.length} potential matches in Supabase`);
-          console.log(`[section-embeddings] Available in Supabase:`, cachedSections.map(s => s.section_id));
+          console.log(`[section-embeddings] Found ${cachedSections.length} cached sections in Supabase`);
+          console.log(`[section-embeddings] Cached sections:`, cachedSections.map(s => `${s.section_id} (ID: ${s.id})`));
           
-          // Map Pinecone matches to Supabase data by section_id
+          // Map Pinecone matches to Supabase data by cache_id
           const validMatches = [];
           
           for (const match of highQualityMatches) {
+            const cacheId = match.metadata?.cache_id;
             const matchSectionId = match.metadata?.section_id;
-            const matchBlueprintId = match.metadata?.blueprint_id;
             
-            console.log(`[section-embeddings] Looking for section "${matchSectionId}"`);
-            
-            // Match by section_id only (cached data is reusable across blueprints)
-            const supabaseData = cachedSections.find(s => s.section_id === matchSectionId);
-            
-            if (!supabaseData) {
-              console.warn(`[section-embeddings] ❌ No Supabase data found for section "${matchSectionId}"`);
+            if (!cacheId) {
+              console.warn(`[section-embeddings] ⚠️ Pinecone match missing cache_id for section "${matchSectionId}"`);
               continue;
             }
+            
+            console.log(`[section-embeddings] Looking for cache_id "${cacheId}" (section: "${matchSectionId}")`);
+            
+            // Match by cache_id (PRIMARY KEY - guaranteed unique)
+            const supabaseData = cachedSections.find(s => s.id === cacheId);
+            
+            if (!supabaseData) {
+              console.warn(`[section-embeddings] ❌ No Supabase data found for cache_id "${cacheId}"`);
+              console.warn(`[section-embeddings]    Available cache IDs:`, cachedSections.map(s => s.id));
+              continue;
+            }
+            
+            console.log(`[section-embeddings] ✅ Retrieved cached section "${matchSectionId}": "${supabaseData.subject_area}" - "${supabaseData.specific_topic}"`);
             
             // VERIFY cached_unit contains data
             const cachedUnit = supabaseData.cached_unit;
@@ -507,14 +515,14 @@ export async function querySimilarSectionsFromPinecone(
               similarity: match.score,
               source: 'pinecone',
               pinecone_id: match.id,
-              blueprint_id: matchBlueprintId
+              cache_id: cacheId // The Supabase row ID
             });
           }
           
           console.log(`[section-embeddings] Returning ${validMatches.length} valid cached sections`);
           return validMatches;
         } else {
-          console.warn(`[section-embeddings] ⚠️ No matching sections found in Supabase for section_ids:`, sectionIds);
+          console.warn(`[section-embeddings] ⚠️ No matching sections found in Supabase for cache_ids:`, cacheIds);
         }
       }
     }
