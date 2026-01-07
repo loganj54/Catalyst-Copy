@@ -20,7 +20,7 @@ function Layout() {
   const location = useLocation();
 
   return (
-    <div className="w-full min-h-screen overflow-hidden relative flex flex-col pt-20">
+    <div className="w-full min-h-screen relative flex flex-col pt-20">
       <Navbar />
       <ThemeToggle />
       <Background />

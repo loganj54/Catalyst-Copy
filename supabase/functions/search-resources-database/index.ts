@@ -26,6 +26,19 @@ serve(async (req: Request) => {
       blueprint_id 
     } = await req.json();
 
+    // Get user from auth header for DB updates
+    const authHeader = req.headers.get('Authorization');
+    let userId = null;
+    if (authHeader) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+      const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+      const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await authClient.auth.getUser();
+      userId = user?.id;
+    }
+
     if (!target_resource_profile && !topic) {
       throw new Error('Missing target_resource_profile or topic for search');
     }
@@ -139,7 +152,77 @@ serve(async (req: Request) => {
 
     console.log(`[search-resources-database] Successfully retrieved ${resources.length} resources from database`);
 
-    // 6. Format results - preserve order by similarity score
+    // 6. Save resources to curated_resources and link to blueprint
+    if (resources.length > 0 && blueprint_id && unit_id) {
+      console.log(`[search-resources-database] Saving ${resources.length} resources to blueprint ${blueprint_id}...`);
+      
+      const parseDuration = (input: any): number | null => {
+        if (typeof input === 'number') return input;
+        if (typeof input === 'string') {
+          // Try to parse "MM:SS" or "HH:MM:SS"
+          if (input.includes(':')) {
+            const parts = input.split(':').map(Number);
+            if (parts.length === 2) return parts[0] * 60 + parts[1];
+            if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+          }
+          // Try standard parse
+          const val = parseInt(input);
+          return isNaN(val) ? null : val;
+        }
+        return null;
+      };
+
+      for (const resource of resources) {
+        try {
+          // Link directly to blueprint_topic_resources using resources_from_make.id
+          const linkData = {
+            blueprint_id,
+            unit_id,
+            resource_id: resource.id, // Use the ID from resources_from_make table
+            relevance_score: 0.95, // High confidence for DB matches
+            query_type: 'database',
+            from_cache: true,
+            resource_explanation: resource.summary // Use summary as explanation
+          };
+          
+          console.log(`[search-resources-database] Linking resource to blueprint:`, {
+            resource_id: resource.id,
+            unit_id,
+            has_explanation: !!resource.summary
+          });
+          
+          const { error: linkError } = await supabase
+            .from('blueprint_topic_resources')
+            .upsert(linkData, {
+              onConflict: 'blueprint_id,unit_id,resource_id'
+            });
+
+          if (linkError) {
+            console.error(`[search-resources-database] ❌ Error linking resource: ${linkError.message}`);
+          } else {
+            console.log(`[search-resources-database] ✅ Successfully linked resource ${resource.id} to blueprint with explanation`);
+          }
+        } catch (err) {
+          console.error(`[search-resources-database] Error processing resource ${resource.id}:`, err);
+        }
+      }
+      
+      // Update topic response to mark as searched
+      if (userId) {
+        await supabase
+          .from('topic_responses')
+          .upsert({
+            blueprint_id,
+            unit_id,
+            user_id: userId,
+            response: 'needs_help',
+            searched_at: new Date().toISOString(),
+          }, { onConflict: 'blueprint_id,unit_id' }); // user_id might be part of constraint too, but usually blueprint_id+unit_id implies user context if unique
+      }
+        
+    }
+
+    // 7. Format results - preserve order by similarity score
     const formattedResources = validMatches
       .map(match => {
         const metadataResourceId = match.metadata?.resource_id;

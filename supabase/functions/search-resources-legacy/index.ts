@@ -1215,31 +1215,38 @@ serve(async (req) => {
     console.log(`[search-resources] Linking ${results.length} resources to blueprint...`);
     
     for (const resource of results) {
-      console.log(`[search-resources] Resource: ${resource.title}, ID: ${resource.id}, URL: ${resource.url}`);
+      console.log(`[search-resources] Linking resource: ${resource.title}`);
+      console.log(`[search-resources]   - ID: ${resource.id}`);
+      console.log(`[search-resources]   - URL: ${resource.url}`);
+      console.log(`[search-resources]   - Has explanation: ${!!resource.resource_explanation}`);
       
       if (resource.id) {
+        const linkPayload = {
+          blueprint_id,
+          unit_id,
+          resource_id: resource.id,
+          relevance_score: resource.similarity || resource.quality_score || 0.8,
+          query_type: search_queries?.[0]?.query_type || 'concept',
+          from_cache: resource.from_cache,
+          // Include explanation if available at this stage
+          resource_explanation: resource.resource_explanation || null,
+        };
+        
         const { data: linkData, error: linkError } = await supabase
           .from('blueprint_topic_resources')
-          .upsert({
-            blueprint_id,
-            unit_id,
-            resource_id: resource.id,
-            relevance_score: resource.similarity || resource.quality_score || 0.8,
-            query_type: search_queries?.[0]?.query_type || 'concept',
-            from_cache: resource.from_cache,
-          }, {
+          .upsert(linkPayload, {
             onConflict: 'blueprint_id,unit_id,resource_id',
           })
           .select();
 
         if (linkError) {
-          console.error('[search-resources] Error linking resource:', linkError);
+          console.error('[search-resources] ❌ Error linking resource:', linkError);
           console.error('[search-resources] Link error details:', JSON.stringify(linkError));
         } else {
-          console.log(`[search-resources] Successfully linked resource: ${resource.id}`);
+          console.log(`[search-resources] ✅ Successfully linked resource ${resource.id} to blueprint`);
         }
       } else {
-        console.warn(`[search-resources] Resource missing ID, cannot link: ${resource.url}`);
+        console.warn(`[search-resources] ⚠️ Resource missing ID, cannot link: ${resource.url}`);
       }
     }
 
@@ -1288,14 +1295,22 @@ serve(async (req) => {
         console.log('[search-resources] Updating junction table with resource explanations...');
         for (const resource of results) {
           if (resource.id && resource.resource_explanation) {
-            await supabase
+            console.log(`[search-resources] Updating explanation for resource ${resource.id}`);
+            const { error: updateError } = await supabase
               .from('blueprint_topic_resources')
               .update({ resource_explanation: resource.resource_explanation })
               .eq('blueprint_id', blueprint_id)
               .eq('unit_id', unit_id)
               .eq('resource_id', resource.id);
+            
+            if (updateError) {
+              console.error(`[search-resources] ❌ Error updating explanation:`, updateError);
+            } else {
+              console.log(`[search-resources] ✅ Updated explanation for resource ${resource.id}`);
+            }
           }
         }
+        console.log(`[search-resources] ✅ All ${results.length} resources persisted to database with explanations`);
       }
     }
 

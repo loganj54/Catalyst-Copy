@@ -77,8 +77,17 @@ const ResourceTable = ({ resources }) => {
     return <ExternalLink className="w-4 h-4 text-stone-400" />;
   };
 
-  const formatDuration = (seconds) => {
-    if (!seconds) return null;
+  const formatDuration = (input) => {
+    if (!input) return null;
+    
+    // If it's a string containing a colon, assume it's already formatted (e.g. "18:03")
+    if (typeof input === 'string' && input.includes(':')) {
+      return input;
+    }
+
+    const seconds = parseInt(input, 10);
+    if (isNaN(seconds)) return null;
+
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -115,10 +124,10 @@ const ResourceTable = ({ resources }) => {
                   href={resource.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex gap-3 group"
+                  className="flex flex-col gap-3 group"
                 >
                   {/* Thumbnail */}
-                  <div className="relative w-24 h-16 rounded-md overflow-hidden bg-stone-200 shrink-0">
+                  <div className="relative w-48 h-32 rounded-md overflow-hidden bg-stone-200 shrink-0">
                     {resource.thumbnail_url ? (
                       <img 
                         src={resource.thumbnail_url} 
@@ -137,7 +146,7 @@ const ResourceTable = ({ resources }) => {
                     )}
                   </div>
                   
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 max-w-[12rem]">
                     <div className="text-sm font-medium text-stone-900 dark:text-stone-100 group-hover:text-[#FF4A1C] dark:group-hover:text-[#FF4A1C] line-clamp-2">
                       {decodeHtmlEntities(resource.title)}
                     </div>
@@ -148,7 +157,7 @@ const ResourceTable = ({ resources }) => {
                   </div>
                 </a>
               </td>
-              <td className="px-6 py-4">
+              <td className="px-6 py-4 align-top">
                 <div className="text-sm text-stone-600 dark:text-stone-300">
                   {resource.resource_explanation ? (
                     <span>
@@ -576,6 +585,49 @@ const Blueprint = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, session } = useAuth();
+
+  // Sticky Header State
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    let ticking = false;
+    
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+          
+          // Adjust threshold based on current state to account for height difference
+          // Height changes: mb-6->0 (24px) + mb-3->0 (12px) + title shrink (~36px) + 
+          // class name hidden (40px) + tabs section hidden (~60px) = ~172px total
+          
+          setIsScrolled(prev => {
+            if (prev) {
+              // Currently COMPACT: Use lower threshold (50px) to go back to expanded
+              // This accounts for the fact that expanding will push content down by ~172px
+              return scrollPosition > 50;
+            } else {
+              // Currently EXPANDED: Use higher threshold (220px) to go to compact
+              // This accounts for the fact that compacting will pull content up by ~172px
+              return scrollPosition > 220;
+            }
+          });
+          
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    
+    // Initial check
+    handleScroll();
+    
+    // Add scroll listener
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
   
   // Data State
   const [blueprint, setBlueprint] = useState(null);
@@ -753,16 +805,20 @@ const Blueprint = () => {
       }
 
       // Load Topic Resources
-      const { data: resourcesData } = await supabase
+      console.log('[Blueprint] Loading resources from database for blueprint:', id);
+      const { data: resourcesData, error: resourcesError } = await supabase
         .from('blueprint_topic_resources')
-        .select(`*, curated_resources (*)`)
+        .select(`*, resources_from_make (*)`)
         .eq('blueprint_id', id);
       
-      if (resourcesData) {
+      if (resourcesError) {
+        console.error('[Blueprint] Error loading resources from database:', resourcesError);
+      } else if (resourcesData) {
+        console.log(`[Blueprint] Loaded ${resourcesData.length} resource links from database`);
         const resourcesMap = {};
         resourcesData.forEach(r => {
           if (!resourcesMap[r.unit_id]) resourcesMap[r.unit_id] = [];
-          if (r.curated_resources) {
+          if (r.resources_from_make) {
             // Filter out ONLY explicitly irrelevant resources
             const explanation = r.resource_explanation?.toLowerCase() || '';
             const isExplicitlyIrrelevant = 
@@ -772,16 +828,23 @@ const Blueprint = () => {
             
             if (!isExplicitlyIrrelevant) {
               resourcesMap[r.unit_id].push({
-                ...r.curated_resources,
+                ...r.resources_from_make,
                 relevance_score: r.relevance_score,
                 from_cache: r.from_cache,
                 resource_explanation: r.resource_explanation,
               });
+              console.log(`[Blueprint] Loaded resource for unit ${r.unit_id}:`, r.resources_from_make.title);
             } else {
-              console.log('[Blueprint] Filtered out explicitly irrelevant resource:', r.curated_resources.title);
+              console.log('[Blueprint] Filtered out explicitly irrelevant resource:', r.resources_from_make.title);
             }
           }
         });
+        
+        console.log('[Blueprint] Resource map by unit:', Object.keys(resourcesMap).map(unitId => ({
+          unitId,
+          count: resourcesMap[unitId].length
+        })));
+        
         // Only update resources that aren't currently being loaded
         setTopicResources(prev => {
           const updated = { ...prev };
@@ -789,10 +852,15 @@ const Blueprint = () => {
             // Don't overwrite resources that are currently being loaded from API
             if (!loadingResourcesRef.current.has(unitId)) {
               updated[unitId] = resources;
+              console.log(`[Blueprint] Set ${resources.length} resources for unit ${unitId}`);
+            } else {
+              console.log(`[Blueprint] Skipping unit ${unitId} - currently loading from API`);
             }
           }
           return updated;
         });
+      } else {
+        console.log('[Blueprint] No resources found in database for this blueprint');
       }
 
       // Load Equations
@@ -1450,10 +1518,16 @@ const Blueprint = () => {
           return;
         }
         
-        // Update resources state - this will persist
+        // Update resources state - this will persist in UI
         setTopicResources(prev => {
           const updated = { ...prev, [unitId]: relevantResources };
-          console.log(`[Blueprint] Updated topicResources for unit ${unitId}`, updated[unitId]);
+          console.log(`[Blueprint] ✅ Updated topicResources for unit ${unitId} with ${relevantResources.length} resources`);
+          console.log(`[Blueprint] Resources have been saved to database and will persist across page refreshes`);
+          relevantResources.forEach((r, idx) => {
+            console.log(`  ${idx + 1}. ${r.title}`);
+            console.log(`     - Has explanation: ${!!r.resource_explanation}`);
+            console.log(`     - Has ID: ${!!r.id}`);
+          });
           return updated;
         });
         
@@ -1501,6 +1575,7 @@ const Blueprint = () => {
   };
 
   // Search database for ALL units in parallel (Dev Mode)
+  // Uses BATCHED explanation generation to avoid rate limiting
   const searchAllUnitsFromDatabase = async (allUnits) => {
     if (!session?.access_token || !allUnits || allUnits.length === 0) return;
     
@@ -1509,7 +1584,10 @@ const Blueprint = () => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     let searchedCount = 0;
     
-    // Process all units in parallel
+    // Collect results from all searches for batched explanation generation
+    const unitsWithResources = [];
+    
+    // PHASE 1: Search all units in parallel (fast database lookups)
     const searchPromises = allUnits.map(async (unit) => {
       const unitId = unit.unit_id;
       
@@ -1537,45 +1615,22 @@ const Blueprint = () => {
         const data = await response.json();
         
         if (data.success && data.resources && data.resources.length > 0) {
-          let finalResources = data.resources;
-          
-          // Generate AI explanations for the found resources
-          console.log(`[Blueprint] Dev Mode: Generating explanations for ${finalResources.length} resources for unit "${unit.topic}"...`);
-          
-          try {
-            const explanationResponse = await fetch(`${supabaseUrl}/functions/v1/generate-resource-explanation`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                resources: finalResources,
-                topic: unit.topic,
-                description: unit.description,
-                learning_objective: unit.learning_objective,
-                blueprint_id: id,
-                unit_id: unitId
-              }),
-            });
-            
-            const explanationData = await explanationResponse.json();
-            if (explanationData.success && explanationData.resources) {
-              console.log(`[Blueprint] Dev Mode: Explanations generated for unit "${unit.topic}"`);
-              finalResources = explanationData.resources;
-            }
-          } catch (explanationError) {
-            console.error(`[Blueprint] Dev Mode: Error generating explanations for unit "${unit.topic}":`, explanationError);
-            // Continue with original resources if explanation generation fails
-          }
-          
-          // Update resources state with final resources (with or without explanations)
+          // Store resources immediately (without explanations for now)
           setTopicResources(prev => ({
             ...prev,
-            [unitId]: finalResources
+            [unitId]: data.resources
           }));
           
-          console.log(`[Blueprint] Dev Mode: Found ${finalResources.length} resources for unit "${unit.topic}"`);
+          // Collect for batched explanation generation
+          unitsWithResources.push({
+            unit_id: unitId,
+            topic: unit.topic,
+            description: unit.description,
+            learning_objective: unit.learning_objective,
+            resources: data.resources
+          });
+          
+          console.log(`[Blueprint] Dev Mode: Found ${data.resources.length} resources for unit "${unit.topic}"`);
         } else {
           console.log(`[Blueprint] Dev Mode: No resources found for unit "${unit.topic}"`);
         }
@@ -1583,27 +1638,69 @@ const Blueprint = () => {
         searchedCount++;
         setDevModeProgress(prev => ({ ...prev, unitsSearched: searchedCount }));
         
-        // Release loading lock after a short delay
-        setTimeout(() => {
-          loadingResourcesRef.current.delete(unitId);
-        }, 1000);
-        
       } catch (error) {
         console.error(`[Blueprint] Dev Mode: Error searching for unit "${unit.topic}":`, error);
-        loadingResourcesRef.current.delete(unitId);
-      } finally {
-        setSearchingTopics(prev => {
-          const next = new Set(prev);
-          next.delete(unitId);
-          return next;
-        });
       }
     });
     
     // Wait for all searches to complete
     await Promise.all(searchPromises);
     
-    console.log(`[Blueprint] Dev Mode: Database search complete for ${searchedCount} units`);
+    console.log(`[Blueprint] Dev Mode: Database search complete. Found resources for ${unitsWithResources.length} units.`);
+    
+    // PHASE 2: Generate explanations for ALL units in ONE batched API call
+    if (unitsWithResources.length > 0) {
+      console.log(`[Blueprint] Dev Mode: Generating explanations for ${unitsWithResources.length} units in BATCH...`);
+      
+      try {
+        const batchResponse = await fetch(`${supabaseUrl}/functions/v1/batch-generate-explanations`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            units: unitsWithResources,
+            blueprint_id: id
+          }),
+        });
+        
+        const batchData = await batchResponse.json();
+        
+        if (batchData.success && batchData.units) {
+          console.log(`[Blueprint] Dev Mode: Batch explanations generated for ${batchData.units.length} units`);
+          
+          // Update resources with explanations
+          batchData.units.forEach(unitResult => {
+            if (unitResult.resources && unitResult.resources.length > 0) {
+              setTopicResources(prev => ({
+                ...prev,
+                [unitResult.unit_id]: unitResult.resources
+              }));
+            }
+          });
+          
+          if (batchData.stats) {
+            console.log(`[Blueprint] Dev Mode: Batch stats - ${batchData.stats.units_processed} units, ${batchData.stats.total_resources} resources`);
+          }
+        }
+      } catch (explanationError) {
+        console.error('[Blueprint] Dev Mode: Error generating batch explanations:', explanationError);
+        // Resources are already displayed without explanations, so this is graceful degradation
+      }
+    }
+    
+    // PHASE 3: Clean up loading states
+    allUnits.forEach(unit => {
+      loadingResourcesRef.current.delete(unit.unit_id);
+      setSearchingTopics(prev => {
+        const next = new Set(prev);
+        next.delete(unit.unit_id);
+        return next;
+      });
+    });
+    
+    console.log(`[Blueprint] Dev Mode: All operations complete for ${searchedCount} units`);
     return searchedCount;
   };
 
@@ -2037,7 +2134,7 @@ const Blueprint = () => {
 
   return (
     <div 
-      className="min-h-screen bg-transparent flex text-outline relative"
+      className="min-h-screen bg-transparent text-outline relative"
     >
       {/* Backgrounds */}
       {/* Removed bgMode === 'default' background logic to match ClassDetails */}
@@ -2050,114 +2147,138 @@ const Blueprint = () => {
         <ClassSidebar />
       </div>
 
-      <div className="flex-1 min-w-0 lg:ml-[304px] relative z-10">
-        <div className="pt-8 pb-12 px-6 lg:px-12 max-w-7xl mx-auto space-y-12">
-          {/* Header */}
-          <div className="flex flex-col lg:flex-row gap-6 items-start justify-between mb-8">
-            <div className="flex-1 min-w-0">
-              <button 
-                onClick={() => {
-                  if (blueprint.class_id) {
-                    navigate(`/class/${blueprint.class_id}?tab=blueprints`);
-                  } else {
-                    navigate('/dashboard');
-                  }
-                }}
-                className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors mb-4 text-sm font-medium dark:text-stone-400"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                {blueprint.class_id ? `Back to ${blueprint.class?.name || 'Class'}` : 'Back to Dashboard'}
-              </button>
-
-              <div className="flex items-center gap-3">
-                <h1 className="text-4xl text-[#2A2B2A] dark:text-stone-100">
-                  {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
-                </h1>
-                <button
-                  onClick={() => setShowDebug(!showDebug)}
-                  className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
-                  title="Toggle Debug Panel"
-                >
-                  <Bug className={`w-5 h-5 ${showDebug ? 'text-[#FF4A1C]' : 'text-stone-400'}`} />
-                </button>
-                {structure && (
-                  <button
-                    onClick={() => setShowProgressPanel(!showProgressPanel)}
-                    className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
-                    title="View Generation Progress"
-                  >
-                    <Sparkles className={`w-5 h-5 ${showProgressPanel ? 'text-[#FF4A1C]' : 'text-stone-400'}`} />
-                  </button>
-                )}
-                
-                {/* Dev Mode Toggle - Run/Re-run full pipeline */}
-                <button
-                  onClick={() => {
-                    if (devModeStep === 'complete' || devModeStep === 'error') {
-                      // Reset and re-run
-                      setDevModeStep('idle');
-                      setDevModeProgress({ countdown: 0, totalUnits: 0, webhooksTriggered: 0, unitsSearched: 0, message: '' });
-                      setDevModeEnabled(true);
-                    } else if (!devModeEnabled && devModeStep === 'idle') {
-                      setDevModeEnabled(true);
-                    } else if (devModeEnabled && devModeStep === 'idle') {
-                      setDevModeEnabled(false);
-                    }
-                  }}
-                  disabled={devModeStep !== 'idle' && devModeStep !== 'complete' && devModeStep !== 'error'}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
-                    devModeEnabled 
-                      ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700' 
-                      : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-700 hover:bg-stone-200 dark:hover:bg-stone-700'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  title={
-                    devModeStep === 'complete' || devModeStep === 'error' 
-                      ? 'Click to re-run the full pipeline' 
-                      : devModeEnabled 
-                        ? 'Dev Mode Active - Running automated pipeline' 
-                        : 'Run full pipeline: Analyze → Structure → Webhooks → Wait → Search'
-                  }
-                >
-                  {devModeEnabled ? (
-                    <ToggleRight className="w-4 h-4" />
-                  ) : (
-                    <ToggleLeft className="w-4 h-4" />
-                  )}
-                  {devModeStep === 'complete' || devModeStep === 'error' ? 'Re-run Pipeline' : 'Dev Mode'}
-                </button>
-              </div>
-              <p className="text-stone-500 text-lg dark:text-stone-400 mt-2">
-                {blueprint.class?.name ? `${blueprint.class.name} ` : ''}
-              </p>
-            </div>
-
-            {/* Document Card */}
-            {doc && (
-              <div className="w-full lg:w-80 shrink-0 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="p-2 bg-stone-100 dark:bg-stone-900 rounded-lg text-stone-500 dark:text-stone-400">
-                    <FileText className="w-5 h-5" />
-                  </div>
+      <div className="min-w-0 lg:ml-[304px]">
+        {/* Sticky Header - positioned to stick below the navbar */}
+        <div className={`sticky top-20 z-50 transition-all duration-300 ease-in-out ${isScrolled ? 'bg-white/80 dark:bg-stone-900/80 backdrop-blur-md' : 'bg-transparent'}`}>
+          {/* Fixed height container to prevent layout shifts */}
+          <div className="py-6">
+            <div className="px-6 lg:px-12 max-w-7xl mx-auto">
+              {/* When scrolled: single row with title left, tabs center, doc right */}
+              {/* When not scrolled: traditional layout with title/class left, doc right, tabs below */}
+              <div className={`transition-all duration-300 ease-in-out ${isScrolled ? 'mb-0' : 'mb-6'}`}>
+                {/* Top row: Back button, Title, Document */}
+                <div className={`flex items-center justify-between gap-6 transition-all duration-300 ease-in-out ${isScrolled ? 'mb-0 relative' : 'mb-3'}`}>
+                  {/* Left side: Title and class name */}
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-stone-900 dark:text-stone-100 text-sm truncate" title={doc.name}>
-                      {doc.name}
-                    </h4>
-                    <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                      {doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : 'Document'}
-                    </p>
+                    <button 
+                      onClick={() => {
+                        if (blueprint.class_id) {
+                          navigate(`/class/${blueprint.class_id}?tab=blueprints`);
+                        } else {
+                          navigate('/dashboard');
+                        }
+                      }}
+                      className={`flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-all duration-300 text-sm font-medium dark:text-stone-400 ${isScrolled ? 'mb-0.5' : 'mb-3'}`}
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      {isScrolled ? 'Back' : (blueprint.class_id ? `Back to ${blueprint.class?.name || 'Class'}` : 'Back to Dashboard')}
+                    </button>
+
+                    <h1 className={`font-bold text-[#2A2B2A] dark:text-stone-100 transition-all duration-300 ease-in-out truncate origin-left ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>
+                      {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
+                    </h1>
+                    
+                    {/* Class name subtitle - always rendered but hidden when scrolled */}
+                    <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isScrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-10 opacity-100 mt-2'}`}>
+                      {blueprint.class?.name && (
+                        <p className="text-stone-500 text-lg dark:text-stone-400">
+                          {blueprint.class.name}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Center: Tabs (only when scrolled) - absolutely positioned to stay centered */}
+                  {structure && isScrolled && (
+                    <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-auto">
+                      <div className="inline-flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
+                        {tabs.map(tab => (
+                          <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`px-3 py-1 rounded-md text-xs font-medium transition-all duration-200 ease-in-out whitespace-nowrap ${
+                              activeTab === tab.id
+                                ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
+                                : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Right side: Document Card */}
+                  {doc && (
+                    <div className={`transition-all duration-300 ease-in-out ${isScrolled ? 'w-auto' : 'w-full lg:w-80 shrink-0'}`}>
+                      {isScrolled ? (
+                        <button
+                           onClick={handleViewDocument}
+                           className="flex items-center gap-2 px-3 py-2 bg-stone-100 dark:bg-stone-800 rounded-lg text-sm text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all duration-200 border border-stone-200 dark:border-stone-700"
+                           title={doc.name}
+                        >
+                           <FileText className="w-4 h-4" />
+                           <span className="truncate max-w-[150px] font-medium">{doc.name}</span>
+                           <Eye className="w-3 h-3 ml-1 opacity-50" />
+                        </button>
+                      ) : (
+                        <div className="bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="p-2 bg-stone-100 dark:bg-stone-900 rounded-lg text-stone-500 dark:text-stone-400">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-stone-900 dark:text-stone-100 text-sm truncate" title={doc.name}>
+                                {doc.name}
+                              </h4>
+                              <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                                {doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : 'Document'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <button
+                            onClick={handleViewDocument}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            <Eye className="w-4 h-4" />
+                            View Document
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            
+            {/* Tabs below - only show when not scrolled */}
+            {structure && !isScrolled && (
+              <div className="transition-all duration-300 ease-in-out mt-3">
+                <div className="flex justify-center mb-0 overflow-x-auto no-scrollbar pb-2">
+                   <div className="inline-flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
+                    {tabs.map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ease-in-out whitespace-nowrap snap-center ${
+                          activeTab === tab.id
+                            ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
+                            : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
-                
-                <button
-                  onClick={handleViewDocument}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-sm font-medium transition-colors"
-                >
-                  <Eye className="w-4 h-4" />
-                  View Document
-                </button>
               </div>
             )}
+            </div>
           </div>
+        </div>
+
+        <div className="pb-12 px-6 lg:px-12 max-w-7xl mx-auto space-y-8 pt-8">
 
           {/* Debug Panel */}
           {showDebug && (
@@ -2354,122 +2475,8 @@ const Blueprint = () => {
             </div>
           )}
 
-          {/* Dev Mode Progress Panel */}
-          {devModeEnabled && devModeStep !== 'idle' && (
-            <div className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl p-6 mb-8 border border-orange-200 dark:border-orange-800 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${devModeStep === 'complete' ? 'bg-green-100 dark:bg-green-900/30' : devModeStep === 'error' ? 'bg-red-100 dark:bg-red-900/30' : 'bg-orange-100 dark:bg-orange-900/30'}`}>
-                    {devModeStep === 'complete' ? (
-                      <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    ) : devModeStep === 'error' ? (
-                      <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                    ) : devModeStep === 'waiting' ? (
-                      <Timer className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                    ) : (
-                      <Loader2 className="w-5 h-5 text-orange-600 dark:text-orange-400 animate-spin" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-stone-900 dark:text-stone-100">
-                      Dev Mode Pipeline
-                    </h3>
-                    <p className="text-sm text-stone-600 dark:text-stone-400">
-                      {devModeProgress.message || 'Initializing...'}
-                    </p>
-                  </div>
-                </div>
-                
-                {(devModeStep === 'complete' || devModeStep === 'error') && (
-                  <button
-                    onClick={() => {
-                      setDevModeStep('idle');
-                      setDevModeEnabled(false);
-                      setDevModeProgress({ countdown: 0, totalUnits: 0, webhooksTriggered: 0, unitsSearched: 0, message: '' });
-                    }}
-                    className="px-3 py-1.5 text-sm font-medium text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 transition-colors"
-                  >
-                    Dismiss
-                  </button>
-                )}
-              </div>
-              
-              {/* Progress Steps */}
-              <div className="flex items-center gap-2 mb-4">
-                {['analyzing', 'generating', 'webhooks', 'waiting', 'searching'].map((step, idx) => {
-                  const steps = ['analyzing', 'generating', 'webhooks', 'waiting', 'searching'];
-                  const currentIdx = steps.indexOf(devModeStep);
-                  const isComplete = idx < currentIdx || devModeStep === 'complete';
-                  const isCurrent = step === devModeStep;
-                  const isError = devModeStep === 'error' && idx === currentIdx;
-                  
-                  return (
-                    <React.Fragment key={step}>
-                      <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium transition-colors ${
-                        isComplete ? 'bg-green-500 text-white' :
-                        isCurrent ? 'bg-orange-500 text-white' :
-                        isError ? 'bg-red-500 text-white' :
-                        'bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-400'
-                      }`}>
-                        {isComplete ? <Check className="w-4 h-4" /> : idx + 1}
-                      </div>
-                      {idx < 4 && (
-                        <div className={`flex-1 h-1 rounded ${
-                          idx < currentIdx || devModeStep === 'complete' ? 'bg-green-500' : 'bg-stone-200 dark:bg-stone-700'
-                        }`} />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-              
-              {/* Step Labels */}
-              <div className="flex justify-between text-xs text-stone-500 dark:text-stone-400 mb-4">
-                <span>Analyze</span>
-                <span>Structure</span>
-                <span>Webhooks</span>
-                <span>Wait</span>
-                <span>Search</span>
-              </div>
-              
-              {/* Countdown Timer */}
-              {devModeStep === 'waiting' && devModeProgress.countdown > 0 && (
-                <div className="bg-white dark:bg-stone-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-stone-700 dark:text-stone-300">
-                      Waiting for webhooks to populate database...
-                    </span>
-                    <span className="text-2xl font-mono font-bold text-orange-600 dark:text-orange-400">
-                      {Math.floor(devModeProgress.countdown / 60)}:{(devModeProgress.countdown % 60).toString().padStart(2, '0')}
-                    </span>
-                  </div>
-                  <div className="mt-2 w-full bg-stone-200 dark:bg-stone-700 rounded-full h-2">
-                    <div 
-                      className="bg-orange-500 h-2 rounded-full transition-all duration-1000"
-                      style={{ width: `${((120 - devModeProgress.countdown) / 120) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-              
-              {/* Progress Stats */}
-              {(devModeStep === 'webhooks' || devModeStep === 'searching') && (
-                <div className="bg-white dark:bg-stone-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-stone-700 dark:text-stone-300">
-                      {devModeStep === 'webhooks' ? 'Triggering webhooks...' : 'Searching database...'}
-                    </span>
-                    <span className="text-lg font-mono font-bold text-orange-600 dark:text-orange-400">
-                      {devModeStep === 'webhooks' 
-                        ? `${devModeProgress.webhooksTriggered}/${devModeProgress.totalUnits}`
-                        : `${devModeProgress.unitsSearched}/${devModeProgress.totalUnits}`
-                      }
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Dev Mode Progress Panel - REMOVED per user request */}
+
 
           {/* No Structure State - Show Generation UI */}
           {!structure && (
@@ -2590,31 +2597,9 @@ const Blueprint = () => {
           {/* Structure Content */}
           {structure && (
             <>
-              {/* Bucket Navigation (Tabs) */}
-              <div className="mb-8">
-                <div className="flex justify-center mb-4 px-4">
-                  <div className="inline-flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg overflow-x-auto max-w-full no-scrollbar border border-stone-200 dark:border-stone-700">
-                    {tabs.map(tab => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap snap-center ${
-                          activeTab === tab.id
-                            ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
-                            : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Active Section Header */}
-                <div className="mt-4 flex items-center gap-3">
-                  <h2 className="text-2xl font-bold text-[#2A2B2A] dark:text-stone-100">{currentSectionTitle}</h2>
-                  
-                </div>
+              {/* Active Section Header */}
+              <div className="mt-4 flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-[#2A2B2A] dark:text-stone-100">{currentSectionTitle}</h2>
               </div>
 
               {/* Topic List */}

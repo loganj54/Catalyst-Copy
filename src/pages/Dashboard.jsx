@@ -67,6 +67,7 @@ const Dashboard = () => {
         .from('blueprints')
         .select('*, classes(name)')
         .eq('user_id', user.id)
+        .neq('title', 'Untitled Blueprint') // Filter out "Untitled Blueprint"
         .order('last_viewed_at', { ascending: false })
         .limit(5);
 
