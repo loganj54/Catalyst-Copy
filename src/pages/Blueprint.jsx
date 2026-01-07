@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   ArrowLeft, BookOpen, Target, Calendar, FileText, Loader2, Download, 
   ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp, 
   ChevronRight, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
-  Layout, Grid, Circle, Eye, Info, Database
+  Layout, Grid, Circle, Eye, Info, Database, ToggleLeft, ToggleRight, Timer
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -574,6 +574,7 @@ const TopicListItem = ({
 const Blueprint = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, session } = useAuth();
   
   // Data State
@@ -606,6 +607,18 @@ const Blueprint = () => {
   // Progress Panel State
   const [showProgressPanel, setShowProgressPanel] = useState(false);
   const [isGeneratingWithProgress, setIsGeneratingWithProgress] = useState(false);
+
+  // Dev Mode State - Automated pipeline for development/testing
+  const [devModeEnabled, setDevModeEnabled] = useState(false);
+  const [devModeStep, setDevModeStep] = useState('idle'); // 'idle' | 'analyzing' | 'generating' | 'webhooks' | 'waiting' | 'searching' | 'complete' | 'error'
+  const [devModeProgress, setDevModeProgress] = useState({
+    countdown: 0,
+    totalUnits: 0,
+    webhooksTriggered: 0,
+    unitsSearched: 0,
+    message: '',
+  });
+  const devModeTimerRef = useRef(null);
 
   // Fetch blueprint data
   const fetchBlueprint = useCallback(async () => {
@@ -899,38 +912,291 @@ const Blueprint = () => {
     if (!session?.access_token) return;
     
     try {
-      // Direct call to Make.com webhook
-      // Note: This URL was provided by the user. 
-      // Using 'no-cors' mode to avoid CORS errors if the webhook doesn't support OPTIONS,
-      // though this means we can't read the response status.
-      await fetch('https://hook.us2.make.com/4biukvihdmvo4aianlpqk5sbnewjbonh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          unit_id: unit.unit_id,
-          topic: unit.topic,
-          description: unit.description,
-          learning_objective: unit.learning_objective,
-          search_queries: unit.search_queries || [],
-          target_resource_profile: unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase || `Video tutorial explaining ${unit.topic}: ${unit.description || ''}`,
-          ideal_video_description: unit.ideal_video_description || null,
-          semantic_search_phrase: unit.semantic_search_phrase || null,
-          blueprint_id: id,
-          user_id: user.id,
-          triggered_at: new Date().toISOString()
-        })
-      });
+      // Find parent section to get its metadata
+      let section = null;
+      let struct = learningStructure?.structure;
+      if (struct?.learning_structure) struct = struct.learning_structure;
       
-      // Since we might not get a readable response due to CORS/opaque response in some cases,
-      // we'll optimistically show success. If the webhook URL supports CORS properly, 
-      // we could check response.ok.
-      alert('Webhook triggered successfully!');
+      if (struct) {
+        if (struct.content_sections) {
+          section = struct.content_sections.find(s => s.learning_units?.some(u => u.unit_id === unit.unit_id));
+        }
+        if (!section && struct.prerequisites_section?.learning_units?.some(u => u.unit_id === unit.unit_id)) {
+          section = struct.prerequisites_section;
+        }
+      }
+
+      const queries = unit.search_queries || [];
+      const webhookUrl = 'https://hook.us2.make.com/4biukvihdmvo4aianlpqk5sbnewjbonh';
+      
+      const payloadBase = {
+        unit_id: unit.unit_id,
+        topic: unit.topic,
+        description: unit.description,
+        topic_description: unit.description,
+        learning_objective: unit.learning_objective,
+        section_title: section?.title || null,
+        section_learning_objective: section?.learning_objective || null,
+        section_description: section?.description || null,
+        target_resource_profile: unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase || `Video tutorial explaining ${unit.topic}: ${unit.description || ''}`,
+        ideal_video_description: unit.ideal_video_description || null,
+        semantic_search_phrase: unit.semantic_search_phrase || null,
+        blueprint_id: id,
+        user_id: user.id,
+        triggered_at: new Date().toISOString()
+      };
+      
+      // If we have search queries, send one webhook per query
+      if (queries.length > 0) {
+        console.log(`[Blueprint] Triggering ${queries.length} individual webhooks...`);
+        
+        // Execute requests in parallel
+        const promises = queries.map(async (query, index) => {
+          try {
+            const response = await fetch(webhookUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                ...payloadBase,
+                search_query: query, // The specific query for this webhook
+                query_index: index + 1,
+                total_queries: queries.length,
+              })
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              if (data.found && data.resource) {
+                console.log(`[Blueprint] Resource found via webhook for query "${query}"!`);
+                
+                // Add "from_cache" flag if not present
+                const resource = {
+                  ...data.resource,
+                  from_cache: true
+                };
+
+                // Update resources for this unit
+                setTopicResources(prev => {
+                  const existing = prev[unit.unit_id] || [];
+                  // Avoid duplicates by URL
+                  if (existing.some(r => r.url === resource.url)) return prev;
+                  return {
+                    ...prev,
+                    [unit.unit_id]: [...existing, resource]
+                  };
+                });
+                
+                return { success: true, found: true };
+              }
+              return { success: true, found: false };
+            }
+            return { success: false, status: response.status };
+          } catch (err) {
+            console.error('Error in single webhook trigger:', err);
+            return { success: false, error: err };
+          }
+        });
+
+        const results = await Promise.all(promises);
+        const foundCount = results.filter(r => r.found).length;
+        
+        if (foundCount > 0) {
+           alert(`Success! Found ${foundCount} cached resources immediately.`);
+        } else {
+           alert(`Successfully triggered ${queries.length} webhooks. Analysis is running in background.`);
+        }
+      } else {
+        // Fallback: No specific queries, send one generic webhook
+        console.log('[Blueprint] No queries found, triggering generic webhook...');
+        
+        const response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...payloadBase,
+            search_queries: [],
+          })
+        });
+        
+        if (response.ok) {
+           const data = await response.json();
+           if (data.found && data.resource) {
+              console.log('[Blueprint] Resource found via generic webhook!');
+               // Add "from_cache" flag if not present
+              const resource = {
+                ...data.resource,
+                from_cache: true
+              };
+
+              setTopicResources(prev => {
+                const existing = prev[unit.unit_id] || [];
+                if (existing.some(r => r.url === resource.url)) return prev;
+                return {
+                  ...prev,
+                  [unit.unit_id]: [...existing, resource]
+                };
+              });
+              alert('Success! Found a cached resource immediately.');
+           } else {
+              alert('Webhook triggered successfully! Analysis is running in background.');
+           }
+        } else {
+           throw new Error(`Webhook failed with status ${response.status}`);
+        }
+      }
     } catch (error) {
       console.error('Error triggering webhook:', error);
       alert('Failed to trigger webhook. Please try again.');
     }
+  };
+
+  // Trigger webhooks for ALL units in parallel (Dev Mode)
+  // UPDATED: Now batches webhooks by section to reduce rate limits
+  const triggerAllWebhooks = async (allUnits, structureContext = null) => {
+    if (!session?.access_token || !allUnits || allUnits.length === 0) return;
+    
+    console.log(`[Blueprint] Dev Mode: Triggering batched webhooks...`);
+    
+    // Use passed structure or fallback to state
+    let struct = structureContext;
+    if (!struct && learningStructure?.structure) {
+        struct = learningStructure.structure;
+    }
+    if (struct?.learning_structure) struct = struct.learning_structure;
+
+    const webhookUrl = 'https://hook.us2.make.com/4biukvihdmvo4aianlpqk5sbnewjbonh';
+    let triggeredCount = 0;
+    
+    // Prepare batched payloads by section
+    const sectionPayloads = [];
+
+    // Helper to get section ID consistently
+    const getSectionId = (section) => section?.section_id || section?.title || 'unknown';
+
+    // 1. Process Prerequisites Section
+    if (struct?.prerequisites_section?.learning_units?.length > 0) {
+        const prereqSection = struct.prerequisites_section;
+        const prereqUnits = prereqSection.learning_units;
+        
+        const unitsPayload = prereqUnits.map(unit => ({
+            unit_id: unit.unit_id,
+            topic: unit.topic,
+            description: unit.description,
+            topic_description: unit.description,
+            learning_objective: unit.learning_objective,
+            target_resource_profile: unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase || `Video tutorial explaining ${unit.topic}: ${unit.description || ''}`,
+            search_queries: unit.search_queries || []
+        }));
+
+        sectionPayloads.push({
+            section_title: prereqSection.title || 'Prerequisites',
+            section_learning_objective: prereqSection.learning_objective || '',
+            section_description: prereqSection.description || '',
+            is_prerequisite: true,
+            units: unitsPayload,
+            blueprint_id: id,
+            user_id: user.id,
+            triggered_at: new Date().toISOString()
+        });
+    }
+
+    // 2. Process Content Sections
+    if (struct?.content_sections?.length > 0) {
+        struct.content_sections.forEach(section => {
+            if (section.learning_units?.length > 0) {
+                const unitsPayload = section.learning_units.map(unit => ({
+                    unit_id: unit.unit_id,
+                    topic: unit.topic,
+                    description: unit.description,
+                    topic_description: unit.description,
+                    learning_objective: unit.learning_objective,
+                    target_resource_profile: unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase || `Video tutorial explaining ${unit.topic}: ${unit.description || ''}`,
+                    search_queries: unit.search_queries || []
+                }));
+
+                sectionPayloads.push({
+                    section_title: section.title || 'Untitled Section',
+                    section_learning_objective: section.learning_objective || '',
+                    section_description: section.description || '',
+                    is_prerequisite: false,
+                    units: unitsPayload,
+                    blueprint_id: id,
+                    user_id: user.id,
+                    triggered_at: new Date().toISOString()
+                });
+            }
+        });
+    }
+
+    console.log(`[Blueprint] Dev Mode: Prepared ${sectionPayloads.length} section payloads for webhook batching.`);
+
+    // 3. Send Webhooks (One per Section)
+    const allPromises = sectionPayloads.map(payload => 
+        (async () => {
+            try {
+                console.log(`[Blueprint] Sending webhook for section: "${payload.section_title}" with ${payload.units.length} units`);
+                
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    triggeredCount++;
+                    setDevModeProgress(prev => ({ ...prev, webhooksTriggered: triggeredCount }));
+                    
+                    const responseText = await response.text();
+                    if (responseText === 'Accepted') return;
+
+                    try {
+                        const data = JSON.parse(responseText);
+                        // Handle batch response
+                        if (data.results && Array.isArray(data.results)) {
+                            console.log(`[Blueprint] Received batch results for section: "${payload.section_title}"`);
+                            
+                            // Iterate through results and update resources
+                            data.results.forEach(result => {
+                                if (result.found && result.resource && result.unit_id) {
+                                    const resource = {
+                                        ...result.resource,
+                                        from_cache: true
+                                    };
+                                    
+                                    setTopicResources(prev => {
+                                        const existing = prev[result.unit_id] || [];
+                                        if (existing.some(r => r.url === resource.url)) return prev;
+                                        return {
+                                            ...prev,
+                                            [result.unit_id]: [...existing, resource]
+                                        };
+                                    });
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        // Ignore non-JSON response
+                    }
+                } else {
+                    console.error(`[Blueprint] Webhook failed for section "${payload.section_title}": ${response.status}`);
+                }
+            } catch (err) {
+                console.error('[Blueprint] Dev Mode: Webhook error', err);
+            }
+        })()
+    );
+    
+    // Execute all section webhooks in parallel
+    await Promise.all(allPromises);
+    
+    console.log(`[Blueprint] Dev Mode: All ${triggeredCount} section webhooks triggered successfully`);
+    return triggeredCount;
   };
 
   // Handle Load Resources to Database
@@ -1234,6 +1500,113 @@ const Blueprint = () => {
     }
   };
 
+  // Search database for ALL units in parallel (Dev Mode)
+  const searchAllUnitsFromDatabase = async (allUnits) => {
+    if (!session?.access_token || !allUnits || allUnits.length === 0) return;
+    
+    console.log(`[Blueprint] Dev Mode: Searching database for ${allUnits.length} units...`);
+    
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    let searchedCount = 0;
+    
+    // Process all units in parallel
+    const searchPromises = allUnits.map(async (unit) => {
+      const unitId = unit.unit_id;
+      
+      try {
+        // Mark this unit as currently loading
+        loadingResourcesRef.current.add(unitId);
+        setSearchingTopics(prev => new Set([...prev, unitId]));
+        
+        const targetResourceProfile = unit.target_resource_profile;
+        
+        const response = await fetch(`${supabaseUrl}/functions/v1/search-resources-database`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            unit_id: unitId,
+            topic: unit.topic,
+            target_resource_profile: targetResourceProfile,
+            blueprint_id: id
+          }),
+        });
+
+        const data = await response.json();
+        
+        if (data.success && data.resources && data.resources.length > 0) {
+          let finalResources = data.resources;
+          
+          // Generate AI explanations for the found resources
+          console.log(`[Blueprint] Dev Mode: Generating explanations for ${finalResources.length} resources for unit "${unit.topic}"...`);
+          
+          try {
+            const explanationResponse = await fetch(`${supabaseUrl}/functions/v1/generate-resource-explanation`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                resources: finalResources,
+                topic: unit.topic,
+                description: unit.description,
+                learning_objective: unit.learning_objective,
+                blueprint_id: id,
+                unit_id: unitId
+              }),
+            });
+            
+            const explanationData = await explanationResponse.json();
+            if (explanationData.success && explanationData.resources) {
+              console.log(`[Blueprint] Dev Mode: Explanations generated for unit "${unit.topic}"`);
+              finalResources = explanationData.resources;
+            }
+          } catch (explanationError) {
+            console.error(`[Blueprint] Dev Mode: Error generating explanations for unit "${unit.topic}":`, explanationError);
+            // Continue with original resources if explanation generation fails
+          }
+          
+          // Update resources state with final resources (with or without explanations)
+          setTopicResources(prev => ({
+            ...prev,
+            [unitId]: finalResources
+          }));
+          
+          console.log(`[Blueprint] Dev Mode: Found ${finalResources.length} resources for unit "${unit.topic}"`);
+        } else {
+          console.log(`[Blueprint] Dev Mode: No resources found for unit "${unit.topic}"`);
+        }
+        
+        searchedCount++;
+        setDevModeProgress(prev => ({ ...prev, unitsSearched: searchedCount }));
+        
+        // Release loading lock after a short delay
+        setTimeout(() => {
+          loadingResourcesRef.current.delete(unitId);
+        }, 1000);
+        
+      } catch (error) {
+        console.error(`[Blueprint] Dev Mode: Error searching for unit "${unit.topic}":`, error);
+        loadingResourcesRef.current.delete(unitId);
+      } finally {
+        setSearchingTopics(prev => {
+          const next = new Set(prev);
+          next.delete(unitId);
+          return next;
+        });
+      }
+    });
+    
+    // Wait for all searches to complete
+    await Promise.all(searchPromises);
+    
+    console.log(`[Blueprint] Dev Mode: Database search complete for ${searchedCount} units`);
+    return searchedCount;
+  };
+
   const handleViewDocument = async () => {
     // Get document from blueprint.document (linked via document_id) or file_metadata (embedded)
     const doc = blueprint.document || (blueprint.file_metadata ? {
@@ -1358,6 +1731,182 @@ const Blueprint = () => {
       setGenerating(false);
     }
   };
+
+  // Dev Mode Pipeline Orchestrator
+  // Runs the full automated pipeline: analyze → generate structure → webhooks → wait → search
+  const runDevModePipeline = async () => {
+    if (!session?.access_token) return;
+    
+    console.log('[Blueprint] Dev Mode: Starting full pipeline...');
+    
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      // ========================================
+      // STEP 1: Analyze Document
+      // ========================================
+      setDevModeStep('analyzing');
+      setDevModeProgress(prev => ({ ...prev, message: 'Analyzing document with Claude AI...' }));
+      
+      // Check if analysis already exists
+      if (!documentAnalysis) {
+        console.log('[Blueprint] Dev Mode: Running document analysis...');
+        const analyzeResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-document-legacy`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blueprint_id: id }),
+        });
+        const analyzeData = await analyzeResponse.json();
+        if (!analyzeData.success) throw new Error(analyzeData.error || 'Document analysis failed');
+        setDocumentAnalysis(analyzeData);
+        console.log('[Blueprint] Dev Mode: Document analysis complete');
+      } else {
+        console.log('[Blueprint] Dev Mode: Document already analyzed, skipping...');
+      }
+      
+      // ========================================
+      // STEP 2: Generate Structure
+      // ========================================
+      setDevModeStep('generating');
+      setDevModeProgress(prev => ({ ...prev, message: 'Generating learning structure...' }));
+      
+      console.log('[Blueprint] Dev Mode: Generating structure...');
+      const structureResponse = await fetch(`${supabaseUrl}/functions/v1/generate-structure-legacy`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blueprint_id: id }),
+      });
+      const structureData = await structureResponse.json();
+      if (!structureData.success) throw new Error(structureData.error || 'Structure generation failed');
+      setStructureGenerationResult(structureData);
+      console.log('[Blueprint] Dev Mode: Structure generation complete');
+      
+      // Refresh blueprint data to get the new structure
+      await fetchBlueprint();
+      
+      // Wait a moment for state to update
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Get all learning units from the newly generated structure
+      const newStructure = structureData.structure;
+      const allUnits = [];
+      
+      // Collect prerequisite units
+      if (newStructure?.prerequisites_section?.learning_units) {
+        allUnits.push(...newStructure.prerequisites_section.learning_units);
+      }
+      
+      // Collect content section units
+      if (newStructure?.content_sections) {
+        for (const section of newStructure.content_sections) {
+          if (section.learning_units) {
+            allUnits.push(...section.learning_units);
+          }
+        }
+      }
+      
+      console.log(`[Blueprint] Dev Mode: Found ${allUnits.length} total learning units`);
+      
+      // ========================================
+      // STEP 3: Trigger All Webhooks
+      // ========================================
+      setDevModeStep('webhooks');
+      setDevModeProgress(prev => ({ 
+        ...prev, 
+        message: 'Triggering webhooks for all units...', 
+        totalUnits: allUnits.length,
+        webhooksTriggered: 0 
+      }));
+      
+       console.log('[Blueprint] Dev Mode: Triggering webhooks...');
+       await triggerAllWebhooks(allUnits, newStructure);
+       console.log('[Blueprint] Dev Mode: All webhooks triggered');
+      
+      // ========================================
+      // STEP 4: Wait 120 seconds
+      // ========================================
+      setDevModeStep('waiting');
+      setDevModeProgress(prev => ({ ...prev, message: 'Waiting for Make.com to process webhooks...', countdown: 120 }));
+      
+      console.log('[Blueprint] Dev Mode: Waiting 120 seconds for webhooks to populate database...');
+      
+      // Countdown timer
+      await new Promise((resolve) => {
+        let remaining = 120;
+        devModeTimerRef.current = setInterval(() => {
+          remaining--;
+          setDevModeProgress(prev => ({ ...prev, countdown: remaining }));
+          
+          if (remaining <= 0) {
+            clearInterval(devModeTimerRef.current);
+            devModeTimerRef.current = null;
+            resolve();
+          }
+        }, 1000);
+      });
+      
+      console.log('[Blueprint] Dev Mode: Wait complete');
+      
+      // ========================================
+      // STEP 5: Search Database for All Units
+      // ========================================
+      setDevModeStep('searching');
+      setDevModeProgress(prev => ({ 
+        ...prev, 
+        message: 'Searching database for resources...', 
+        unitsSearched: 0 
+      }));
+      
+      console.log('[Blueprint] Dev Mode: Searching database for all units...');
+      await searchAllUnitsFromDatabase(allUnits);
+      console.log('[Blueprint] Dev Mode: Database search complete');
+      
+      // ========================================
+      // COMPLETE
+      // ========================================
+      setDevModeStep('complete');
+      setDevModeProgress(prev => ({ ...prev, message: 'Pipeline complete! Resources loaded.' }));
+      
+      console.log('[Blueprint] Dev Mode: Full pipeline complete!');
+      
+    } catch (error) {
+      console.error('[Blueprint] Dev Mode: Pipeline error:', error);
+      setDevModeStep('error');
+      setDevModeProgress(prev => ({ ...prev, message: `Error: ${error.message}` }));
+      
+      // Clean up timer if it's running
+      if (devModeTimerRef.current) {
+        clearInterval(devModeTimerRef.current);
+        devModeTimerRef.current = null;
+      }
+    }
+  };
+
+  // Effect to trigger the pipeline when dev mode is enabled
+  useEffect(() => {
+    if (devModeEnabled && devModeStep === 'idle') {
+      runDevModePipeline();
+    }
+    
+    // Cleanup timer on unmount
+    return () => {
+      if (devModeTimerRef.current) {
+        clearInterval(devModeTimerRef.current);
+      }
+    };
+  }, [devModeEnabled]);
+
+  // Effect to check for devMode query parameter on mount
+  useEffect(() => {
+    const devModeParam = searchParams.get('devMode');
+    if (devModeParam === 'true' && !loading && blueprint && !devModeEnabled && devModeStep === 'idle') {
+      console.log('[Blueprint] Dev Mode triggered via URL parameter');
+      // Remove the query param to prevent re-triggering on refresh
+      setSearchParams({}, { replace: true });
+      // Enable dev mode to start the pipeline
+      setDevModeEnabled(true);
+    }
+  }, [searchParams, loading, blueprint, devModeEnabled, devModeStep, setSearchParams]);
 
   const handleProgressComplete = async (data) => {
     console.log('[Blueprint] Structure generation complete:', data);
@@ -1540,6 +2089,42 @@ const Blueprint = () => {
                     <Sparkles className={`w-5 h-5 ${showProgressPanel ? 'text-[#FF4A1C]' : 'text-stone-400'}`} />
                   </button>
                 )}
+                
+                {/* Dev Mode Toggle - Run/Re-run full pipeline */}
+                <button
+                  onClick={() => {
+                    if (devModeStep === 'complete' || devModeStep === 'error') {
+                      // Reset and re-run
+                      setDevModeStep('idle');
+                      setDevModeProgress({ countdown: 0, totalUnits: 0, webhooksTriggered: 0, unitsSearched: 0, message: '' });
+                      setDevModeEnabled(true);
+                    } else if (!devModeEnabled && devModeStep === 'idle') {
+                      setDevModeEnabled(true);
+                    } else if (devModeEnabled && devModeStep === 'idle') {
+                      setDevModeEnabled(false);
+                    }
+                  }}
+                  disabled={devModeStep !== 'idle' && devModeStep !== 'complete' && devModeStep !== 'error'}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
+                    devModeEnabled 
+                      ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-300 dark:border-orange-700' 
+                      : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-700 hover:bg-stone-200 dark:hover:bg-stone-700'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  title={
+                    devModeStep === 'complete' || devModeStep === 'error' 
+                      ? 'Click to re-run the full pipeline' 
+                      : devModeEnabled 
+                        ? 'Dev Mode Active - Running automated pipeline' 
+                        : 'Run full pipeline: Analyze → Structure → Webhooks → Wait → Search'
+                  }
+                >
+                  {devModeEnabled ? (
+                    <ToggleRight className="w-4 h-4" />
+                  ) : (
+                    <ToggleLeft className="w-4 h-4" />
+                  )}
+                  {devModeStep === 'complete' || devModeStep === 'error' ? 'Re-run Pipeline' : 'Dev Mode'}
+                </button>
               </div>
               <p className="text-stone-500 text-lg dark:text-stone-400 mt-2">
                 {blueprint.class?.name ? `${blueprint.class.name} ` : ''}
@@ -1766,6 +2351,123 @@ const Blueprint = () => {
                   Close Panel
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Dev Mode Progress Panel */}
+          {devModeEnabled && devModeStep !== 'idle' && (
+            <div className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl p-6 mb-8 border border-orange-200 dark:border-orange-800 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${devModeStep === 'complete' ? 'bg-green-100 dark:bg-green-900/30' : devModeStep === 'error' ? 'bg-red-100 dark:bg-red-900/30' : 'bg-orange-100 dark:bg-orange-900/30'}`}>
+                    {devModeStep === 'complete' ? (
+                      <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    ) : devModeStep === 'error' ? (
+                      <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                    ) : devModeStep === 'waiting' ? (
+                      <Timer className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                    ) : (
+                      <Loader2 className="w-5 h-5 text-orange-600 dark:text-orange-400 animate-spin" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-stone-900 dark:text-stone-100">
+                      Dev Mode Pipeline
+                    </h3>
+                    <p className="text-sm text-stone-600 dark:text-stone-400">
+                      {devModeProgress.message || 'Initializing...'}
+                    </p>
+                  </div>
+                </div>
+                
+                {(devModeStep === 'complete' || devModeStep === 'error') && (
+                  <button
+                    onClick={() => {
+                      setDevModeStep('idle');
+                      setDevModeEnabled(false);
+                      setDevModeProgress({ countdown: 0, totalUnits: 0, webhooksTriggered: 0, unitsSearched: 0, message: '' });
+                    }}
+                    className="px-3 py-1.5 text-sm font-medium text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                )}
+              </div>
+              
+              {/* Progress Steps */}
+              <div className="flex items-center gap-2 mb-4">
+                {['analyzing', 'generating', 'webhooks', 'waiting', 'searching'].map((step, idx) => {
+                  const steps = ['analyzing', 'generating', 'webhooks', 'waiting', 'searching'];
+                  const currentIdx = steps.indexOf(devModeStep);
+                  const isComplete = idx < currentIdx || devModeStep === 'complete';
+                  const isCurrent = step === devModeStep;
+                  const isError = devModeStep === 'error' && idx === currentIdx;
+                  
+                  return (
+                    <React.Fragment key={step}>
+                      <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium transition-colors ${
+                        isComplete ? 'bg-green-500 text-white' :
+                        isCurrent ? 'bg-orange-500 text-white' :
+                        isError ? 'bg-red-500 text-white' :
+                        'bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-400'
+                      }`}>
+                        {isComplete ? <Check className="w-4 h-4" /> : idx + 1}
+                      </div>
+                      {idx < 4 && (
+                        <div className={`flex-1 h-1 rounded ${
+                          idx < currentIdx || devModeStep === 'complete' ? 'bg-green-500' : 'bg-stone-200 dark:bg-stone-700'
+                        }`} />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+              
+              {/* Step Labels */}
+              <div className="flex justify-between text-xs text-stone-500 dark:text-stone-400 mb-4">
+                <span>Analyze</span>
+                <span>Structure</span>
+                <span>Webhooks</span>
+                <span>Wait</span>
+                <span>Search</span>
+              </div>
+              
+              {/* Countdown Timer */}
+              {devModeStep === 'waiting' && devModeProgress.countdown > 0 && (
+                <div className="bg-white dark:bg-stone-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-stone-700 dark:text-stone-300">
+                      Waiting for webhooks to populate database...
+                    </span>
+                    <span className="text-2xl font-mono font-bold text-orange-600 dark:text-orange-400">
+                      {Math.floor(devModeProgress.countdown / 60)}:{(devModeProgress.countdown % 60).toString().padStart(2, '0')}
+                    </span>
+                  </div>
+                  <div className="mt-2 w-full bg-stone-200 dark:bg-stone-700 rounded-full h-2">
+                    <div 
+                      className="bg-orange-500 h-2 rounded-full transition-all duration-1000"
+                      style={{ width: `${((120 - devModeProgress.countdown) / 120) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {/* Progress Stats */}
+              {(devModeStep === 'webhooks' || devModeStep === 'searching') && (
+                <div className="bg-white dark:bg-stone-800 rounded-lg p-4 border border-orange-200 dark:border-orange-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-stone-700 dark:text-stone-300">
+                      {devModeStep === 'webhooks' ? 'Triggering webhooks...' : 'Searching database...'}
+                    </span>
+                    <span className="text-lg font-mono font-bold text-orange-600 dark:text-orange-400">
+                      {devModeStep === 'webhooks' 
+                        ? `${devModeProgress.webhooksTriggered}/${devModeProgress.totalUnits}`
+                        : `${devModeProgress.unitsSearched}/${devModeProgress.totalUnits}`
+                      }
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

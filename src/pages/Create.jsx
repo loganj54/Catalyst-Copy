@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Upload, FileText, Trash2, Sparkles, BookOpen, Briefcase, 
-  ArrowRight, Layers, Command, Loader2, Paperclip, Plus, Check, X
+  ArrowRight, Layers, Command, Loader2, Paperclip, Plus, Check, X,
+  ToggleLeft, ToggleRight, Zap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -18,6 +19,9 @@ const Create = () => {
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
+  
+  // Dev Mode State - Run full pipeline automatically after creation
+  const [devModeEnabled, setDevModeEnabled] = useState(false);
 
   // Class Selection State
   const [classes, setClasses] = useState([]);
@@ -327,7 +331,8 @@ const Create = () => {
         throw error;
       }
 
-      navigate(`/blueprint/${data.id}`);
+      // Navigate to blueprint page - if dev mode enabled, pass query param to trigger automatic pipeline
+      navigate(`/blueprint/${data.id}${devModeEnabled ? '?devMode=true' : ''}`);
 
     } catch (error) {
       console.error('Error creating blueprint:', error);
@@ -468,23 +473,54 @@ const Create = () => {
                 </button>
               </div>
               
-              <button
-                onClick={handleSubmit}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 rounded-lg font-medium text-sm hover:bg-stone-50 dark:hover:bg-stone-700 transition-all disabled:opacity-50 shadow-sm"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <span>Create Blueprint</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Dev Mode Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setDevModeEnabled(!devModeEnabled)}
+                  disabled={loading}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-sm transition-all border ${
+                    devModeEnabled 
+                      ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700 hover:bg-orange-200 dark:hover:bg-orange-900/50' 
+                      : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 border-stone-300 dark:border-stone-700 hover:bg-stone-200 dark:hover:bg-stone-700'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  title={devModeEnabled 
+                    ? 'Dev Mode ON: Will automatically run full pipeline (analyze → structure → webhooks → search)' 
+                    : 'Dev Mode OFF: Manual step-by-step control'
+                  }
+                >
+                  {devModeEnabled ? (
+                    <>
+                      <ToggleRight className="w-4 h-4" />
+                      <Zap className="w-3.5 h-3.5" />
+                    </>
+                  ) : (
+                    <>
+                      <ToggleLeft className="w-4 h-4" />
+                      <span className="text-xs">Dev</span>
+                    </>
+                  )}
+                </button>
+                
+                {/* Create Blueprint Button */}
+                <button
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-300 dark:border-stone-700 rounded-lg font-medium text-sm hover:bg-stone-50 dark:hover:bg-stone-700 transition-all disabled:opacity-50 shadow-sm"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <span>{devModeEnabled ? 'Create (Dev Mode)' : 'Create Blueprint'}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
           </div>
