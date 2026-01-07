@@ -168,15 +168,6 @@ const ResourceTable = ({ resources }) => {
                     decodeHtmlEntities(resource.description) || 'No description available.'
                   )}
                 </div>
-                {/* Badges */}
-                <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                  {resource.from_cache && (
-                    <span className="flex items-center gap-1 text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-100">
-                      <Star className="w-3 h-3" />
-                      Verified
-                    </span>
-                  )}
-                </div>
               </td>
             </tr>
           ))}
@@ -284,25 +275,6 @@ const TopicListItem = ({
             </div>
           )}
 
-          {/* Ideal Video Description (Target Resource) */}
-          {(unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase) && (
-            <div className="mb-6 p-4 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50">
-              <div className="flex items-start gap-3">
-                <div className="shrink-0 mt-0.5">
-                  <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-wide mb-1 text-indigo-900 dark:text-indigo-300">
-                    Target Resource Profile
-                  </p>
-                  <p className="text-stone-700 dark:text-stone-300 text-m leading-relaxed italic">
-                    "{unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase}"
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-          
           {/* Figures */}
           {topicFigures && topicFigures.length > 0 && (
             <div className="mb-6">
