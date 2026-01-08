@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { 
-  ArrowLeft, BookOpen, Target, Calendar, FileText, Loader2, Download, 
-  ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp, 
+import {
+  ArrowLeft, BookOpen, Target, Calendar, FileText, Loader2, Download,
+  ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp,
   ChevronRight, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
-  Layout, Grid, Circle, Eye, Info, Database, ToggleLeft, ToggleRight, Timer
+  Layout, Grid, Circle, Eye, Info, Database, ToggleLeft, ToggleRight, Timer,
+  AlignLeft
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -16,53 +17,53 @@ import StructureGenerationProgress from '../components/StructureGenerationProgre
 
 // Generation status display configuration
 const STATUS_CONFIG = {
-  pending: { 
-    label: 'Waiting to start...', 
-    icon: Loader2, 
+  pending: {
+    label: 'Waiting to start...',
+    icon: Loader2,
     color: 'text-stone-500',
-    animate: false 
+    animate: false
   },
-  analyzing: { 
-    label: 'Analyzing your document...', 
-    icon: Sparkles, 
+  analyzing: {
+    label: 'Analyzing your document...',
+    icon: Sparkles,
     color: 'text-blue-500',
-    animate: true 
+    animate: true
   },
-  analyzed: { 
-    label: 'Analysis complete - ready for structure generation', 
-    icon: Sparkles, 
+  analyzed: {
+    label: 'Analysis complete - ready for structure generation',
+    icon: Sparkles,
     color: 'text-blue-500',
-    animate: false 
+    animate: false
   },
-  searching: { 
-    label: 'Finding the best resources...', 
-    icon: Sparkles, 
+  searching: {
+    label: 'Finding the best resources...',
+    icon: Sparkles,
     color: 'text-purple-500',
-    animate: true 
+    animate: true
   },
-  generating: { 
-    label: 'Building your learning path...', 
-    icon: Sparkles, 
+  generating: {
+    label: 'Building your learning path...',
+    icon: Sparkles,
     color: 'text-orange-500',
-    animate: true 
+    animate: true
   },
-  structure_complete: { 
-    label: 'Structure generated - ready for resource search', 
-    icon: Sparkles, 
+  structure_complete: {
+    label: 'Structure generated - ready for resource search',
+    icon: Sparkles,
     color: 'text-orange-500',
-    animate: false 
+    animate: false
   },
-  completed: { 
-    label: 'Complete!', 
-    icon: Sparkles, 
+  completed: {
+    label: 'Complete!',
+    icon: Sparkles,
     color: 'text-green-500',
-    animate: false 
+    animate: false
   },
-  failed: { 
-    label: 'Generation failed', 
-    icon: AlertCircle, 
+  failed: {
+    label: 'Generation failed',
+    icon: AlertCircle,
     color: 'text-red-500',
-    animate: false 
+    animate: false
   },
 };
 
@@ -79,7 +80,7 @@ const ResourceTable = ({ resources }) => {
 
   const formatDuration = (input) => {
     if (!input) return null;
-    
+
     // If it's a string containing a colon, assume it's already formatted (e.g. "18:03")
     if (typeof input === 'string' && input.includes(':')) {
       return input;
@@ -120,7 +121,7 @@ const ResourceTable = ({ resources }) => {
           {resources.map((resource, idx) => (
             <tr key={resource.id || idx} className="hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors">
               <td className="px-6 py-4">
-                <a 
+                <a
                   href={resource.url}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -129,8 +130,8 @@ const ResourceTable = ({ resources }) => {
                   {/* Thumbnail */}
                   <div className="relative w-48 h-32 rounded-md overflow-hidden bg-stone-200 shrink-0">
                     {resource.thumbnail_url ? (
-                      <img 
-                        src={resource.thumbnail_url} 
+                      <img
+                        src={resource.thumbnail_url}
                         alt={resource.title}
                         className="w-full h-full object-cover"
                       />
@@ -145,7 +146,7 @@ const ResourceTable = ({ resources }) => {
                       </span>
                     )}
                   </div>
-                  
+
                   <div className="flex-1 min-w-0 max-w-[12rem]">
                     <div className="text-sm font-medium text-stone-900 dark:text-stone-100 group-hover:text-[#FF4A1C] dark:group-hover:text-[#FF4A1C] line-clamp-2">
                       {decodeHtmlEntities(resource.title)}
@@ -180,10 +181,10 @@ const ResourceTable = ({ resources }) => {
 // ============================================================================
 // TOPIC LIST ITEM COMPONENT
 // ============================================================================
-const TopicListItem = ({ 
-  unit, 
-  blueprintId, 
-  topicResponse, 
+const TopicListItem = ({
+  unit,
+  blueprintId,
+  topicResponse,
   topicResources,
   topicEquations,
   topicFigures,
@@ -199,42 +200,42 @@ const TopicListItem = ({
   const hasResources = topicResources && topicResources.length > 0;
   const isComfortable = topicResponse?.response === 'comfortable';
   const isWalkthrough = unit.unit_type === 'walkthrough';
-  
+
   // Use equations from database if available, fallback to structure data
-  const equations = topicEquations && topicEquations.length > 0 
-    ? topicEquations 
+  const equations = topicEquations && topicEquations.length > 0
+    ? topicEquations
     : unit.equations;
 
   return (
     <div className={`border-b border-stone-200 dark:border-stone-700 last:border-0 transition-colors ${isExpanded ? 'bg-stone-50/50 dark:bg-stone-800/50' : 'hover:bg-stone-50/30 dark:hover:bg-stone-800/30'}`}>
-      <div 
+      <div
         onClick={onToggle}
         className="w-full text-left py-4 px-4 flex items-start gap-3 cursor-pointer group select-none"
       >
         <div className="mt-1 text-stone-400 dark:text-stone-500 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
-           {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+          {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
         </div>
-        
+
         <div className="flex-1 min-w-0">
-           <div className="flex items-center gap-3">
-              <h4 className={`font-semibold text-lg ${isWalkthrough ? 'text-stone-900 dark:text-stone-100' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
-                {unit.topic}
-              </h4>
-              {isWalkthrough && (
-                <span className="px-2 py-0.5 bg-[#FF4A1C]/10 dark:bg-[#FF4A1C]/20 text-[#FF4A1C] dark:text-[#FF4A1C] text-xs rounded-full font-medium">
-                  Problem Solving
-                </span>
-              )}
-              {isComfortable && !isWalkthrough && (
-                <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full flex items-center gap-1">
-                  <Check className="w-3 h-3" />
-                  Completed
-                </span>
-              )}
-           </div>
-           {!isExpanded && (
-             <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 line-clamp-1">{unit.description}</p>
-           )}
+          <div className="flex items-center gap-3">
+            <h4 className={`font-semibold text-lg ${isWalkthrough ? 'text-stone-900 dark:text-stone-100' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
+              {unit.topic}
+            </h4>
+            {isWalkthrough && (
+              <span className="px-2 py-0.5 bg-[#FF4A1C]/10 dark:bg-[#FF4A1C]/20 text-[#FF4A1C] dark:text-[#FF4A1C] text-xs rounded-full font-medium">
+                Problem Solving
+              </span>
+            )}
+            {isComfortable && !isWalkthrough && (
+              <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full flex items-center gap-1">
+                <Check className="w-3 h-3" />
+                Completed
+              </span>
+            )}
+          </div>
+          {!isExpanded && (
+            <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 line-clamp-1">{unit.description}</p>
+          )}
         </div>
       </div>
 
@@ -244,7 +245,7 @@ const TopicListItem = ({
           <p className="text-stone-700 dark:text-stone-300 mb-4 leading-relaxed">
             {unit.description}
           </p>
-          
+
           {/* Tutor Guidance */}
           {unit.tutor_guidance && (
             <div className={`mb-6 p-4 rounded-lg border bg-stone-50 dark:bg-stone-900 border-stone-200 dark:border-stone-700`}>
@@ -285,253 +286,252 @@ const TopicListItem = ({
           {/* Action Buttons */}
           {!hasResources && !isComfortable && (
             <>
-            <div className="flex flex-col gap-3 mb-6">
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onGenerateBlueprint(unit, 'youtube');
-                  }}
-                  disabled={isSearching}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-[#FF4A1C] border border-[#FF4A1C] hover:bg-[#FF4A1C]/5 dark:hover:bg-[#FF4A1C]/10`}
-                >
-                  {isSearching ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Searching...
-                    </>
-                  ) : (
-                    <>
-                      <Youtube className="w-4 h-4" />
-                      YouTube API
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onGenerateBlueprint(unit, 'haiku');
-                  }}
-                  disabled={isSearching}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-purple-600 dark:text-purple-400 border border-purple-600 dark:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10`}
-                >
-                  {isSearching ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Searching...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      Haiku 4.5
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onGenerateBlueprint(unit, 'grok');
-                  }}
-                  disabled={isSearching}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-blue-600 dark:text-blue-400 border border-blue-600 dark:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10`}
-                >
-                  {isSearching ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Searching...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-4 h-4" />
-                      Grok
-                    </>
-                  )}
-                </button>
-                
-                {/* Database Search Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onGenerateBlueprint(unit, 'database');
-                  }}
-                  disabled={isSearching}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-emerald-600 dark:text-emerald-400 border border-emerald-600 dark:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10`}
-                >
-                  {isSearching ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Searching...
-                    </>
-                  ) : (
-                    <>
-                      <Target className="w-4 h-4" />
-                      Search DB
-                    </>
-                  )}
-                </button>
-
-                {/* Webhook Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onTriggerWebhook(unit);
-                  }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors bg-white dark:bg-stone-800 text-orange-600 dark:text-orange-400 border border-orange-600 dark:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10`}
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Activate Webhook
-                </button>
-
-                {/* Load Resources Database Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onLoadResourcesToDatabase(unit);
-                  }}
-                  disabled={isSearching}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-cyan-600 dark:text-cyan-400 border border-cyan-600 dark:border-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10`}
-                >
-                  {isSearching ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      <Database className="w-4 h-4" />
-                      Load Resources DB
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {!isWalkthrough && (
+              <div className="flex flex-col gap-3 mb-6">
+                <div className="flex flex-wrap items-center gap-3">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onComfortSelect(unit.unit_id, 'comfortable');
+                      onGenerateBlueprint(unit, 'youtube');
                     }}
                     disabled={isSearching}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg 
-                               hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors font-medium text-sm border border-stone-200 dark:border-stone-700"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-[#FF4A1C] border border-[#FF4A1C] hover:bg-[#FF4A1C]/5 dark:hover:bg-[#FF4A1C]/10`}
                   >
-                    <Check className="w-4 h-4" />
-                    I know this
+                    {isSearching ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Searching...
+                      </>
+                    ) : (
+                      <>
+                        <Youtube className="w-4 h-4" />
+                        YouTube API
+                      </>
+                    )}
                   </button>
-                )}
-                
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowSearchContext(!showSearchContext);
-                  }}
-                  className={`p-2 rounded-lg transition-colors border ${
-                    showSearchContext 
-                      ? 'bg-stone-200 dark:bg-stone-700 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600' 
-                      : 'bg-transparent text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 border-transparent hover:bg-stone-100 dark:hover:bg-stone-800'
-                  }`}
-                  title="View Search Logic & Queries"
-                >
-                  <Info className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onGenerateBlueprint(unit, 'haiku');
+                    }}
+                    disabled={isSearching}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-purple-600 dark:text-purple-400 border border-purple-600 dark:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10`}
+                  >
+                    {isSearching ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Searching...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Haiku 4.5
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onGenerateBlueprint(unit, 'grok');
+                    }}
+                    disabled={isSearching}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-blue-600 dark:text-blue-400 border border-blue-600 dark:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10`}
+                  >
+                    {isSearching ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Searching...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4" />
+                        Grok
+                      </>
+                    )}
+                  </button>
 
-            {showSearchContext && (
-              <div className="mb-6 p-5 rounded-xl bg-stone-100 dark:bg-stone-900/50 border border-stone-200 dark:border-stone-700 text-sm animate-fade-in relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-5">
-                   <Target className="w-32 h-32" />
+                  {/* Database Search Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onGenerateBlueprint(unit, 'database');
+                    }}
+                    disabled={isSearching}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-emerald-600 dark:text-emerald-400 border border-emerald-600 dark:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10`}
+                  >
+                    {isSearching ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Searching...
+                      </>
+                    ) : (
+                      <>
+                        <Target className="w-4 h-4" />
+                        Search DB
+                      </>
+                    )}
+                  </button>
+
+                  {/* Webhook Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTriggerWebhook(unit);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors bg-white dark:bg-stone-800 text-orange-600 dark:text-orange-400 border border-orange-600 dark:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/10`}
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Activate Webhook
+                  </button>
+
+                  {/* Load Resources Database Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLoadResourcesToDatabase(unit);
+                    }}
+                    disabled={isSearching}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-cyan-600 dark:text-cyan-400 border border-cyan-600 dark:border-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/10`}
+                  >
+                    {isSearching ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <Database className="w-4 h-4" />
+                        Load Resources DB
+                      </>
+                    )}
+                  </button>
                 </div>
-                
-                <h5 className="font-semibold text-stone-900 dark:text-stone-100 mb-4 flex items-center gap-2">
-                  <Target className="w-4 h-4 text-[#FF4A1C]" />
-                  Search Intelligence Logic
-                </h5>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10">
-                  <div className="space-y-4">
-                    <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 block mb-2">
-                        Generated Search Queries
-                      </span>
-                      <div className="bg-white dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700 p-3">
-                        {unit.search_queries && unit.search_queries.length > 0 ? (
-                          <ul className="space-y-2">
-                            {unit.search_queries.map((q, i) => (
-                              <li key={i} className="flex items-start gap-2 text-stone-600 dark:text-stone-300 font-mono text-xs">
-                                <span className="text-stone-400 select-none">{'>'}</span>
-                                {q}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <div className="text-stone-400 italic text-xs">
-                            No specific queries pre-generated. The search will use the topic and description.
-                          </div>
-                        )}
-                      </div>
-                    </div>
 
-                    <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 block mb-2">
-                        Context Payload
-                      </span>
-                      <div className="bg-white dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700 p-3 space-y-3">
-                        <div>
-                          <span className="text-xs text-stone-400 block mb-0.5">Topic Target</span>
-                          <p className="text-stone-700 dark:text-stone-300 font-medium">{unit.topic}</p>
+                <div className="flex items-center gap-2">
+                  {!isWalkthrough && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onComfortSelect(unit.unit_id, 'comfortable');
+                      }}
+                      disabled={isSearching}
+                      className="flex items-center justify-center gap-2 px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg 
+                               hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors font-medium text-sm border border-stone-200 dark:border-stone-700"
+                    >
+                      <Check className="w-4 h-4" />
+                      I know this
+                    </button>
+                  )}
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSearchContext(!showSearchContext);
+                    }}
+                    className={`p-2 rounded-lg transition-colors border ${showSearchContext
+                        ? 'bg-stone-200 dark:bg-stone-700 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600'
+                        : 'bg-transparent text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 border-transparent hover:bg-stone-100 dark:hover:bg-stone-800'
+                      }`}
+                    title="View Search Logic & Queries"
+                  >
+                    <Info className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {showSearchContext && (
+                <div className="mb-6 p-5 rounded-xl bg-stone-100 dark:bg-stone-900/50 border border-stone-200 dark:border-stone-700 text-sm animate-fade-in relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5">
+                    <Target className="w-32 h-32" />
+                  </div>
+
+                  <h5 className="font-semibold text-stone-900 dark:text-stone-100 mb-4 flex items-center gap-2">
+                    <Target className="w-4 h-4 text-[#FF4A1C]" />
+                    Search Intelligence Logic
+                  </h5>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10">
+                    <div className="space-y-4">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 block mb-2">
+                          Generated Search Queries
+                        </span>
+                        <div className="bg-white dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700 p-3">
+                          {unit.search_queries && unit.search_queries.length > 0 ? (
+                            <ul className="space-y-2">
+                              {unit.search_queries.map((q, i) => (
+                                <li key={i} className="flex items-start gap-2 text-stone-600 dark:text-stone-300 font-mono text-xs">
+                                  <span className="text-stone-400 select-none">{'>'}</span>
+                                  {q}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <div className="text-stone-400 italic text-xs">
+                              No specific queries pre-generated. The search will use the topic and description.
+                            </div>
+                          )}
                         </div>
-                        {unit.learning_objective && (
+                      </div>
+
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 block mb-2">
+                          Context Payload
+                        </span>
+                        <div className="bg-white dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700 p-3 space-y-3">
                           <div>
-                            <span className="text-xs text-stone-400 block mb-0.5">Learning Objective</span>
-                            <p className="text-stone-600 dark:text-stone-400 leading-relaxed text-xs">
-                              {unit.learning_objective}
-                            </p>
+                            <span className="text-xs text-stone-400 block mb-0.5">Topic Target</span>
+                            <p className="text-stone-700 dark:text-stone-300 font-medium">{unit.topic}</p>
                           </div>
-                        )}
+                          {unit.learning_objective && (
+                            <div>
+                              <span className="text-xs text-stone-400 block mb-0.5">Learning Objective</span>
+                              <p className="text-stone-600 dark:text-stone-400 leading-relaxed text-xs">
+                                {unit.learning_objective}
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-4">
-                    <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 block mb-2">
-                        Search Mechanism Logic
-                      </span>
-                      <div className="space-y-3">
-                        <div className="flex gap-3 p-3 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
-                           <div className="shrink-0 pt-0.5">
-                             <Youtube className="w-4 h-4 text-red-500" />
-                           </div>
-                           <div>
-                             <h6 className="font-medium text-stone-900 dark:text-stone-100 text-xs mb-1">YouTube Data API</h6>
-                             <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
-                               Executes the exact search queries generated above against the YouTube Data API. Results are filtered for duration and relevance.
-                             </p>
-                           </div>
-                        </div>
+                    <div className="space-y-4">
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 block mb-2">
+                          Search Mechanism Logic
+                        </span>
+                        <div className="space-y-3">
+                          <div className="flex gap-3 p-3 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
+                            <div className="shrink-0 pt-0.5">
+                              <Youtube className="w-4 h-4 text-red-500" />
+                            </div>
+                            <div>
+                              <h6 className="font-medium text-stone-900 dark:text-stone-100 text-xs mb-1">YouTube Data API</h6>
+                              <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+                                Executes the exact search queries generated above against the YouTube Data API. Results are filtered for duration and relevance.
+                              </p>
+                            </div>
+                          </div>
 
-                        <div className="flex gap-3 p-3 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
-                           <div className="shrink-0 pt-0.5">
-                             <Sparkles className="w-4 h-4 text-purple-500" />
-                           </div>
-                           <div>
-                             <h6 className="font-medium text-stone-900 dark:text-stone-100 text-xs mb-1">Haiku 4.5 / Grok Analysis</h6>
-                             <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
-                               Constructs a prompt containing the Topic, Learning Objective, and Search Queries. The LLM acts as a research assistant to find, validate, and summarize high-quality web resources that match the specific educational context.
-                             </p>
-                           </div>
+                          <div className="flex gap-3 p-3 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700">
+                            <div className="shrink-0 pt-0.5">
+                              <Sparkles className="w-4 h-4 text-purple-500" />
+                            </div>
+                            <div>
+                              <h6 className="font-medium text-stone-900 dark:text-stone-100 text-xs mb-1">Haiku 4.5 / Grok Analysis</h6>
+                              <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+                                Constructs a prompt containing the Topic, Learning Objective, and Search Queries. The LLM acts as a research assistant to find, validate, and summarize high-quality web resources that match the specific educational context.
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
             </>
           )}
-          
+
           {/* Resources Table */}
           {hasResources && (
             <div className="mt-4">
@@ -563,44 +563,46 @@ const Blueprint = () => {
 
   useEffect(() => {
     let ticking = false;
-    
+
     const handleScroll = () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
           const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
-          
+
           // Adjust threshold based on current state to account for height difference
           // Height changes: mb-6->0 (24px) + mb-3->0 (12px) + title shrink (~36px) + 
           // class name hidden (40px) + tabs section hidden (~60px) = ~172px total
-          
+
           setIsScrolled(prev => {
             if (prev) {
-              // Currently COMPACT: Use lower threshold (50px) to go back to expanded
-              // This accounts for the fact that expanding will push content down by ~172px
-              return scrollPosition > 50;
+              // Currently COMPACT: Keep compact until we scroll very close to top
+              // Use slightly higher value (60) to avoid edge cases near top
+              return scrollPosition > 60;
             } else {
-              // Currently EXPANDED: Use higher threshold (220px) to go to compact
-              // This accounts for the fact that compacting will pull content up by ~172px
-              return scrollPosition > 220;
+              // Currently EXPANDED: Wait until we've scrolled well past the height difference
+              // The header collapse causes a layout shift of ~170-200px
+              // We need this threshold to be significantly higher than (CollapseThreshold + LayoutShift)
+              // 60 + 200 = 260. Using 350 provides a safe buffer.
+              return scrollPosition > 350;
             }
           });
-          
+
           ticking = false;
         });
         ticking = true;
       }
     };
-    
+
     // Initial check
     handleScroll();
-    
+
     // Add scroll listener
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
   }, []);
-  
+
   // Data State
   const [blueprint, setBlueprint] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -609,25 +611,25 @@ const Blueprint = () => {
   const [topicResources, setTopicResources] = useState({});
   const [topicEquations, setTopicEquations] = useState({});
   const [topicFigures, setTopicFigures] = useState({});
-  
+
   // Track resources that are currently being loaded to prevent overwrites
   const loadingResourcesRef = useRef(new Set());
-  
+
   // UI State
   const [activeTab, setActiveTab] = useState(null);
   const [expandedTopics, setExpandedTopics] = useState({});
-  
+
   // Generation State
   const [generating, setGenerating] = useState(false);
   const [generationStatus, setGenerationStatus] = useState('pending');
   const [generationError, setGenerationError] = useState(null);
   const [searchingTopics, setSearchingTopics] = useState(new Set());
-  
+
   // Debug State
   const [showDebug, setShowDebug] = useState(false);
   const [documentAnalysis, setDocumentAnalysis] = useState(null);
   const [structureGenerationResult, setStructureGenerationResult] = useState(null);
-  
+
   // Progress Panel State
   const [showProgressPanel, setShowProgressPanel] = useState(false);
   const [isGeneratingWithProgress, setIsGeneratingWithProgress] = useState(false);
@@ -666,7 +668,7 @@ const Blueprint = () => {
           .select('*')
           .eq('id', data.document_id)
           .single();
-        
+
         if (docData) {
           data.document = docData;
         }
@@ -681,14 +683,14 @@ const Blueprint = () => {
 
       setGenerationStatus(data.generation_status || 'pending');
       setGenerationError(data.generation_error);
-      
+
       // Load Structure
       const { data: structureData } = await supabase
         .from('blueprint_structures')
         .select('*')
         .eq('blueprint_id', id)
         .maybeSingle();
-      
+
       if (structureData) {
         // The database column is 'structure', just use it directly
         setLearningStructure(structureData);
@@ -721,7 +723,7 @@ const Blueprint = () => {
       // First try to find by document_id (multiple blueprints can share same document analysis)
       // Then fall back to blueprint_id (legacy/backwards compatibility)
       let analysisData = null;
-      
+
       if (data.document_id) {
         console.log('[Blueprint] Looking for document analysis by document_id:', data.document_id);
         const { data: docAnalysis } = await supabase
@@ -729,13 +731,13 @@ const Blueprint = () => {
           .select('*')
           .eq('document_id', data.document_id)
           .maybeSingle();
-        
+
         if (docAnalysis) {
           console.log('[Blueprint] Found document analysis by document_id:', docAnalysis.id);
           analysisData = docAnalysis;
         }
       }
-      
+
       // Fallback: try by blueprint_id
       if (!analysisData) {
         console.log('[Blueprint] Looking for document analysis by blueprint_id:', id);
@@ -744,13 +746,13 @@ const Blueprint = () => {
           .select('*')
           .eq('blueprint_id', id)
           .maybeSingle();
-        
+
         if (bpAnalysis) {
           console.log('[Blueprint] Found document analysis by blueprint_id:', bpAnalysis.id);
           analysisData = bpAnalysis;
         }
       }
-      
+
       if (analysisData) {
         setDocumentAnalysis({
           success: true,
@@ -769,7 +771,7 @@ const Blueprint = () => {
         .select('*')
         .eq('blueprint_id', id)
         .eq('user_id', user.id);
-      
+
       if (responsesData) {
         const responsesMap = {};
         responsesData.forEach(r => responsesMap[r.unit_id] = r);
@@ -782,7 +784,7 @@ const Blueprint = () => {
         .from('blueprint_topic_resources')
         .select(`*, resources_from_make (*)`)
         .eq('blueprint_id', id);
-      
+
       if (resourcesError) {
         console.error('[Blueprint] Error loading resources from database:', resourcesError);
       } else if (resourcesData) {
@@ -793,11 +795,11 @@ const Blueprint = () => {
           if (r.resources_from_make) {
             // Filter out ONLY explicitly irrelevant resources
             const explanation = r.resource_explanation?.toLowerCase() || '';
-            const isExplicitlyIrrelevant = 
+            const isExplicitlyIrrelevant =
               explanation === 'not_relevant' ||
               explanation.includes('does not contain relevant content') ||
               explanation.includes('not actually relevant to');
-            
+
             if (!isExplicitlyIrrelevant) {
               resourcesMap[r.unit_id].push({
                 ...r.resources_from_make,
@@ -811,12 +813,12 @@ const Blueprint = () => {
             }
           }
         });
-        
+
         console.log('[Blueprint] Resource map by unit:', Object.keys(resourcesMap).map(unitId => ({
           unitId,
           count: resourcesMap[unitId].length
         })));
-        
+
         // Only update resources that aren't currently being loaded
         setTopicResources(prev => {
           const updated = { ...prev };
@@ -841,28 +843,28 @@ const Blueprint = () => {
         .select(`*, curated_equations (*)`)
         .eq('blueprint_id', id)
         .order('display_index', { ascending: true });
-        
+
       if (equationsData) {
         const equationsMap = {};
         equationsData.forEach(e => {
           if (!equationsMap[e.unit_id]) equationsMap[e.unit_id] = [];
           if (e.curated_equations) {
-             equationsMap[e.unit_id].push({
-               ...e.curated_equations,
-               index: e.display_index
-             });
+            equationsMap[e.unit_id].push({
+              ...e.curated_equations,
+              index: e.display_index
+            });
           }
         });
         setTopicEquations(equationsMap);
       }
-      
+
       // Load Figures
       const { data: figuresData } = await supabase
         .from('blueprint_unit_figures')
         .select(`*, curated_figures (*)`)
         .eq('blueprint_id', id)
         .order('display_index', { ascending: true });
-      
+
       if (figuresData) {
         const figuresMap = {};
         figuresData.forEach(f => {
@@ -877,7 +879,7 @@ const Blueprint = () => {
         });
         setTopicFigures(figuresMap);
       }
-      
+
     } catch (error) {
       console.error('Error fetching blueprint:', error);
       navigate('/dashboard');
@@ -896,7 +898,7 @@ const Blueprint = () => {
     console.log('[Blueprint]   - Has learningStructure:', !!learningStructure);
     console.log('[Blueprint]   - Has structure:', !!learningStructure?.structure);
     console.log('[Blueprint]   - Current activeTab:', activeTab);
-    
+
     if (learningStructure?.structure) {
       const struct = learningStructure.structure;
       console.log('[Blueprint] Structure details:', {
@@ -906,11 +908,11 @@ const Blueprint = () => {
         content_section_count: struct.content_sections?.length || 0,
         structure_keys: Object.keys(struct)
       });
-      
+
       // Log full structure to console for inspection
       console.log('[Blueprint] Full structure object:', struct);
     }
-    
+
     if (learningStructure?.structure && !activeTab) {
       if (learningStructure.structure.prerequisites_section?.learning_units?.length > 0) {
         console.log('[Blueprint] Setting activeTab to prerequisites');
@@ -950,13 +952,13 @@ const Blueprint = () => {
   // Handle webhook trigger
   const handleTriggerWebhook = async (unit) => {
     if (!session?.access_token) return;
-    
+
     try {
       // Find parent section to get its metadata
       let section = null;
       let struct = learningStructure?.structure;
       if (struct?.learning_structure) struct = struct.learning_structure;
-      
+
       if (struct) {
         if (struct.content_sections) {
           section = struct.content_sections.find(s => s.learning_units?.some(u => u.unit_id === unit.unit_id));
@@ -968,7 +970,7 @@ const Blueprint = () => {
 
       const queries = unit.search_queries || [];
       const webhookUrl = 'https://hook.us2.make.com/4biukvihdmvo4aianlpqk5sbnewjbonh';
-      
+
       const payloadBase = {
         unit_id: unit.unit_id,
         topic: unit.topic,
@@ -985,11 +987,11 @@ const Blueprint = () => {
         user_id: user.id,
         triggered_at: new Date().toISOString()
       };
-      
+
       // If we have search queries, send one webhook per query
       if (queries.length > 0) {
         console.log(`[Blueprint] Triggering ${queries.length} individual webhooks...`);
-        
+
         // Execute requests in parallel
         const promises = queries.map(async (query, index) => {
           try {
@@ -1010,7 +1012,7 @@ const Blueprint = () => {
               const data = await response.json();
               if (data.found && data.resource) {
                 console.log(`[Blueprint] Resource found via webhook for query "${query}"!`);
-                
+
                 // Add "from_cache" flag if not present
                 const resource = {
                   ...data.resource,
@@ -1027,7 +1029,7 @@ const Blueprint = () => {
                     [unit.unit_id]: [...existing, resource]
                   };
                 });
-                
+
                 return { success: true, found: true };
               }
               return { success: true, found: false };
@@ -1041,16 +1043,16 @@ const Blueprint = () => {
 
         const results = await Promise.all(promises);
         const foundCount = results.filter(r => r.found).length;
-        
+
         if (foundCount > 0) {
-           alert(`Success! Found ${foundCount} cached resources immediately.`);
+          alert(`Success! Found ${foundCount} cached resources immediately.`);
         } else {
-           alert(`Successfully triggered ${queries.length} webhooks. Analysis is running in background.`);
+          alert(`Successfully triggered ${queries.length} webhooks. Analysis is running in background.`);
         }
       } else {
         // Fallback: No specific queries, send one generic webhook
         console.log('[Blueprint] No queries found, triggering generic webhook...');
-        
+
         const response = await fetch(webhookUrl, {
           method: 'POST',
           headers: {
@@ -1061,31 +1063,31 @@ const Blueprint = () => {
             search_queries: [],
           })
         });
-        
-        if (response.ok) {
-           const data = await response.json();
-           if (data.found && data.resource) {
-              console.log('[Blueprint] Resource found via generic webhook!');
-               // Add "from_cache" flag if not present
-              const resource = {
-                ...data.resource,
-                from_cache: true
-              };
 
-              setTopicResources(prev => {
-                const existing = prev[unit.unit_id] || [];
-                if (existing.some(r => r.url === resource.url)) return prev;
-                return {
-                  ...prev,
-                  [unit.unit_id]: [...existing, resource]
-                };
-              });
-              alert('Success! Found a cached resource immediately.');
-           } else {
-              alert('Webhook triggered successfully! Analysis is running in background.');
-           }
+        if (response.ok) {
+          const data = await response.json();
+          if (data.found && data.resource) {
+            console.log('[Blueprint] Resource found via generic webhook!');
+            // Add "from_cache" flag if not present
+            const resource = {
+              ...data.resource,
+              from_cache: true
+            };
+
+            setTopicResources(prev => {
+              const existing = prev[unit.unit_id] || [];
+              if (existing.some(r => r.url === resource.url)) return prev;
+              return {
+                ...prev,
+                [unit.unit_id]: [...existing, resource]
+              };
+            });
+            alert('Success! Found a cached resource immediately.');
+          } else {
+            alert('Webhook triggered successfully! Analysis is running in background.');
+          }
         } else {
-           throw new Error(`Webhook failed with status ${response.status}`);
+          throw new Error(`Webhook failed with status ${response.status}`);
         }
       }
     } catch (error) {
@@ -1098,19 +1100,19 @@ const Blueprint = () => {
   // UPDATED: Now batches webhooks by section to reduce rate limits
   const triggerAllWebhooks = async (allUnits, structureContext = null) => {
     if (!session?.access_token || !allUnits || allUnits.length === 0) return;
-    
+
     console.log(`[Blueprint] Dev Mode: Triggering batched webhooks...`);
-    
+
     // Use passed structure or fallback to state
     let struct = structureContext;
     if (!struct && learningStructure?.structure) {
-        struct = learningStructure.structure;
+      struct = learningStructure.structure;
     }
     if (struct?.learning_structure) struct = struct.learning_structure;
 
     const webhookUrl = 'https://hook.us2.make.com/4biukvihdmvo4aianlpqk5sbnewjbonh';
     let triggeredCount = 0;
-    
+
     // Prepare batched payloads by section
     const sectionPayloads = [];
 
@@ -1119,10 +1121,36 @@ const Blueprint = () => {
 
     // 1. Process Prerequisites Section
     if (struct?.prerequisites_section?.learning_units?.length > 0) {
-        const prereqSection = struct.prerequisites_section;
-        const prereqUnits = prereqSection.learning_units;
-        
-        const unitsPayload = prereqUnits.map(unit => ({
+      const prereqSection = struct.prerequisites_section;
+      const prereqUnits = prereqSection.learning_units;
+
+      const unitsPayload = prereqUnits.map(unit => ({
+        unit_id: unit.unit_id,
+        topic: unit.topic,
+        description: unit.description,
+        topic_description: unit.description,
+        learning_objective: unit.learning_objective,
+        target_resource_profile: unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase || `Video tutorial explaining ${unit.topic}: ${unit.description || ''}`,
+        search_queries: unit.search_queries || []
+      }));
+
+      sectionPayloads.push({
+        section_title: prereqSection.title || 'Prerequisites',
+        section_learning_objective: prereqSection.learning_objective || '',
+        section_description: prereqSection.description || '',
+        is_prerequisite: true,
+        units: unitsPayload,
+        blueprint_id: id,
+        user_id: user.id,
+        triggered_at: new Date().toISOString()
+      });
+    }
+
+    // 2. Process Content Sections
+    if (struct?.content_sections?.length > 0) {
+      struct.content_sections.forEach(section => {
+        if (section.learning_units?.length > 0) {
+          const unitsPayload = section.learning_units.map(unit => ({
             unit_id: unit.unit_id,
             topic: unit.topic,
             description: unit.description,
@@ -1130,111 +1158,85 @@ const Blueprint = () => {
             learning_objective: unit.learning_objective,
             target_resource_profile: unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase || `Video tutorial explaining ${unit.topic}: ${unit.description || ''}`,
             search_queries: unit.search_queries || []
-        }));
+          }));
 
-        sectionPayloads.push({
-            section_title: prereqSection.title || 'Prerequisites',
-            section_learning_objective: prereqSection.learning_objective || '',
-            section_description: prereqSection.description || '',
-            is_prerequisite: true,
+          sectionPayloads.push({
+            section_title: section.title || 'Untitled Section',
+            section_learning_objective: section.learning_objective || '',
+            section_description: section.description || '',
+            is_prerequisite: false,
             units: unitsPayload,
             blueprint_id: id,
             user_id: user.id,
             triggered_at: new Date().toISOString()
-        });
-    }
-
-    // 2. Process Content Sections
-    if (struct?.content_sections?.length > 0) {
-        struct.content_sections.forEach(section => {
-            if (section.learning_units?.length > 0) {
-                const unitsPayload = section.learning_units.map(unit => ({
-                    unit_id: unit.unit_id,
-                    topic: unit.topic,
-                    description: unit.description,
-                    topic_description: unit.description,
-                    learning_objective: unit.learning_objective,
-                    target_resource_profile: unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase || `Video tutorial explaining ${unit.topic}: ${unit.description || ''}`,
-                    search_queries: unit.search_queries || []
-                }));
-
-                sectionPayloads.push({
-                    section_title: section.title || 'Untitled Section',
-                    section_learning_objective: section.learning_objective || '',
-                    section_description: section.description || '',
-                    is_prerequisite: false,
-                    units: unitsPayload,
-                    blueprint_id: id,
-                    user_id: user.id,
-                    triggered_at: new Date().toISOString()
-                });
-            }
-        });
+          });
+        }
+      });
     }
 
     console.log(`[Blueprint] Dev Mode: Prepared ${sectionPayloads.length} section payloads for webhook batching.`);
 
     // 3. Send Webhooks (One per Section)
-    const allPromises = sectionPayloads.map(payload => 
-        (async () => {
+    const allPromises = sectionPayloads.map(payload =>
+      (async () => {
+        try {
+          console.log(`[Blueprint] Sending webhook for section: "${payload.section_title}" with ${payload.units.length} units`);
+
+          const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (response.ok) {
+            triggeredCount++;
+            setDevModeProgress(prev => ({ ...prev, webhooksTriggered: triggeredCount }));
+
+            const responseText = await response.text();
+            if (responseText === 'Accepted') return;
+
             try {
-                console.log(`[Blueprint] Sending webhook for section: "${payload.section_title}" with ${payload.units.length} units`);
-                
-                const response = await fetch(webhookUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload)
+              const data = JSON.parse(responseText);
+              // Handle batch response
+              if (data.results && Array.isArray(data.results)) {
+                console.log(`[Blueprint] Received batch results for section: "${payload.section_title}"`);
+
+                // Iterate through results and update resources
+                data.results.forEach(result => {
+                  if (result.found && result.resource && result.unit_id) {
+                    const resource = {
+                      ...result.resource,
+                      from_cache: true
+                    };
+
+                    setTopicResources(prev => {
+                      const existing = prev[result.unit_id] || [];
+                      if (existing.some(r => r.url === resource.url)) return prev;
+                      return {
+                        ...prev,
+                        [result.unit_id]: [...existing, resource]
+                      };
+                    });
+                  }
                 });
-
-                if (response.ok) {
-                    triggeredCount++;
-                    setDevModeProgress(prev => ({ ...prev, webhooksTriggered: triggeredCount }));
-                    
-                    const responseText = await response.text();
-                    if (responseText === 'Accepted') return;
-
-                    try {
-                        const data = JSON.parse(responseText);
-                        // Handle batch response
-                        if (data.results && Array.isArray(data.results)) {
-                            console.log(`[Blueprint] Received batch results for section: "${payload.section_title}"`);
-                            
-                            // Iterate through results and update resources
-                            data.results.forEach(result => {
-                                if (result.found && result.resource && result.unit_id) {
-                                    const resource = {
-                                        ...result.resource,
-                                        from_cache: true
-                                    };
-                                    
-                                    setTopicResources(prev => {
-                                        const existing = prev[result.unit_id] || [];
-                                        if (existing.some(r => r.url === resource.url)) return prev;
-                                        return {
-                                            ...prev,
-                                            [result.unit_id]: [...existing, resource]
-                                        };
-                                    });
-                                }
-                            });
-                        }
-                    } catch (e) {
-                        // Ignore non-JSON response
-                    }
-                } else {
-                    console.error(`[Blueprint] Webhook failed for section "${payload.section_title}": ${response.status}`);
-                }
-            } catch (err) {
-                console.error('[Blueprint] Dev Mode: Webhook error', err);
+              }
+            } catch (e) {
+              // Ignore non-JSON response
             }
-        })()
+          } else {
+            console.error(`[Blueprint] Webhook failed for section "${payload.section_title}": ${response.status}`);
+          }
+        } catch (err) {
+          console.error('[Blueprint] Dev Mode: Webhook error', err);
+        }
+      })()
     );
-    
+
     // Execute all section webhooks in parallel
     await Promise.all(allPromises);
-    
+
     console.log(`[Blueprint] Dev Mode: All ${triggeredCount} section webhooks triggered successfully`);
     return triggeredCount;
   };
@@ -1243,15 +1245,15 @@ const Blueprint = () => {
   const handleLoadResourcesToDatabase = async (unit) => {
     if (!session?.access_token) return;
     const unitId = unit.unit_id;
-    
+
     // Mark this unit as currently loading
     setSearchingTopics(prev => new Set([...prev, unitId]));
 
     try {
       console.log(`[Blueprint] Loading resources to database for unit ${unitId}...`);
-      
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      
+
       const response = await fetch(`${supabaseUrl}/functions/v1/load-resources-database`, {
         method: 'POST',
         headers: {
@@ -1268,13 +1270,13 @@ const Blueprint = () => {
       });
 
       const data = await response.json();
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to load resources to database');
       }
-      
+
       console.log('[Blueprint] Resources loaded successfully:', data.summary);
-      
+
       // Show success message with summary
       const { total, successful, failed } = data.summary;
       alert(
@@ -1284,7 +1286,7 @@ const Blueprint = () => {
         `Failed: ${failed}\n\n` +
         `Resources are now available in the database. Click "Search DB" to find them!`
       );
-      
+
     } catch (error) {
       console.error('[Blueprint] Error loading resources to database:', error);
       alert(`Failed to load resources to database: ${error.message}\n\nPlease try again or check the console for details.`);
@@ -1301,7 +1303,7 @@ const Blueprint = () => {
   const handleGenerateBlueprint = async (unit, searchMethod = 'youtube') => {
     if (!session?.access_token) return;
     const unitId = unit.unit_id;
-    
+
     // Mark this unit as currently loading to prevent overwrites
     loadingResourcesRef.current.add(unitId);
     setSearchingTopics(prev => new Set([...prev, unitId]));
@@ -1311,10 +1313,10 @@ const Blueprint = () => {
 
       if (searchMethod === 'database') {
         console.log(`[Blueprint] Searching database for unit ${unitId}...`);
-        
+
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const targetResourceProfile = unit.target_resource_profile;
-        
+
         const response = await fetch(`${supabaseUrl}/functions/v1/search-resources-database`, {
           method: 'POST',
           headers: {
@@ -1331,14 +1333,14 @@ const Blueprint = () => {
 
         const data = await response.json();
         if (!data.success) throw new Error(data.error || 'Database search failed');
-        
+
         foundResources = data.resources || [];
-        
+
         // After successfully finding resources from the database,
         // trigger the AI explanation generation for context
         if (foundResources.length > 0) {
           console.log(`[Blueprint] Generating explanations for ${foundResources.length} database resources...`);
-          
+
           try {
             // Trigger explanation generation (non-blocking for UI, but updates in background)
             // We use a separate function call to keep the search fast
@@ -1357,7 +1359,7 @@ const Blueprint = () => {
                 unit_id: unitId
               }),
             });
-            
+
             const explanationData = await explanationResponse.json();
             if (explanationData.success && explanationData.resources) {
               console.log('[Blueprint] Explanations generated successfully');
@@ -1371,12 +1373,12 @@ const Blueprint = () => {
         }
       } else {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        
+
         // Determine endpoint based on unit_type and search method
         // walkthrough units should use search-problem-walkthroughs endpoint
         const isWalkthrough = unit.unit_type === 'walkthrough';
         let endpoint = '';
-        
+
         if (isWalkthrough) {
           endpoint = 'search-problem-walkthroughs';
         } else if (searchMethod === 'haiku') {
@@ -1386,44 +1388,44 @@ const Blueprint = () => {
         } else {
           endpoint = 'search-resources';
         }
-        
+
         // For walkthrough units, try to get the problem statement from the document analysis
         let problemStatement = null;
         if (isWalkthrough && documentAnalysis?.raw_analysis) {
           // Find the problem statement from the document analysis
           // The unit should be part of a content_section, so we need to find the matching section
           const sections = documentAnalysis.raw_analysis.sections || [];
-          
+
           // Try to find a matching section by looking at the current active section
-          const currentSection = structure?.content_sections?.find(s => 
+          const currentSection = structure?.content_sections?.find(s =>
             s.learning_units?.some(u => u.unit_id === unitId)
           );
-          
+
           if (currentSection && currentSection.section_id) {
             // Find the corresponding section in the raw analysis
-            const analysisSection = sections.find(s => 
-              s.section_id === currentSection.section_id || 
+            const analysisSection = sections.find(s =>
+              s.section_id === currentSection.section_id ||
               s.section_id === currentSection.section_id.replace('_walkthroughs', '')
             );
-            
+
             if (analysisSection && analysisSection.problem_statement) {
               problemStatement = analysisSection.problem_statement;
               console.log('[Blueprint] Found problem statement for walkthrough unit:', problemStatement.substring(0, 100));
             }
           }
         }
-        
+
         // NEW: Get the pre-computed target resource embedding from the unit
         // This avoids redundant embedding generation during search
         const targetResourceEmbedding = unit.target_resource_embedding;
         const targetResourceProfile = unit.target_resource_profile;
-        
+
         if (targetResourceEmbedding && Array.isArray(targetResourceEmbedding) && targetResourceEmbedding.length === 1536) {
           console.log(`[Blueprint] ✅ Using pre-computed target resource embedding for unit ${unitId} (${targetResourceEmbedding.length} dimensions)`);
         } else {
           console.log(`[Blueprint] ⚠️ No pre-computed target resource embedding found for unit ${unitId}, will generate on-demand`);
         }
-        
+
         const requestBody = isWalkthrough ? {
           blueprint_id: id,
           unit_id: unitId,
@@ -1447,9 +1449,9 @@ const Blueprint = () => {
           target_resource_profile: targetResourceProfile, // NEW: Pass target resource profile
           target_resource_embedding: targetResourceEmbedding, // NEW: Pass pre-computed embedding
         };
-        
+
         console.log(`[Blueprint] Fetching resources for unit ${unitId} (type: ${unit.unit_type}, method: ${searchMethod})...`);
-        
+
         const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
           method: 'POST',
           headers: {
@@ -1461,35 +1463,35 @@ const Blueprint = () => {
 
         const data = await response.json();
         if (!data.success) throw new Error(data.error || 'Search failed');
-        
+
         foundResources = data.resources || [];
       }
 
       if (foundResources && foundResources.length > 0) {
         console.log(`[Blueprint] Received ${foundResources.length} resources for unit ${unitId}`);
-        
+
         // Filter out ONLY explicitly irrelevant resources (safety check)
         const relevantResources = foundResources.filter(resource => {
           const explanation = resource.resource_explanation?.toLowerCase() || '';
-          const isExplicitlyIrrelevant = 
+          const isExplicitlyIrrelevant =
             explanation === 'not_relevant' ||
             explanation.includes('does not contain relevant content') ||
             explanation.includes('not actually relevant to');
-          
+
           if (isExplicitlyIrrelevant) {
             console.log('[Blueprint] Filtered out explicitly irrelevant resource from API response:', resource.title);
             return false;
           }
           return true;
         });
-        
+
         if (relevantResources.length === 0) {
           console.warn(`[Blueprint] All resources were explicitly marked as irrelevant for unit ${unitId}`);
           loadingResourcesRef.current.delete(unitId);
           alert('No relevant resources found for this topic. The search results were not related to your learning objective. Please try again.');
           return;
         }
-        
+
         // Update resources state - this will persist in UI
         setTopicResources(prev => {
           const updated = { ...prev, [unitId]: relevantResources };
@@ -1502,13 +1504,13 @@ const Blueprint = () => {
           });
           return updated;
         });
-        
+
         // Update topic responses to mark as searched
         setTopicResponses(prev => ({
           ...prev,
           [unitId]: { unit_id: unitId, response: 'needs_help', searched_at: new Date().toISOString() },
         }));
-        
+
         // Keep the loading ref set for a bit longer to prevent database load from overwriting
         setTimeout(() => {
           loadingResourcesRef.current.delete(unitId);
@@ -1518,23 +1520,23 @@ const Blueprint = () => {
         // No resources found
         console.warn(`[Blueprint] No resources found for unit ${unitId}`);
         loadingResourcesRef.current.delete(unitId);
-        
+
         // Provide helpful message based on search method used
-        const helpMessage = searchMethod === 'haiku' 
+        const helpMessage = searchMethod === 'haiku'
           ? 'No resources found with Haiku 4.5 search. Try the "Find Resources with YouTube API" or "Find Resources with Grok" button for more comprehensive results.'
           : searchMethod === 'grok'
-          ? 'No resources found with Grok search. Try the "Find Resources with YouTube API" or "Find Resources with Haiku 4.5" button for alternative results.'
-          : searchMethod === 'database'
-          ? 'No matching resources found in the database. Try searching with one of the external API buttons.'
-          : 'No resources found for this topic. Please try adjusting your search terms or try the Haiku 4.5 or Grok search methods.';
-        
+            ? 'No resources found with Grok search. Try the "Find Resources with YouTube API" or "Find Resources with Haiku 4.5" button for alternative results.'
+            : searchMethod === 'database'
+              ? 'No matching resources found in the database. Try searching with one of the external API buttons.'
+              : 'No resources found for this topic. Please try adjusting your search terms or try the Haiku 4.5 or Grok search methods.';
+
         alert(helpMessage);
       }
-      
+
     } catch (error) {
       console.error('[Blueprint] Error finding resources:', error);
       loadingResourcesRef.current.delete(unitId);
-      
+
       const methodName = searchMethod === 'haiku' ? 'Haiku 4.5' : searchMethod === 'grok' ? 'Grok' : searchMethod === 'database' ? 'Database' : 'YouTube API';
       alert(`Failed to find resources using ${methodName}: ${error.message}\n\nTry another search method or try again later.`);
     } finally {
@@ -1550,26 +1552,26 @@ const Blueprint = () => {
   // Uses BATCHED explanation generation to avoid rate limiting
   const searchAllUnitsFromDatabase = async (allUnits) => {
     if (!session?.access_token || !allUnits || allUnits.length === 0) return;
-    
+
     console.log(`[Blueprint] Dev Mode: Searching database for ${allUnits.length} units...`);
-    
+
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     let searchedCount = 0;
-    
+
     // Collect results from all searches for batched explanation generation
     const unitsWithResources = [];
-    
+
     // PHASE 1: Search all units in parallel (fast database lookups)
     const searchPromises = allUnits.map(async (unit) => {
       const unitId = unit.unit_id;
-      
+
       try {
         // Mark this unit as currently loading
         loadingResourcesRef.current.add(unitId);
         setSearchingTopics(prev => new Set([...prev, unitId]));
-        
+
         const targetResourceProfile = unit.target_resource_profile;
-        
+
         const response = await fetch(`${supabaseUrl}/functions/v1/search-resources-database`, {
           method: 'POST',
           headers: {
@@ -1585,14 +1587,14 @@ const Blueprint = () => {
         });
 
         const data = await response.json();
-        
+
         if (data.success && data.resources && data.resources.length > 0) {
           // Store resources immediately (without explanations for now)
           setTopicResources(prev => ({
             ...prev,
             [unitId]: data.resources
           }));
-          
+
           // Collect for batched explanation generation
           unitsWithResources.push({
             unit_id: unitId,
@@ -1601,29 +1603,29 @@ const Blueprint = () => {
             learning_objective: unit.learning_objective,
             resources: data.resources
           });
-          
+
           console.log(`[Blueprint] Dev Mode: Found ${data.resources.length} resources for unit "${unit.topic}"`);
         } else {
           console.log(`[Blueprint] Dev Mode: No resources found for unit "${unit.topic}"`);
         }
-        
+
         searchedCount++;
         setDevModeProgress(prev => ({ ...prev, unitsSearched: searchedCount }));
-        
+
       } catch (error) {
         console.error(`[Blueprint] Dev Mode: Error searching for unit "${unit.topic}":`, error);
       }
     });
-    
+
     // Wait for all searches to complete
     await Promise.all(searchPromises);
-    
+
     console.log(`[Blueprint] Dev Mode: Database search complete. Found resources for ${unitsWithResources.length} units.`);
-    
+
     // PHASE 2: Generate explanations for ALL units in ONE batched API call
     if (unitsWithResources.length > 0) {
       console.log(`[Blueprint] Dev Mode: Generating explanations for ${unitsWithResources.length} units in BATCH...`);
-      
+
       try {
         const batchResponse = await fetch(`${supabaseUrl}/functions/v1/batch-generate-explanations`, {
           method: 'POST',
@@ -1636,12 +1638,12 @@ const Blueprint = () => {
             blueprint_id: id
           }),
         });
-        
+
         const batchData = await batchResponse.json();
-        
+
         if (batchData.success && batchData.units) {
           console.log(`[Blueprint] Dev Mode: Batch explanations generated for ${batchData.units.length} units`);
-          
+
           // Update resources with explanations
           batchData.units.forEach(unitResult => {
             if (unitResult.resources && unitResult.resources.length > 0) {
@@ -1651,7 +1653,7 @@ const Blueprint = () => {
               }));
             }
           });
-          
+
           if (batchData.stats) {
             console.log(`[Blueprint] Dev Mode: Batch stats - ${batchData.stats.units_processed} units, ${batchData.stats.total_resources} resources`);
           }
@@ -1661,7 +1663,7 @@ const Blueprint = () => {
         // Resources are already displayed without explanations, so this is graceful degradation
       }
     }
-    
+
     // PHASE 3: Clean up loading states
     allUnits.forEach(unit => {
       loadingResourcesRef.current.delete(unit.unit_id);
@@ -1671,7 +1673,7 @@ const Blueprint = () => {
         return next;
       });
     });
-    
+
     console.log(`[Blueprint] Dev Mode: All operations complete for ${searchedCount} units`);
     return searchedCount;
   };
@@ -1687,7 +1689,7 @@ const Blueprint = () => {
       alert('❌ No document associated with this blueprint.');
       return;
     }
-    
+
     try {
       // Simply open the public URL directly, like ClassDetails does
       window.open(doc.file_url, '_blank', 'noopener,noreferrer');
@@ -1705,7 +1707,7 @@ const Blueprint = () => {
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      
+
       // Analyze
       let response = await fetch(`${supabaseUrl}/functions/v1/analyze-document`, {
         method: 'POST',
@@ -1738,21 +1740,21 @@ const Blueprint = () => {
 
   const runAnalyzeStep = async () => {
     if (!session?.access_token) return;
-    
+
     // If we already have an analysis loaded, just update the status
     if (documentAnalysis) {
       console.log('[Blueprint] Analysis already exists, updating status to analyzed');
       setGenerationStatus('analyzed');
       return;
     }
-    
+
     setGenerating(true);
     setGenerationError(null);
     setGenerationStatus('analyzing');
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      
+
       const response = await fetch(`${supabaseUrl}/functions/v1/analyze-document-legacy`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
@@ -1760,7 +1762,7 @@ const Blueprint = () => {
       });
       const data = await response.json();
       if (!data.success) throw new Error(data.error);
-      
+
       setDocumentAnalysis(data);
       setGenerationStatus('analyzed');
       await fetchBlueprint();
@@ -1774,14 +1776,14 @@ const Blueprint = () => {
 
   const runStructureStep = async () => {
     if (!session?.access_token) return;
-    
+
     setGenerating(true);
     setGenerationError(null);
     setGenerationStatus('generating');
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      
+
       const response = await fetch(`${supabaseUrl}/functions/v1/generate-structure-legacy`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
@@ -1789,7 +1791,7 @@ const Blueprint = () => {
       });
       const data = await response.json();
       if (!data.success) throw new Error(data.error);
-      
+
       setStructureGenerationResult(data);
       setGenerationStatus('completed');
       await fetchBlueprint();
@@ -1805,18 +1807,18 @@ const Blueprint = () => {
   // Runs the full automated pipeline: analyze → generate structure → webhooks → wait → search
   const runDevModePipeline = async () => {
     if (!session?.access_token) return;
-    
+
     console.log('[Blueprint] Dev Mode: Starting full pipeline...');
-    
+
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      
+
       // ========================================
       // STEP 1: Analyze Document
       // ========================================
       setDevModeStep('analyzing');
       setDevModeProgress(prev => ({ ...prev, message: 'Analyzing document with Claude AI...' }));
-      
+
       // Check if analysis already exists
       if (!documentAnalysis) {
         console.log('[Blueprint] Dev Mode: Running document analysis...');
@@ -1832,13 +1834,13 @@ const Blueprint = () => {
       } else {
         console.log('[Blueprint] Dev Mode: Document already analyzed, skipping...');
       }
-      
+
       // ========================================
       // STEP 2: Generate Structure
       // ========================================
       setDevModeStep('generating');
       setDevModeProgress(prev => ({ ...prev, message: 'Generating learning structure...' }));
-      
+
       console.log('[Blueprint] Dev Mode: Generating structure...');
       const structureResponse = await fetch(`${supabaseUrl}/functions/v1/generate-structure-legacy`, {
         method: 'POST',
@@ -1849,22 +1851,22 @@ const Blueprint = () => {
       if (!structureData.success) throw new Error(structureData.error || 'Structure generation failed');
       setStructureGenerationResult(structureData);
       console.log('[Blueprint] Dev Mode: Structure generation complete');
-      
+
       // Refresh blueprint data to get the new structure
       await fetchBlueprint();
-      
+
       // Wait a moment for state to update
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Get all learning units from the newly generated structure
       const newStructure = structureData.structure;
       const allUnits = [];
-      
+
       // Collect prerequisite units
       if (newStructure?.prerequisites_section?.learning_units) {
         allUnits.push(...newStructure.prerequisites_section.learning_units);
       }
-      
+
       // Collect content section units
       if (newStructure?.content_sections) {
         for (const section of newStructure.content_sections) {
@@ -1873,39 +1875,39 @@ const Blueprint = () => {
           }
         }
       }
-      
+
       console.log(`[Blueprint] Dev Mode: Found ${allUnits.length} total learning units`);
-      
+
       // ========================================
       // STEP 3: Trigger All Webhooks
       // ========================================
       setDevModeStep('webhooks');
-      setDevModeProgress(prev => ({ 
-        ...prev, 
-        message: 'Triggering webhooks for all units...', 
+      setDevModeProgress(prev => ({
+        ...prev,
+        message: 'Triggering webhooks for all units...',
         totalUnits: allUnits.length,
-        webhooksTriggered: 0 
+        webhooksTriggered: 0
       }));
-      
-       console.log('[Blueprint] Dev Mode: Triggering webhooks...');
-       await triggerAllWebhooks(allUnits, newStructure);
-       console.log('[Blueprint] Dev Mode: All webhooks triggered');
-      
+
+      console.log('[Blueprint] Dev Mode: Triggering webhooks...');
+      await triggerAllWebhooks(allUnits, newStructure);
+      console.log('[Blueprint] Dev Mode: All webhooks triggered');
+
       // ========================================
       // STEP 4: Wait 120 seconds
       // ========================================
       setDevModeStep('waiting');
       setDevModeProgress(prev => ({ ...prev, message: 'Waiting for Make.com to process webhooks...', countdown: 120 }));
-      
+
       console.log('[Blueprint] Dev Mode: Waiting 120 seconds for webhooks to populate database...');
-      
+
       // Countdown timer
       await new Promise((resolve) => {
         let remaining = 120;
         devModeTimerRef.current = setInterval(() => {
           remaining--;
           setDevModeProgress(prev => ({ ...prev, countdown: remaining }));
-          
+
           if (remaining <= 0) {
             clearInterval(devModeTimerRef.current);
             devModeTimerRef.current = null;
@@ -1913,36 +1915,36 @@ const Blueprint = () => {
           }
         }, 1000);
       });
-      
+
       console.log('[Blueprint] Dev Mode: Wait complete');
-      
+
       // ========================================
       // STEP 5: Search Database for All Units
       // ========================================
       setDevModeStep('searching');
-      setDevModeProgress(prev => ({ 
-        ...prev, 
-        message: 'Searching database for resources...', 
-        unitsSearched: 0 
+      setDevModeProgress(prev => ({
+        ...prev,
+        message: 'Searching database for resources...',
+        unitsSearched: 0
       }));
-      
+
       console.log('[Blueprint] Dev Mode: Searching database for all units...');
       await searchAllUnitsFromDatabase(allUnits);
       console.log('[Blueprint] Dev Mode: Database search complete');
-      
+
       // ========================================
       // COMPLETE
       // ========================================
       setDevModeStep('complete');
       setDevModeProgress(prev => ({ ...prev, message: 'Pipeline complete! Resources loaded.' }));
-      
+
       console.log('[Blueprint] Dev Mode: Full pipeline complete!');
-      
+
     } catch (error) {
       console.error('[Blueprint] Dev Mode: Pipeline error:', error);
       setDevModeStep('error');
       setDevModeProgress(prev => ({ ...prev, message: `Error: ${error.message}` }));
-      
+
       // Clean up timer if it's running
       if (devModeTimerRef.current) {
         clearInterval(devModeTimerRef.current);
@@ -1956,7 +1958,7 @@ const Blueprint = () => {
     if (devModeEnabled && devModeStep === 'idle') {
       runDevModePipeline();
     }
-    
+
     // Cleanup timer on unmount
     return () => {
       if (devModeTimerRef.current) {
@@ -1981,19 +1983,19 @@ const Blueprint = () => {
     console.log('[Blueprint] Structure generation complete:', data);
     console.log('[Blueprint] Structure ID:', data.structure_id);
     console.log('[Blueprint] From cache:', data.from_cache);
-    
+
     setStructureGenerationResult(data);
     setGenerationStatus('completed');
     setGenerating(false);
     setIsGeneratingWithProgress(false);
-    
+
     // Wait a moment for database consistency
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     // Reload blueprint data to show new structure
     console.log('[Blueprint] Fetching updated blueprint data...');
     await fetchBlueprint();
-    
+
     // Auto-close progress panel after 3 seconds
     setTimeout(() => {
       setShowProgressPanel(false);
@@ -2002,12 +2004,12 @@ const Blueprint = () => {
 
   const handleProgressError = async (error) => {
     console.error('[Blueprint] Structure generation failed:', error);
-    
+
     setGenerationError(error.message);
     setGenerationStatus('failed');
     setGenerating(false);
     setIsGeneratingWithProgress(false);
-    
+
     // Reload to get updated status from backend
     await fetchBlueprint();
   };
@@ -2050,12 +2052,12 @@ const Blueprint = () => {
         if (section.section_type === 'problem' || section.title?.toLowerCase().includes('problem')) {
           labelPrefix = 'Problem';
         }
-        
-        tabs.push({ 
-          id: section.section_id || `section-${idx}`, 
+
+        tabs.push({
+          id: section.section_id || `section-${idx}`,
           label: `${labelPrefix} ${idx + 1}`,
           fullTitle: section.title,
-          sectionIndex: idx 
+          sectionIndex: idx
         });
       });
     }
@@ -2064,7 +2066,7 @@ const Blueprint = () => {
   // Get current units to display
   let currentUnits = [];
   let currentSectionTitle = '';
-  
+
   if (activeTab === 'prerequisites') {
     currentUnits = structure?.prerequisites_section?.learning_units || [];
     currentSectionTitle = 'Prerequisites';
@@ -2078,11 +2080,11 @@ const Blueprint = () => {
       has_units: !!s.learning_units,
       unit_count: s.learning_units?.length || 0
     })));
-    
+
     const activeSection = structure.content_sections.find(
       (s, idx) => (s.section_id || `section-${idx}`) === activeTab
     );
-    
+
     console.log('[Blueprint] Found activeSection:', !!activeSection);
     if (activeSection) {
       console.log('[Blueprint] Active section details:', {
@@ -2091,11 +2093,11 @@ const Blueprint = () => {
         unit_count: activeSection.learning_units?.length || 0
       });
     }
-    
+
     currentUnits = activeSection?.learning_units || [];
     currentSectionTitle = activeSection?.title || '';
   }
-  
+
   console.log('[Blueprint] Final currentUnits count:', currentUnits.length);
 
   const doc = blueprint.document || (blueprint.file_metadata ? {
@@ -2105,7 +2107,7 @@ const Blueprint = () => {
   } : null);
 
   return (
-    <div 
+    <div
       className="min-h-screen bg-transparent text-outline relative"
     >
       {/* Backgrounds */}
@@ -2132,7 +2134,7 @@ const Blueprint = () => {
                 <div className={`flex items-center justify-between gap-6 transition-all duration-300 ease-in-out ${isScrolled ? 'mb-0 relative' : 'mb-3'}`}>
                   {/* Left side: Title and class name */}
                   <div className="flex-1 min-w-0">
-                    <button 
+                    <button
                       onClick={() => {
                         if (blueprint.class_id) {
                           navigate(`/class/${blueprint.class_id}?tab=blueprints`);
@@ -2149,7 +2151,7 @@ const Blueprint = () => {
                     <h1 className={`font-bold text-[#2A2B2A] dark:text-stone-100 transition-all duration-300 ease-in-out truncate origin-left ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>
                       {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
                     </h1>
-                    
+
                     {/* Class name subtitle - always rendered but hidden when scrolled */}
                     <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isScrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-10 opacity-100 mt-2'}`}>
                       {blueprint.class?.name && (
@@ -2159,7 +2161,7 @@ const Blueprint = () => {
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Center: Tabs (only when scrolled) - absolutely positioned to stay centered */}
                   {structure && isScrolled && (
                     <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-auto">
@@ -2168,11 +2170,10 @@ const Blueprint = () => {
                           <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`px-3 py-1 rounded-md text-xs font-medium transition-all duration-200 ease-in-out whitespace-nowrap ${
-                              activeTab === tab.id
+                            className={`px-3 py-1 rounded-md text-xs font-medium transition-all duration-200 ease-in-out whitespace-nowrap ${activeTab === tab.id
                                 ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
                                 : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
-                            }`}
+                              }`}
                           >
                             {tab.label}
                           </button>
@@ -2180,72 +2181,146 @@ const Blueprint = () => {
                       </div>
                     </div>
                   )}
-                  
-                  {/* Right side: Document Card */}
-                  {doc && (
+
+                  {/* Right side: Input/Document Card */}
+                  {(doc || (blueprint.description || blueprint.content?.textInput)) && (
                     <div className={`transition-all duration-300 ease-in-out ${isScrolled ? 'w-auto' : 'w-full lg:w-80 shrink-0'}`}>
-                      {isScrolled ? (
-                        <button
-                           onClick={handleViewDocument}
-                           className="flex items-center gap-2 px-3 py-2 bg-stone-100 dark:bg-stone-800 rounded-lg text-sm text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all duration-200 border border-stone-200 dark:border-stone-700"
-                           title={doc.name}
-                        >
-                           <FileText className="w-4 h-4" />
-                           <span className="truncate max-w-[150px] font-medium">{doc.name}</span>
-                           <Eye className="w-3 h-3 ml-1 opacity-50" />
-                        </button>
-                      ) : (
-                        <div className="bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="flex items-start gap-3 mb-3">
-                            <div className="p-2 bg-stone-100 dark:bg-stone-900 rounded-lg text-stone-500 dark:text-stone-400">
-                              <FileText className="w-5 h-5" />
+                      {(() => {
+                        const inputText = blueprint.description || blueprint.content?.textInput;
+                        const hasDoc = !!doc;
+                        const hasText = !!inputText && inputText.trim().length > 0;
+
+                        if (isScrolled) {
+                          // Compact View (Scrolled)
+                          return (
+                            <div className="flex items-center gap-2">
+                              {hasText && (
+                                <div
+                                  className="flex items-center gap-2 px-3 py-2 bg-stone-100 dark:bg-stone-800 rounded-lg text-sm text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700 cursor-help"
+                                  title={inputText}
+                                >
+                                  <AlignLeft className="w-4 h-4" />
+                                  <span className="truncate max-w-[100px] font-medium">Input Text</span>
+                                </div>
+                              )}
+                              {hasDoc && (
+                                <button
+                                  onClick={handleViewDocument}
+                                  className="flex items-center gap-2 px-3 py-2 bg-stone-100 dark:bg-stone-800 rounded-lg text-sm text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all duration-200 border border-stone-200 dark:border-stone-700"
+                                  title={doc.name}
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  <span className="truncate max-w-[150px] font-medium">{doc.name}</span>
+                                  <Eye className="w-3 h-3 ml-1 opacity-50" />
+                                </button>
+                              )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-stone-900 dark:text-stone-100 text-sm truncate" title={doc.name}>
-                                {doc.name}
-                              </h4>
-                              <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                                {doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : 'Document'}
-                              </p>
+                          );
+                        }
+
+                        // Expanded View
+                        if (hasDoc && hasText) {
+                          // Case 1: Both Document and Text
+                          return (
+                            <div className="bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                              <div className="flex items-center justify-between mb-2 pb-2 border-b border-stone-100 dark:border-stone-700">
+                                <span className="text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-2">
+                                  <AlignLeft className="w-3 h-3" />
+                                  Input Context
+                                </span>
+
+                                <button
+                                  onClick={handleViewDocument}
+                                  className="flex items-center gap-1.5 text-xs font-medium text-[#FF4A1C] hover:bg-[#FF4A1C]/5 px-2 py-1 rounded transition-colors border border-transparent hover:border-[#FF4A1C]/20"
+                                  title={doc.name}
+                                >
+                                  <FileText className="w-3 h-3" />
+                                  View Document
+                                </button>
+                              </div>
+
+                              <div className="text-sm text-stone-600 dark:text-stone-300 max-h-[120px] overflow-y-auto custom-scrollbar leading-relaxed whitespace-pre-wrap">
+                                {inputText}
+                              </div>
                             </div>
-                          </div>
-                          
-                          <button
-                            onClick={handleViewDocument}
-                            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-sm font-medium transition-colors"
-                          >
-                            <Eye className="w-4 h-4" />
-                            View Document
-                          </button>
-                        </div>
-                      )}
+                          );
+                        } else if (hasText) {
+                          // Case 2: Text Only
+                          return (
+                            <div className="bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                              <div className="flex items-center gap-3 mb-3">
+                                <div className="p-2 bg-stone-100 dark:bg-stone-900 rounded-lg text-stone-500 dark:text-stone-400">
+                                  <AlignLeft className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-medium text-stone-900 dark:text-stone-100 text-sm">
+                                    Input Context
+                                  </h4>
+                                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                                    {inputText.length} characters
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-sm text-stone-600 dark:text-stone-300 max-h-[200px] overflow-y-auto custom-scrollbar leading-relaxed whitespace-pre-wrap px-1">
+                                {inputText}
+                              </div>
+                            </div>
+                          );
+                        } else {
+                          // Case 3: Document Only (Original)
+                          return (
+                            <div className="bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                              <div className="flex items-start gap-3 mb-3">
+                                <div className="p-2 bg-stone-100 dark:bg-stone-900 rounded-lg text-stone-500 dark:text-stone-400">
+                                  <FileText className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-medium text-stone-900 dark:text-stone-100 text-sm truncate" title={doc.name}>
+                                    {doc.name}
+                                  </h4>
+                                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                                    {doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : 'Document'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={handleViewDocument}
+                                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-sm font-medium transition-colors"
+                              >
+                                <Eye className="w-4 h-4" />
+                                View Document
+                              </button>
+                            </div>
+                          );
+                        }
+                      })()}
                     </div>
                   )}
                 </div>
               </div>
-            
-            {/* Tabs below - only show when not scrolled */}
-            {structure && !isScrolled && (
-              <div className="transition-all duration-300 ease-in-out mt-3">
-                <div className="flex justify-center mb-0 overflow-x-auto no-scrollbar pb-2">
-                   <div className="inline-flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
-                    {tabs.map(tab => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ease-in-out whitespace-nowrap snap-center ${
-                          activeTab === tab.id
-                            ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
-                            : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+
+              {/* Tabs below - only show when not scrolled */}
+              {structure && !isScrolled && (
+                <div className="transition-all duration-300 ease-in-out mt-3">
+                  <div className="flex justify-center mb-0 overflow-x-auto no-scrollbar pb-2">
+                    <div className="inline-flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
+                      {tabs.map(tab => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id)}
+                          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ease-in-out whitespace-nowrap snap-center ${activeTab === tab.id
+                              ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
+                              : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
+                            }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
             </div>
           </div>
         </div>
@@ -2264,7 +2339,7 @@ const Blueprint = () => {
                   ✕
                 </button>
               </div>
-              
+
               <div className="space-y-4">
                 {/* Document Analysis Result */}
                 {documentAnalysis && (
@@ -2453,25 +2528,24 @@ const Blueprint = () => {
           {/* No Structure State - Show Generation UI */}
           {!structure && (
             <div className="bg-white dark:bg-stone-900 rounded-3xl p-8 shadow-sm border border-stone-300 dark:border-stone-600 mt-8">
-               <div className="text-center py-8">
+              <div className="text-center py-8">
                 <h3 className="text-xl font-bold text-[#2A2B2A] dark:text-stone-100 mb-2">
                   Ready to Generate Your Learning Path
                 </h3>
                 <p className="text-stone-500 dark:text-stone-400 mb-8 max-w-md mx-auto">
                   Analyze your document and create a personalized learning path with topics and resources.
                 </p>
-                
+
                 <div className="flex flex-col items-center gap-4">
                   {/* Step buttons - always visible */}
                   <div className="flex items-center gap-3">
                     <button
                       onClick={runAnalyzeStep}
                       disabled={generating && generationStatus === 'analyzing'}
-                      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 border rounded-lg transition-all font-medium ${
-                        documentAnalysis || generationStatus === 'analyzed' || generationStatus === 'structure_generated' || generationStatus === 'completed'
+                      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 border rounded-lg transition-all font-medium ${documentAnalysis || generationStatus === 'analyzed' || generationStatus === 'structure_generated' || generationStatus === 'completed'
                           ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-600 text-green-900 dark:text-green-100'
                           : 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-800/40'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                       {documentAnalysis || generationStatus === 'analyzed' || generationStatus === 'structure_generated' || generationStatus === 'completed' ? (
                         <>
@@ -2490,19 +2564,18 @@ const Blueprint = () => {
                         </>
                       )}
                     </button>
-                    
+
                     <button
                       onClick={runStructureStep}
                       disabled={
-                        !documentAnalysis || 
-                        generationStatus === 'analyzing' || 
+                        !documentAnalysis ||
+                        generationStatus === 'analyzing' ||
                         (generating && generationStatus === 'generating')
                       }
-                      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 border rounded-lg transition-all font-medium ${
-                        generationStatus === 'structure_generated' || generationStatus === 'completed'
+                      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 border rounded-lg transition-all font-medium ${generationStatus === 'structure_generated' || generationStatus === 'completed'
                           ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-600 text-green-900 dark:text-green-100'
                           : 'bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-600 text-purple-900 dark:text-purple-100 hover:bg-purple-200 dark:hover:bg-purple-800/40'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
                       title={!documentAnalysis ? 'Please run Step 1 (Analyze Document) first' : 'Generate learning structure'}
                     >
                       {generationStatus === 'structure_generated' || generationStatus === 'completed' ? (
@@ -2523,7 +2596,7 @@ const Blueprint = () => {
                       )}
                     </button>
                   </div>
-                  
+
                   {/* Status message */}
                   {!documentAnalysis && generationStatus === 'pending' && (
                     <div className="inline-flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100 text-sm">
@@ -2531,21 +2604,21 @@ const Blueprint = () => {
                       <span>Start by analyzing your document (Step 1), then generate the structure (Step 2).</span>
                     </div>
                   )}
-                  
+
                   {(documentAnalysis || generationStatus === 'analyzed') && !structure && (
                     <div className="inline-flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-900 dark:text-green-100 text-sm">
                       <Check className="w-4 h-4" />
                       <span>Document analyzed! Click step 2 to continue.</span>
                     </div>
                   )}
-                  
+
                   {generationStatus === 'structure_generated' && (
                     <div className="inline-flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-900 dark:text-green-100 text-sm">
                       <Check className="w-4 h-4" />
                       <span>Structure generated! Refresh to see your learning path.</span>
                     </div>
                   )}
-                  
+
                   {/* "Run All" option */}
                   {(generationStatus === 'pending' || generationStatus === 'failed') && (
                     <button
@@ -2558,7 +2631,7 @@ const Blueprint = () => {
                     </button>
                   )}
                 </div>
-                
+
                 {generationError && (
                   <p className="mt-4 text-red-500 text-sm">{generationError}</p>
                 )}
@@ -2577,25 +2650,25 @@ const Blueprint = () => {
               {/* Topic List */}
               <div className="space-y-4">
                 {currentUnits.length > 0 ? (
-                    currentUnits.map((unit, idx) => (
-                      <div key={unit.unit_id || idx} className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
-                        <TopicListItem
-                          unit={unit}
-                          blueprintId={id}
-                          topicResponse={topicResponses[unit.unit_id]}
-                          topicResources={topicResources[unit.unit_id]}
-                          topicEquations={topicEquations[unit.unit_id]}
-                          topicFigures={topicFigures[unit.unit_id]}
-                          onComfortSelect={handleComfortSelect}
-                          onGenerateBlueprint={handleGenerateBlueprint}
-                          onTriggerWebhook={handleTriggerWebhook}
-                          onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
-                          isSearching={searchingTopics.has(unit.unit_id)}
-                          isExpanded={expandedTopics[unit.unit_id]}
-                          onToggle={() => toggleTopic(unit.unit_id)}
-                        />
-                      </div>
-                    ))
+                  currentUnits.map((unit, idx) => (
+                    <div key={unit.unit_id || idx} className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
+                      <TopicListItem
+                        unit={unit}
+                        blueprintId={id}
+                        topicResponse={topicResponses[unit.unit_id]}
+                        topicResources={topicResources[unit.unit_id]}
+                        topicEquations={topicEquations[unit.unit_id]}
+                        topicFigures={topicFigures[unit.unit_id]}
+                        onComfortSelect={handleComfortSelect}
+                        onGenerateBlueprint={handleGenerateBlueprint}
+                        onTriggerWebhook={handleTriggerWebhook}
+                        onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
+                        isSearching={searchingTopics.has(unit.unit_id)}
+                        isExpanded={expandedTopics[unit.unit_id]}
+                        onToggle={() => toggleTopic(unit.unit_id)}
+                      />
+                    </div>
+                  ))
                 ) : (
                   <div className="p-8 text-center text-stone-500 dark:text-stone-400 bg-white dark:bg-stone-800 rounded-xl border border-stone-200 dark:border-stone-700">
                     No topics found in this section.
