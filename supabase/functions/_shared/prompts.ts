@@ -335,6 +335,12 @@ OUTPUT: JSON with summary, prerequisites_section (learning_units array), content
 
 DOCUMENT TYPE: ${input?.content_classification?.primary_type || input?.document_type || 'unknown'}
 GOAL: ${input?.content_classification?.inferred_student_goal || 'Master this material'}
+${input?.student_context ? `
+STUDENT'S ADDITIONAL CONTEXT:
+"${input.student_context}"
+
+Note: The student provided this context along with the document. If they mention a specific problem, concept, or area of focus, give that section slightly more attention (expanded tutor_guidance, more specific search queries). Don't ignore other sections, but weight their priority accordingly.
+` : ''}
 
 INSTRUCTIONS:
 1. Match section_type from input ("problem" vs "topic")
@@ -498,8 +504,8 @@ OUTPUT FORMAT (JSON only):
 }`,
 
     user: (
-      topic: string, 
-      description: string | undefined, 
+      topic: string,
+      description: string | undefined,
       learningObjective: string | undefined,
       resources: Array<{ url: string; title: string; channel_name?: string; description?: string; concepts_covered?: string[]; difficulty_level?: string }>
     ) => {

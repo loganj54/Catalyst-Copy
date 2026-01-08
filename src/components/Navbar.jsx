@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Layers, ArrowRight, LogOut, ChevronDown, Plus } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -28,29 +29,42 @@ const Navbar = () => {
     };
   }, []);
 
+  // Calculate sidebar offset based on current route to ensure visual centering relative to content
+  const sidebarOffset = (() => {
+    if (['/', '/auth', '/create'].includes(location.pathname)) return 0;
+    if (location.pathname.startsWith('/blueprint/')) return 152; // 304px total sidebar (80px + 224px)
+    if (location.pathname.startsWith('/class/')) return 152; // Class details likely follows blueprint layout or has similar sidebar
+    return 128; // Default Dashboard sidebar width (256px)
+  })();
+
   return (
     <nav className="lg:px-12 flex fixed z-50 bg-white/90 dark:bg-stone-900/90 w-full border-stone-200 dark:border-stone-800 border-b pt-6 pr-6 pb-6 pl-6 top-0 backdrop-blur-sm items-center transition-colors duration-300">
-      <Link to="/" className="flex items-center gap-2 flex-1">
-        <img 
-          src="/catalyst-logo-2.png" 
-          alt="Catalyst" 
-          className="h-8 w-auto object-contain dark:invert"
-          onError={(e) => {
-            e.target.style.display = 'none';
-            e.target.nextSibling.style.display = 'flex';
-          }}
-        />
-        <span className="text-xl font-bold text-black dark:text-white tracking-widest uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>Catalyst</span>
-        {/* Fallback if image fails to load */}
-        <div className="hidden flex gap-3 items-center">
-           <div className="flex text-[#FF4A1C] bg-[#FF4A1C]/10 w-10 h-10 rounded-full items-center justify-center">
-             <Layers className="w-5 h-5" />
-           </div>
-           <span className="text-xl font-semibold text-black dark:text-white tracking-tight">Catalyst Engineering Ed</span>
-        </div>
-      </Link>
-      
-      <div className="hidden lg:flex items-center justify-center gap-12 text-sm font-medium text-black/60 dark:text-white/60 flex-1">
+      <div className="flex items-center flex-1">
+        <Link to="/" className="flex items-center gap-2">
+          <img
+            src="/catalyst-logo-2.png"
+            alt="Catalyst"
+            className="h-8 w-auto object-contain mix-blend-multiply dark:mix-blend-lighten dark:invert dark:contrast-200"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+          <span className="text-xl font-bold text-black dark:text-white tracking-widest uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>Catalyst</span>
+          {/* Fallback if image fails to load */}
+          <div className="hidden flex gap-3 items-center">
+            <div className="flex text-[#FF4A1C] bg-[#FF4A1C]/10 w-10 h-10 rounded-full items-center justify-center">
+              <Layers className="w-5 h-5" />
+            </div>
+            <span className="text-xl font-semibold text-black dark:text-white tracking-tight">Catalyst Engineering Ed</span>
+          </div>
+        </Link>
+      </div>
+
+      <div
+        className="hidden lg:flex items-center justify-center gap-12 text-sm font-medium text-black/60 dark:text-white/60 absolute -translate-x-1/2 transition-all duration-300"
+        style={{ left: `calc(50% + ${sidebarOffset}px)` }}
+      >
         <Link to="/create" className="hover:text-black dark:hover:text-white transition-colors">
           Create
         </Link>

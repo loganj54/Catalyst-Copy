@@ -17,15 +17,15 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
-import { 
-  createSupabaseClient, 
-  createSupabaseClientWithAuth, 
+import {
+  createSupabaseClient,
+  createSupabaseClientWithAuth,
   callClaudeJSON,
 } from '../_shared/supabase-client.ts';
 import { PROMPTS } from '../_shared/prompts.ts';
 import { generateEmbedding, formatVectorForPostgres } from '../_shared/embeddings.ts';
 // NEW: Use section-level caching utilities
-import { 
+import {
   generateAllSectionEmbeddings,
   prepareSectionsForCache,
   storeSectionsInPinecone,
@@ -43,7 +43,7 @@ import { upsertVectors } from '../_shared/pinecone-client.ts';
 interface GenerateStructureRequest {
   // Option 1: Reference a blueprint (will fetch its document_analysis)
   blueprint_id?: string;
-  
+
   // Option 2: Direct input (for future flexibility)
   analysis?: any;
   input_type?: 'document_analysis' | 'custom';
@@ -149,7 +149,7 @@ interface FlatSearchQuery {
  */
 function flattenSearchQueries(structure: LearningStructure): FlatSearchQuery[] {
   const queries: FlatSearchQuery[] = [];
-  
+
   // Flatten prerequisite queries
   if (structure.prerequisites_section?.learning_units) {
     for (const unit of structure.prerequisites_section.learning_units) {
@@ -167,7 +167,7 @@ function flattenSearchQueries(structure: LearningStructure): FlatSearchQuery[] {
       }
     }
   }
-  
+
   // Flatten content section queries
   for (const section of structure.content_sections || []) {
     for (const unit of section.learning_units || []) {
@@ -185,7 +185,7 @@ function flattenSearchQueries(structure: LearningStructure): FlatSearchQuery[] {
       }
     }
   }
-  
+
   return queries;
 }
 
@@ -201,23 +201,23 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
   let successCount = 0;
   let failCount = 0;
   let pineconeVectors: any[] = [];
-  
+
   // Process prerequisite units
   if (structure.prerequisites_section?.learning_units) {
     totalUnits += structure.prerequisites_section.learning_units.length;
-    
+
     for (const unit of structure.prerequisites_section.learning_units) {
       try {
         // Use target_resource_profile if available, otherwise construct from semantic_search_phrase or topic
-        const embeddingText = unit.target_resource_profile 
-          || unit.semantic_search_phrase 
+        const embeddingText = unit.target_resource_profile
+          || unit.semantic_search_phrase
           || `${unit.topic} ${unit.description || ''} ${unit.learning_objective || ''}`;
-        
+
         const result = await generateEmbedding(embeddingText.trim());
-        
+
         // Store embedding directly in the unit (for blueprint structure)
         unit.target_resource_embedding = result.embedding;
-        
+
         // Prepare for Pinecone batch upsert
         const pineconeId = `target-${blueprintId}-prereq-${unit.unit_id}`;
         pineconeVectors.push({
@@ -233,7 +233,7 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
             type: 'target_profile'
           }
         });
-        
+
         successCount++;
       } catch (error) {
         console.error(`[generate-structure] Failed to generate embedding for unit "${unit.topic}":`, error);
@@ -241,24 +241,24 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
       }
     }
   }
-  
+
   // Process content section units
   for (const section of structure.content_sections || []) {
     if (section.learning_units) {
       totalUnits += section.learning_units.length;
-      
+
       for (const unit of section.learning_units) {
         try {
           // Use target_resource_profile if available, otherwise construct from semantic_search_phrase or topic
-          const embeddingText = unit.target_resource_profile 
-            || unit.semantic_search_phrase 
+          const embeddingText = unit.target_resource_profile
+            || unit.semantic_search_phrase
             || `${unit.topic} ${unit.description || ''} ${unit.learning_objective || ''}`;
-          
+
           const result = await generateEmbedding(embeddingText.trim());
-          
+
           // Store embedding directly in the unit (for blueprint structure)
           unit.target_resource_embedding = result.embedding;
-          
+
           // Prepare for Pinecone batch upsert
           const pineconeId = `target-${blueprintId}-${section.section_id}-${unit.unit_id}`;
           pineconeVectors.push({
@@ -275,7 +275,7 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
               type: 'target_profile'
             }
           });
-          
+
           successCount++;
         } catch (error) {
           console.error(`[generate-structure] Failed to generate embedding for unit "${unit.topic}":`, error);
@@ -284,7 +284,7 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
       }
     }
   }
-  
+
   // Batch upsert all vectors to Pinecone
   if (pineconeVectors.length > 0) {
     try {
@@ -296,7 +296,7 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
       console.error('[generate-structure] Continuing without Pinecone storage (embeddings still in blueprint)');
     }
   }
-  
+
   console.log(`[generate-structure] Target resource embedding generation complete:`);
   console.log(`  - Total units: ${totalUnits}`);
   console.log(`  - Success: ${successCount}`);
@@ -310,15 +310,15 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
 function countStructureMetrics(structure: LearningStructure) {
   const prerequisiteUnits = structure.prerequisites_section?.learning_units?.length || 0;
   const contentSections = structure.content_sections?.length || 0;
-  
+
   let totalLearningUnits = prerequisiteUnits;
   let totalSearchQueries = 0;
-  
+
   // Count prerequisite queries
   for (const unit of structure.prerequisites_section?.learning_units || []) {
     totalSearchQueries += unit.search_queries?.length || 0;
   }
-  
+
   // Count content section units and queries
   for (const section of structure.content_sections || []) {
     totalLearningUnits += section.learning_units?.length || 0;
@@ -326,7 +326,7 @@ function countStructureMetrics(structure: LearningStructure) {
       totalSearchQueries += unit.search_queries?.length || 0;
     }
   }
-  
+
   return {
     total_prerequisites: prerequisiteUnits,
     total_sections: contentSections,
@@ -352,7 +352,7 @@ interface CachedEquation {
  * Try to find an existing equation by exact name match (case-insensitive)
  */
 async function findEquationByName(
-  supabase: any, 
+  supabase: any,
   name: string
 ): Promise<CachedEquation | null> {
   const { data, error } = await supabase
@@ -362,11 +362,11 @@ async function findEquationByName(
     .order('times_used', { ascending: false })
     .limit(1)
     .maybeSingle();
-  
+
   if (error || !data) {
     return null;
   }
-  
+
   return {
     id: data.id,
     name: data.name,
@@ -389,7 +389,7 @@ async function createEquation(
   try {
     // Generate embedding for the equation name + context for future similarity matching
     const embeddingText = `${equation.name}: ${equation.when_to_use || ''} ${Object.keys(equation.variables || {}).join(' ')}`;
-    
+
     let embedding: number[] | null = null;
     try {
       const result = await generateEmbedding(embeddingText);
@@ -466,14 +466,14 @@ async function processUnitEquations(
   for (const equation of equations) {
     // Try to find existing equation by name
     let cached = await findEquationByName(supabase, equation.name);
-    
+
     if (cached) {
       console.log(`[generate-structure] Found cached equation: ${equation.name}`);
       cachedCount++;
-      
+
       // Increment usage counter using the RPC function we created
       await supabase.rpc('increment_equation_usage', { equation_uuid: cached.id });
-        
+
     } else {
       // Create new equation
       console.log(`[generate-structure] Creating new equation: ${equation.name}`);
@@ -485,7 +485,7 @@ async function processUnitEquations(
 
     if (cached) {
       processedEquations.push(cached);
-      
+
       // Link equation to this blueprint/unit if we have a blueprint
       if (blueprintId) {
         await supabase
@@ -559,7 +559,7 @@ async function searchEquationsByTopic(
   subjectArea: string
 ): Promise<CachedEquation[]> {
   const searchText = `${topic} ${description || ''}`.toLowerCase();
-  
+
   // Try exact name matches first (case-insensitive)
   const { data: exactMatches } = await supabase
     .from('curated_equations')
@@ -568,7 +568,7 @@ async function searchEquationsByTopic(
     .ilike('name', `%${topic}%`)
     .order('times_used', { ascending: false })
     .limit(3);
-  
+
   if (exactMatches && exactMatches.length > 0) {
     return exactMatches.map((eq: any) => ({
       id: eq.id,
@@ -579,7 +579,7 @@ async function searchEquationsByTopic(
       from_cache: true,
     }));
   }
-  
+
   // Try topic tags match
   const { data: tagMatches } = await supabase
     .from('curated_equations')
@@ -588,7 +588,7 @@ async function searchEquationsByTopic(
     .contains('topic_tags', [topic.toLowerCase()])
     .order('times_used', { ascending: false })
     .limit(3);
-  
+
   if (tagMatches && tagMatches.length > 0) {
     return tagMatches.map((eq: any) => ({
       id: eq.id,
@@ -599,7 +599,7 @@ async function searchEquationsByTopic(
       from_cache: true,
     }));
   }
-  
+
   return [];
 }
 
@@ -615,9 +615,9 @@ async function detectAndAttachMissingEquations(
   userId: string | null
 ): Promise<{ addedCount: number }> {
   let addedCount = 0;
-  
+
   console.log('[generate-structure] Running aggressive equation detection...');
-  
+
   // Process prerequisites
   if (structure.prerequisites_section?.learning_units) {
     for (const unit of structure.prerequisites_section.learning_units) {
@@ -628,15 +628,15 @@ async function detectAndAttachMissingEquations(
           unit.description || '',
           subjectArea
         );
-        
+
         if (foundEquations.length > 0) {
           console.log(`[generate-structure] Found ${foundEquations.length} equations for prerequisite "${unit.topic}"`);
-          
+
           // Add to unit structure
           if (!unit.equations) {
             unit.equations = [];
           }
-          
+
           for (const eq of foundEquations) {
             unit.equations.push({
               index: unit.equations.length + 1,
@@ -645,7 +645,7 @@ async function detectAndAttachMissingEquations(
               variables: eq.variables,
               when_to_use: eq.when_to_use,
             });
-            
+
             // Link to blueprint if available
             if (blueprintId) {
               await supabase
@@ -660,7 +660,7 @@ async function detectAndAttachMissingEquations(
                   onConflict: 'blueprint_id,unit_id,equation_id',
                 });
             }
-            
+
             // Increment usage
             await supabase.rpc('increment_equation_usage', { equation_uuid: eq.id });
             addedCount++;
@@ -669,7 +669,7 @@ async function detectAndAttachMissingEquations(
       }
     }
   }
-  
+
   // Process content sections
   for (const section of structure.content_sections || []) {
     for (const unit of section.learning_units || []) {
@@ -680,15 +680,15 @@ async function detectAndAttachMissingEquations(
           unit.description || '',
           subjectArea
         );
-        
+
         if (foundEquations.length > 0) {
           console.log(`[generate-structure] Found ${foundEquations.length} equations for unit "${unit.topic}"`);
-          
+
           // Add to unit structure
           if (!unit.equations) {
             unit.equations = [];
           }
-          
+
           for (const eq of foundEquations) {
             unit.equations.push({
               index: unit.equations.length + 1,
@@ -697,7 +697,7 @@ async function detectAndAttachMissingEquations(
               variables: eq.variables,
               when_to_use: eq.when_to_use,
             });
-            
+
             // Link to blueprint if available
             if (blueprintId) {
               await supabase
@@ -712,7 +712,7 @@ async function detectAndAttachMissingEquations(
                   onConflict: 'blueprint_id,unit_id,equation_id',
                 });
             }
-            
+
             // Increment usage
             await supabase.rpc('increment_equation_usage', { equation_uuid: eq.id });
             addedCount++;
@@ -721,7 +721,7 @@ async function detectAndAttachMissingEquations(
       }
     }
   }
-  
+
   console.log(`[generate-structure] Aggressive detection added ${addedCount} equations`);
   return { addedCount };
 }
@@ -743,16 +743,16 @@ async function processSuggestedFigures(
   let totalProcessed = 0;
   let totalCached = 0;
   let totalNew = 0;
-  
+
   console.log('[generate-structure] Processing suggested figures...');
-  
+
   // Process prerequisites
   if (structure.prerequisites_section?.learning_units) {
     for (const unit of structure.prerequisites_section.learning_units) {
       if (unit.suggested_figures && unit.suggested_figures.length > 0) {
         for (const suggestedFigure of unit.suggested_figures) {
           totalProcessed++;
-          
+
           const figure = await findOrCreateFigure(
             supabase,
             suggestedFigure.name,
@@ -764,14 +764,14 @@ async function processSuggestedFigures(
             [unit.topic],
             userId
           );
-          
+
           if (figure) {
             if (figure.from_cache) {
               totalCached++;
             } else {
               totalNew++;
             }
-            
+
             // Link figure to blueprint unit
             if (blueprintId) {
               await supabase
@@ -787,7 +787,7 @@ async function processSuggestedFigures(
                   onConflict: 'blueprint_id,unit_id,figure_id',
                 });
             }
-            
+
             console.log(`[generate-structure] ✓ Figure "${suggestedFigure.name}" ${figure.from_cache ? 'from cache' : 'newly created'}`);
           } else {
             console.log(`[generate-structure] ✗ Could not source figure "${suggestedFigure.name}"`);
@@ -796,14 +796,14 @@ async function processSuggestedFigures(
       }
     }
   }
-  
+
   // Process content sections
   for (const section of structure.content_sections || []) {
     for (const unit of section.learning_units || []) {
       if (unit.suggested_figures && unit.suggested_figures.length > 0) {
         for (const suggestedFigure of unit.suggested_figures) {
           totalProcessed++;
-          
+
           const figure = await findOrCreateFigure(
             supabase,
             suggestedFigure.name,
@@ -815,14 +815,14 @@ async function processSuggestedFigures(
             [unit.topic],
             userId
           );
-          
+
           if (figure) {
             if (figure.from_cache) {
               totalCached++;
             } else {
               totalNew++;
             }
-            
+
             // Link figure to blueprint unit
             if (blueprintId) {
               await supabase
@@ -838,7 +838,7 @@ async function processSuggestedFigures(
                   onConflict: 'blueprint_id,unit_id,figure_id',
                 });
             }
-            
+
             console.log(`[generate-structure] ✓ Figure "${suggestedFigure.name}" ${figure.from_cache ? 'from cache' : 'newly created'}`);
           } else {
             console.log(`[generate-structure] ✗ Could not source figure "${suggestedFigure.name}"`);
@@ -847,7 +847,7 @@ async function processSuggestedFigures(
       }
     }
   }
-  
+
   console.log(`[generate-structure] Figures processed: ${totalProcessed} suggested, ${totalCached} cached, ${totalNew} new`);
   return { totalProcessed, totalCached, totalNew };
 }
@@ -859,9 +859,9 @@ async function processSuggestedFigures(
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
+    return new Response(null, {
       status: 204,
-      headers: corsHeaders 
+      headers: corsHeaders
     });
   }
 
@@ -891,7 +891,7 @@ serve(async (req) => {
     if (blueprint_id) {
       // Fetch blueprint and its analysis
       const authClient = createSupabaseClientWithAuth(authHeader);
-      
+
       const { data: blueprint, error: blueprintError } = await authClient
         .from('blueprints')
         .select('*')
@@ -912,7 +912,7 @@ serve(async (req) => {
       // Find the document analysis - prioritize document_id (new model)
       // =========================================================================
       let analysis = null;
-      
+
       // Approach 1: Search by document_id (preferred - new data model)
       if (documentId) {
         console.log(`[generate-structure] Searching by document_id: ${documentId}`);
@@ -921,17 +921,17 @@ serve(async (req) => {
           .select('*')
           .eq('document_id', documentId)
           .maybeSingle();
-        
+
         if (docError) {
           console.error('[generate-structure] document_id match error:', docError);
         }
-        
+
         if (docMatch) {
           console.log('[generate-structure] Found analysis by document_id:', docMatch.id);
           analysis = docMatch;
         }
       }
-      
+
       // Approach 2: Search by blueprint_id (legacy/backwards compat)
       if (!analysis) {
         console.log(`[generate-structure] Searching by blueprint_id: ${blueprint_id}`);
@@ -940,24 +940,24 @@ serve(async (req) => {
           .select('*')
           .eq('blueprint_id', blueprint_id)
           .maybeSingle();
-        
+
         if (bpError) {
           console.error('[generate-structure] blueprint_id match error:', bpError);
         }
-        
+
         if (bpMatch) {
           console.log('[generate-structure] Found analysis by blueprint_id:', bpMatch.id);
           analysis = bpMatch;
         }
       }
-      
+
       // Approach 3: Search by document filename
       if (!analysis) {
         const fileName = blueprint.file_metadata?.name || blueprint.content?.fileUpload?.name;
-        
+
         if (fileName) {
           console.log(`[generate-structure] Searching by filename: ${fileName}`);
-          
+
           const { data: filenameMatch, error: filenameError } = await supabase
             .from('document_analyses')
             .select('*')
@@ -966,22 +966,22 @@ serve(async (req) => {
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
-          
+
           if (filenameError) {
             console.error('[generate-structure] Filename match error:', filenameError);
           }
-          
+
           if (filenameMatch) {
             console.log('[generate-structure] Found analysis by filename:', filenameMatch.id);
             analysis = filenameMatch;
           }
         }
       }
-      
+
       // Approach 4: Check if there's any analysis for this user's class
       if (!analysis && blueprint.class_id) {
         console.log(`[generate-structure] Searching by class_id: ${blueprint.class_id}`);
-        
+
         const { data: classMatch, error: classError } = await supabase
           .from('document_analyses')
           .select('*')
@@ -990,7 +990,7 @@ serve(async (req) => {
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-        
+
         if (classMatch) {
           console.log('[generate-structure] Found analysis by class_id:', classMatch.id);
           analysis = classMatch;
@@ -1011,7 +1011,15 @@ serve(async (req) => {
 
       analysisId = analysis.id;
       analysisData = analysis.raw_analysis;
-      
+
+      // Extract student's text context from the blueprint (if they provided additional context)
+      const studentContext = blueprint.description || blueprint.content?.textInput || '';
+      if (studentContext && studentContext.trim().length > 0) {
+        // Attach student context to analysis data so it can influence structure generation
+        analysisData.student_context = studentContext.trim();
+        console.log(`[generate-structure] Student provided context: "${studentContext.substring(0, 100)}${studentContext.length > 100 ? '...' : ''}"`);
+      }
+
       console.log(`[generate-structure] Found document analysis: ${analysisId}`);
       console.log(`  - Document type: ${analysisData.document_type}`);
       console.log(`  - Problems: ${analysisData.problems?.length || 0}`);
@@ -1022,7 +1030,7 @@ serve(async (req) => {
         .from('blueprint_structures')
         .delete()
         .eq('blueprint_id', blueprint_id);
-      
+
       if (deleteError) {
         console.log('[generate-structure] No existing structure to delete or delete failed:', deleteError);
       }
@@ -1030,156 +1038,179 @@ serve(async (req) => {
       // Update blueprint status
       await supabase
         .from('blueprints')
-        .update({ 
+        .update({
           generation_status: 'generating_structure',
           generation_error: null,
         })
         .eq('id', blueprint_id);
-      
+
       // =========================================================================
       // CHECK STRUCTURE CACHE (NEW!)
       // =========================================================================
       // Check if we have a similar blueprint structure cached
       // This can save 20,000-24,000 tokens (~$0.05-0.06 per cache hit)
+      // 
+      // IMPORTANT: Skip cache when student provided text input!
+      // Text inputs are almost always personalized/contextual and should NOT
+      // match cached structures from other documents/submissions.
       // =========================================================================
-      
-      console.log('[generate-structure] ========================================');
-      console.log('[generate-structure] CHECKING SECTION-LEVEL CACHE');
-      console.log('[generate-structure] ========================================');
-      
-      // Create a synthetic prerequisites section for cache checking
-      // This allows prerequisites to be cached and retrieved like other sections
-      const prerequisitesSection = analysisData.prerequisites && analysisData.prerequisites.length > 0 ? {
-        section_id: 'prerequisites',
-        section_type: 'topic' as const,
-        topic_summary: `Prerequisites: ${analysisData.prerequisites.map((p: any) => p.concept || p).join(', ')}`,
-        concepts_tested: analysisData.prerequisites.map((p: any) => p.concept || p)
-      } : null;
-      
-      // Prepare analysis data with prerequisites section included
-      const analysisWithPrereqs = {
-        ...analysisData,
-        sections: prerequisitesSection 
-          ? [prerequisitesSection, ...(analysisData.sections || [])]
-          : (analysisData.sections || [])
-      };
-      
-      // NEW: Check cache for each section individually (including prerequisites)
-      const sectionsWithEmbeddings = await generateAllSectionEmbeddings(analysisWithPrereqs);
-      console.log(`[generate-structure] Generated embeddings for ${sectionsWithEmbeddings.length} sections (including prerequisites: ${!!prerequisitesSection})`);
-      
-      // Check cache for each section (Pinecone first, then Supabase fallback)
-      const cacheResults = [];
-      let cachedSectionsCount = 0;
-      
-      for (const sectionWithEmbedding of sectionsWithEmbeddings) {
-        let cacheHit = false;
-        let cachedData = null;
-        
-        // Try Pinecone first (3072-dim, higher precision)
-        try {
-          const pineconeResults = await querySimilarSectionsFromPinecone(
-            sectionWithEmbedding.embedding,
-            sectionWithEmbedding.section_type,
-            0.95, // 95% similarity threshold
-            supabase, // Pass Supabase client to fetch full cached_unit
-            analysisData.subject_area, // CRITICAL: Filter by subject to avoid cross-contamination
-            analysisData.specific_topic // CRITICAL: Filter by topic for precise matching
-          );
-          
-          if (pineconeResults && pineconeResults.length > 0) {
-            cachedData = pineconeResults[0];
-            cacheHit = true;
-            console.log(`[generate-structure] ✅ PINECONE CACHE HIT for ${sectionWithEmbedding.section_id}! Similarity: ${(cachedData.similarity * 100).toFixed(1)}%`);
-          }
-        } catch (pineconeError) {
-          console.error(`[generate-structure] Pinecone cache lookup error for ${sectionWithEmbedding.section_id}:`, pineconeError);
-        }
-        
-        // Fallback to Supabase if Pinecone didn't return results
-        if (!cacheHit) {
-          const { data, error } = await supabase.rpc('search_similar_sections', {
-            query_embedding: sectionWithEmbedding.embedding,
-            p_section_type: sectionWithEmbedding.section_type,
-            p_subject_area: analysisData.subject_area,
-            p_document_type: analysisData.document_type,
-            similarity_threshold: 0.95,
-            max_results: 1
-          });
-          
-          if (!error && data && data.length > 0) {
-            cachedData = data[0];
-            cacheHit = true;
-            console.log(`[generate-structure] ✅ SUPABASE CACHE HIT for ${sectionWithEmbedding.section_id}! Similarity: ${(cachedData.similarity * 100).toFixed(1)}%`);
-            
-            // Increment usage for Supabase cache
-            await supabase.rpc('increment_section_cache_usage', { cache_id: cachedData.id });
-          }
-        }
-        
-        if (cacheHit && cachedData) {
-          // CRITICAL: Verify cached_unit is present and has data
-          console.log(`[generate-structure] Checking cached_unit for ${sectionWithEmbedding.section_id}:`);
-          console.log(`[generate-structure]   - cachedData exists: ${!!cachedData}`);
-          console.log(`[generate-structure]   - cachedData.cached_unit exists: ${!!cachedData.cached_unit}`);
-          console.log(`[generate-structure]   - cachedData.cached_unit type: ${typeof cachedData.cached_unit}`);
-          
-          if (cachedData.cached_unit) {
-            console.log(`[generate-structure]   - cached_unit keys: ${Object.keys(cachedData.cached_unit).join(', ')}`);
-            // Check for units array or single unit
-            if (cachedData.cached_unit.units) {
-              console.log(`[generate-structure]   - Has units array: ${cachedData.cached_unit.units.length} units`);
-            } else if (cachedData.cached_unit.topic) {
-              console.log(`[generate-structure]   - Single unit with topic: "${cachedData.cached_unit.topic}"`);
-              console.log(`[generate-structure]   - Has tutor_guidance: ${!!cachedData.cached_unit.tutor_guidance}`);
-            }
-          } else {
-            console.warn(`[generate-structure] ⚠️ cached_unit is NULL/undefined for ${sectionWithEmbedding.section_id}!`);
-          }
-          
-          cacheResults.push({
-            section_id: sectionWithEmbedding.section_id,
-            cache_hit: true,
-            cached_unit: cachedData.cached_unit,
-            similarity: cachedData.similarity,
-            source: cachedData.source || 'supabase'
-          });
-          cachedSectionsCount++;
-        } else {
-          console.log(`[generate-structure] ❌ CACHE MISS for ${sectionWithEmbedding.section_id}`);
-          cacheResults.push({
-            section_id: sectionWithEmbedding.section_id,
-            cache_hit: false
-          });
-        }
-      }
-      
-      const cacheHitRate = sectionsWithEmbeddings.length > 0 ? cachedSectionsCount / sectionsWithEmbeddings.length : 0;
-      console.log(`[generate-structure] Cache hit rate: ${(cacheHitRate * 100).toFixed(1)}% (${cachedSectionsCount}/${sectionsWithEmbeddings.length} sections)`);
-      
-      // Store cache results for later use
-      (analysisData as any).cacheResults = cacheResults;
-      (analysisData as any).cacheHitRate = cacheHitRate;
-      (analysisData as any).cachedSectionsCount = cachedSectionsCount;
-      
-      if (cachedSectionsCount > 0) {
-        console.log(`[generate-structure] Found ${cachedSectionsCount}/${sectionsWithEmbeddings.length} cached sections`);
+
+      const hasStudentContext = !!(analysisData.student_context && analysisData.student_context.trim().length > 0);
+
+      if (hasStudentContext) {
+        console.log('[generate-structure] ========================================');
+        console.log('[generate-structure] SKIPPING CACHE - Student provided text context');
+        console.log('[generate-structure] ========================================');
+        console.log('[generate-structure] Text inputs are personalized - generating fresh structure');
       } else {
-        console.log('[generate-structure] No cache hits - will generate fresh structure');
+        console.log('[generate-structure] ========================================');
+        console.log('[generate-structure] CHECKING SECTION-LEVEL CACHE');
+        console.log('[generate-structure] ========================================');
+      }
+
+      // Only check cache when there's no student context
+      // Text inputs mean personalized content that shouldn't use cached structures
+      if (!hasStudentContext) {
+        // Create a synthetic prerequisites section for cache checking
+        // This allows prerequisites to be cached and retrieved like other sections
+        const prerequisitesSection = analysisData.prerequisites && analysisData.prerequisites.length > 0 ? {
+          section_id: 'prerequisites',
+          section_type: 'topic' as const,
+          topic_summary: `Prerequisites: ${analysisData.prerequisites.map((p: any) => p.concept || p).join(', ')}`,
+          concepts_tested: analysisData.prerequisites.map((p: any) => p.concept || p)
+        } : null;
+
+        // Prepare analysis data with prerequisites section included
+        const analysisWithPrereqs = {
+          ...analysisData,
+          sections: prerequisitesSection
+            ? [prerequisitesSection, ...(analysisData.sections || [])]
+            : (analysisData.sections || [])
+        };
+
+        // NEW: Check cache for each section individually (including prerequisites)
+        const sectionsWithEmbeddings = await generateAllSectionEmbeddings(analysisWithPrereqs);
+        console.log(`[generate-structure] Generated embeddings for ${sectionsWithEmbeddings.length} sections (including prerequisites: ${!!prerequisitesSection})`);
+
+        // Check cache for each section (Pinecone first, then Supabase fallback)
+        const cacheResults = [];
+        let cachedSectionsCount = 0;
+
+        for (const sectionWithEmbedding of sectionsWithEmbeddings) {
+          let cacheHit = false;
+          let cachedData = null;
+
+          // Try Pinecone first (3072-dim, higher precision)
+          try {
+            const pineconeResults = await querySimilarSectionsFromPinecone(
+              sectionWithEmbedding.embedding,
+              sectionWithEmbedding.section_type,
+              0.95, // 95% similarity threshold
+              supabase, // Pass Supabase client to fetch full cached_unit
+              analysisData.subject_area, // CRITICAL: Filter by subject to avoid cross-contamination
+              analysisData.specific_topic // CRITICAL: Filter by topic for precise matching
+            );
+
+            if (pineconeResults && pineconeResults.length > 0) {
+              cachedData = pineconeResults[0];
+              cacheHit = true;
+              console.log(`[generate-structure] ✅ PINECONE CACHE HIT for ${sectionWithEmbedding.section_id}! Similarity: ${(cachedData.similarity * 100).toFixed(1)}%`);
+            }
+          } catch (pineconeError) {
+            console.error(`[generate-structure] Pinecone cache lookup error for ${sectionWithEmbedding.section_id}:`, pineconeError);
+          }
+
+          // Fallback to Supabase if Pinecone didn't return results
+          if (!cacheHit) {
+            const { data, error } = await supabase.rpc('search_similar_sections', {
+              query_embedding: sectionWithEmbedding.embedding,
+              p_section_type: sectionWithEmbedding.section_type,
+              p_subject_area: analysisData.subject_area,
+              p_document_type: analysisData.document_type,
+              similarity_threshold: 0.95,
+              max_results: 1
+            });
+
+            if (!error && data && data.length > 0) {
+              cachedData = data[0];
+              cacheHit = true;
+              console.log(`[generate-structure] ✅ SUPABASE CACHE HIT for ${sectionWithEmbedding.section_id}! Similarity: ${(cachedData.similarity * 100).toFixed(1)}%`);
+
+              // Increment usage for Supabase cache
+              await supabase.rpc('increment_section_cache_usage', { cache_id: cachedData.id });
+            }
+          }
+
+          if (cacheHit && cachedData) {
+            // CRITICAL: Verify cached_unit is present and has data
+            console.log(`[generate-structure] Checking cached_unit for ${sectionWithEmbedding.section_id}:`);
+            console.log(`[generate-structure]   - cachedData exists: ${!!cachedData}`);
+            console.log(`[generate-structure]   - cachedData.cached_unit exists: ${!!cachedData.cached_unit}`);
+            console.log(`[generate-structure]   - cachedData.cached_unit type: ${typeof cachedData.cached_unit}`);
+
+            if (cachedData.cached_unit) {
+              console.log(`[generate-structure]   - cached_unit keys: ${Object.keys(cachedData.cached_unit).join(', ')}`);
+              // Check for units array or single unit
+              if (cachedData.cached_unit.units) {
+                console.log(`[generate-structure]   - Has units array: ${cachedData.cached_unit.units.length} units`);
+              } else if (cachedData.cached_unit.topic) {
+                console.log(`[generate-structure]   - Single unit with topic: "${cachedData.cached_unit.topic}"`);
+                console.log(`[generate-structure]   - Has tutor_guidance: ${!!cachedData.cached_unit.tutor_guidance}`);
+              }
+            } else {
+              console.warn(`[generate-structure] ⚠️ cached_unit is NULL/undefined for ${sectionWithEmbedding.section_id}!`);
+            }
+
+            cacheResults.push({
+              section_id: sectionWithEmbedding.section_id,
+              cache_hit: true,
+              cached_unit: cachedData.cached_unit,
+              similarity: cachedData.similarity,
+              source: cachedData.source || 'supabase'
+            });
+            cachedSectionsCount++;
+          } else {
+            console.log(`[generate-structure] ❌ CACHE MISS for ${sectionWithEmbedding.section_id}`);
+            cacheResults.push({
+              section_id: sectionWithEmbedding.section_id,
+              cache_hit: false
+            });
+          }
+        }
+
+        const cacheHitRate = sectionsWithEmbeddings.length > 0 ? cachedSectionsCount / sectionsWithEmbeddings.length : 0;
+        console.log(`[generate-structure] Cache hit rate: ${(cacheHitRate * 100).toFixed(1)}% (${cachedSectionsCount}/${sectionsWithEmbeddings.length} sections)`);
+
+        // Store cache results for later use
+        (analysisData as any).cacheResults = cacheResults;
+        (analysisData as any).cacheHitRate = cacheHitRate;
+        (analysisData as any).cachedSectionsCount = cachedSectionsCount;
+
+        if (cachedSectionsCount > 0) {
+          console.log(`[generate-structure] Found ${cachedSectionsCount}/${sectionsWithEmbeddings.length} cached sections`);
+        } else {
+          console.log('[generate-structure] No cache hits - will generate fresh structure');
+        }
+      } else {
+        // hasStudentContext is true - skip cache entirely
+        // Set cache values to indicate no cache was used
+        (analysisData as any).cacheResults = [];
+        (analysisData as any).cacheHitRate = 0;
+        (analysisData as any).cachedSectionsCount = 0;
       }
 
     } else if (body.analysis) {
       // Direct input mode
       analysisData = body.analysis;
-      
+
       // Get user from auth
       const authClient = createSupabaseClientWithAuth(authHeader);
       const { data: { user }, error: userError } = await authClient.auth.getUser();
-      
+
       if (userError || !user) {
         throw new Error('Could not verify user');
       }
-      
+
       userId = user.id;
       console.log(`[generate-structure] Using direct input mode`);
     } else {
@@ -1197,7 +1228,7 @@ serve(async (req) => {
       console.log(`[generate-structure]   - Cache hit rate: ${(cacheData.cacheHitRate * 100).toFixed(1)}%`);
       console.log(`[generate-structure]   - Token savings: ~${cacheData.cachedSectionsCount * 1000} tokens`);
       console.log(`[generate-structure]   - Time savings: ~${cacheData.cachedSectionsCount * 3} seconds`);
-      
+
       // Build structure from cached sections
       // IMPORTANT: Include summary field for complete structure
       structure = {
@@ -1217,13 +1248,13 @@ serve(async (req) => {
         },
         content_sections: []
       };
-      
+
       // Map cached sections to content_sections and prerequisites
       const missedSections: string[] = [];
       let totalEstimatedTime = 0;
-      
+
       console.log(`[generate-structure] Processing ${cacheData.cacheResults.length} cache results...`);
-      
+
       for (const cacheResult of cacheData.cacheResults) {
         console.log(`[generate-structure] Processing cache result for "${cacheResult.section_id}":`);
         console.log(`[generate-structure]   - cache_hit: ${cacheResult.cache_hit}`);
@@ -1232,7 +1263,7 @@ serve(async (req) => {
         if (cacheResult.cached_unit) {
           console.log(`[generate-structure]   - cached_unit keys: ${Object.keys(cacheResult.cached_unit).join(', ')}`);
         }
-        
+
         if (cacheResult.cache_hit && cacheResult.cached_unit) {
           // Extract learning units from cached_unit
           // IMPORTANT: Use the EXACT cached data - do NOT modify or regenerate anything
@@ -1244,12 +1275,12 @@ serve(async (req) => {
             // Single unit stored - use it exactly as cached
             learningUnits = [cacheResult.cached_unit];
           }
-          
+
           // DETAILED VERIFICATION: Log ALL fields from cached units
           console.log(`[generate-structure] ✅ CACHE HIT for section: ${cacheResult.section_id}`);
           console.log(`[generate-structure]   - Similarity: ${(cacheResult.similarity * 100).toFixed(1)}%`);
           console.log(`[generate-structure]   - Units count: ${learningUnits.length}`);
-          
+
           for (let i = 0; i < learningUnits.length; i++) {
             const unit = learningUnits[i];
             console.log(`[generate-structure]   Unit ${i + 1} (${unit.unit_id || 'no-id'}):`);
@@ -1260,16 +1291,16 @@ serve(async (req) => {
             console.log(`[generate-structure]     - equations: ${unit.equations ? '✓' : '✗'} (${unit.equations?.length || 0} equations)`);
             console.log(`[generate-structure]     - search_queries: ${unit.search_queries ? '✓' : '✗'} (${unit.search_queries?.length || 0} queries)`);
             console.log(`[generate-structure]     - estimated_time_minutes: ${unit.estimated_time_minutes || 0}`);
-            
+
             // Accumulate time
             totalEstimatedTime += unit.estimated_time_minutes || 15;
-            
+
             // Log equations if present
             if (unit.equations && unit.equations.length > 0) {
               console.log(`[generate-structure]     - Equation names: ${unit.equations.map((e: any) => e.name).join(', ')}`);
             }
           }
-          
+
           // Check if this is prerequisites or a content section
           if (cacheResult.section_id === 'prerequisites') {
             // Load prerequisites from cache - USE EXACTLY AS STORED
@@ -1291,15 +1322,15 @@ serve(async (req) => {
           missedSections.push(cacheResult.section_id);
         }
       }
-      
+
       // Update total estimated time in summary
       structure.summary.total_estimated_time_minutes = totalEstimatedTime;
-      
+
       // Generate only the missed sections with AI
       if (missedSections.length > 0) {
         console.log(`[generate-structure] ⚠️  ${missedSections.length} sections not in cache: ${missedSections.join(', ')}`);
         console.log('[generate-structure] Generating ONLY missed sections with AI...');
-        
+
         // Filter analysisData to only include missed sections
         // IMPORTANT: Don't include cacheResults or other large objects - they bloat the prompt!
         const missedAnalysis = {
@@ -1311,30 +1342,30 @@ serve(async (req) => {
           // Only include the sections that need to be generated
           sections: analysisData.sections?.filter((s: any) => missedSections.includes(s.section_id))
         };
-        
+
         const inputType = body.input_type || 'document_analysis';
         const missedStructure = await callClaudeJSON<LearningStructure>(
           PROMPTS.generateStructure.system,
           PROMPTS.generateStructure.user(missedAnalysis, inputType),
           { temperature: 0.4, maxTokens: 32000 }
         );
-        
+
         // Merge missed sections into structure
         if (missedStructure.content_sections) {
           structure.content_sections.push(...missedStructure.content_sections);
           console.log(`[generate-structure] ✅ Generated ${missedStructure.content_sections.length} new sections`);
         }
       }
-      
+
       console.log(`[generate-structure] Final structure: ${structure.content_sections.length} sections (${cacheData.cachedSectionsCount} from cache, ${missedSections.length} generated)`);
       usedCache = true;
-      
+
     } else {
       // No cache hits - generate everything with AI
       console.log('[generate-structure] No cache hits - generating full structure with AI...');
-      
+
       const inputType = body.input_type || 'document_analysis';
-      
+
       // Use higher token limit for complex documents with many problems/prerequisites
       // Each problem can generate 3-5 search queries, so this can get large
       // IMPORTANT: Need enough tokens for walkthrough units at the end of each problem
@@ -1369,7 +1400,7 @@ serve(async (req) => {
 
       // Process and cache equations from the structure
       console.log('[generate-structure] Processing equations for caching...');
-      
+
       equationResults = await processStructureEquations(
         supabase,
         structure,
@@ -1377,11 +1408,11 @@ serve(async (req) => {
         subjectArea,
         userId
       );
-      
+
       console.log(`[generate-structure] Equations processed:`);
       console.log(`  - Cached (reused): ${equationResults.totalCached}`);
       console.log(`  - New (created): ${equationResults.totalNew}`);
-      
+
       // Run aggressive equation detection for any units still missing equations
       const aggressiveResults = await detectAndAttachMissingEquations(
         supabase,
@@ -1390,7 +1421,7 @@ serve(async (req) => {
         subjectArea,
         userId
       );
-      
+
       console.log(`[generate-structure] Aggressive detection added: ${aggressiveResults.addedCount} equations`);
     } else {
       console.log('[generate-structure] ⚡ Skipping embedding/equation generation - using cached data');
@@ -1398,7 +1429,7 @@ serve(async (req) => {
 
     // Calculate metrics
     const metrics = countStructureMetrics(structure);
-    
+
     // Process suggested figures
     const figureResults = await processSuggestedFigures(
       supabase,
@@ -1407,7 +1438,7 @@ serve(async (req) => {
       subjectArea,
       userId
     );
-    
+
     console.log(`[generate-structure] Figures: ${figureResults.totalCached} cached, ${figureResults.totalNew} new`);
 
     // Store the learning structure in the database
@@ -1447,24 +1478,27 @@ serve(async (req) => {
     // This builds up a library of reusable learning structures over time
     // NOW: Cache each section individually (ONE ROW PER SECTION)
     // =========================================================================
-    
-    if (blueprint_id && analysisData && structure) {
+
+    // Check if we should skip caching (if student provided personalized context)
+    const shouldSkipCaching = !!(analysisData.student_context && analysisData.student_context.trim().length > 0);
+
+    if (blueprint_id && analysisData && structure && !shouldSkipCaching) {
       // Only cache NEW sections (skip sections that came from cache)
       const cacheData = (analysisData as any);
       const cachedSectionIds = new Set(
         cacheData.cacheResults?.filter((r: any) => r.cache_hit).map((r: any) => r.section_id) || []
       );
-      
+
       if (cachedSectionIds.size > 0) {
         console.log(`[generate-structure] Skipping ${cachedSectionIds.size} sections that came from cache (no duplicates)`);
       }
-      
+
       // Filter to only NEW sections
       const newSections = analysisData.sections?.filter((s: any) => !cachedSectionIds.has(s.section_id)) || [];
-      
+
       if (newSections.length > 0) {
         console.log(`[generate-structure] Caching ${newSections.length} NEW sections for future reuse...`);
-        
+
         try {
           // Create a synthetic "prerequisites" section for embedding
           const prerequisitesSection = {
@@ -1473,61 +1507,61 @@ serve(async (req) => {
             topic_summary: `Prerequisites: ${analysisData.prerequisites?.map((p: any) => p.concept || p).join(', ') || 'Foundation concepts'}`,
             concepts_tested: analysisData.prerequisites?.map((p: any) => p.concept || p) || []
           };
-          
+
           // Generate embeddings for NEW sections + prerequisites
           const sectionsToEmbed = [...newSections];
-          
+
           // Only add prerequisites if they exist and weren't cached
           if (structure.prerequisites_section?.learning_units && structure.prerequisites_section.learning_units.length > 0) {
             sectionsToEmbed.unshift(prerequisitesSection);
             console.log(`[generate-structure] Adding prerequisites section for embedding`);
           }
-          
+
           const sectionsWithEmbeddings = await generateAllSectionEmbeddings({
             ...analysisData,
             sections: sectionsToEmbed
           });
-          
+
           // Extract learning units from the generated structure (only NEW sections)
           const generatedUnits = new Map();
-          
+
           // Add prerequisites as a special "section" if they exist
           if (structure.prerequisites_section?.learning_units && structure.prerequisites_section.learning_units.length > 0) {
             generatedUnits.set('prerequisites', structure.prerequisites_section.learning_units);
             console.log(`[generate-structure] Including ${structure.prerequisites_section.learning_units.length} prerequisite units for caching`);
           }
-          
+
           // Add content sections
           if (structure.content_sections) {
             for (const contentSection of structure.content_sections) {
               // Only include if this section was NOT from cache
-              if (!cachedSectionIds.has(contentSection.section_id) && 
-                  contentSection.learning_units && 
-                  contentSection.learning_units.length > 0) {
+              if (!cachedSectionIds.has(contentSection.section_id) &&
+                contentSection.learning_units &&
+                contentSection.learning_units.length > 0) {
                 generatedUnits.set(contentSection.section_id, contentSection.learning_units);
               }
             }
           }
-          
+
           if (generatedUnits.size > 0) {
             // STEP 1: Store in Supabase FIRST to get cache IDs
             const sectionsToCache = prepareSectionsForCache(sectionsWithEmbeddings, generatedUnits);
             console.log(`[generate-structure] Caching ${sectionsToCache.length} NEW sections in Supabase...`);
-            
+
             let supabaseCachedCount = 0;
             const supabaseCacheIds = new Map<string, string>(); // Map section_id -> Supabase row id
-            
+
             for (const sectionToCache of sectionsToCache) {
               try {
                 // Use the original section data attached to the cache object (more reliable)
                 // Fallback to finding it in newSections if missing
-                const originalSection = (sectionToCache as any).original_section || 
-                                      newSections.find((s: any) => s.section_id === sectionToCache.section_id);
-                
+                const originalSection = (sectionToCache as any).original_section ||
+                  newSections.find((s: any) => s.section_id === sectionToCache.section_id);
+
                 // VERIFY cached_unit contains COMPLETE data before storing
                 const cachedUnit = sectionToCache.cached_unit;
                 console.log(`[generate-structure] 💾 Storing section ${sectionToCache.section_id} to Supabase cache:`);
-                
+
                 if (cachedUnit?.units && Array.isArray(cachedUnit.units)) {
                   console.log(`[generate-structure]   - Multi-unit: ${cachedUnit.units.length} units`);
                   for (let i = 0; i < cachedUnit.units.length; i++) {
@@ -1542,7 +1576,7 @@ serve(async (req) => {
                   console.log(`[generate-structure]   - equations: ${cachedUnit.equations?.length || 0}`);
                   console.log(`[generate-structure]   - search_queries: ${cachedUnit.search_queries?.length || 0}`);
                 }
-            
+
                 // Prepare cache entry for Supabase
                 // CRITICAL: Store the COMPLETE cached_unit with ALL fields
                 // Pinecone handles the vector search, Supabase stores the full cached_unit
@@ -1561,18 +1595,18 @@ serve(async (req) => {
                   times_used: 0,
                   quality_score: 1.0
                 };
-            
+
                 // Ensure embedding is 1536 dimensions for Supabase pgvector
                 // If we got 3072 from Pinecone generation, we need to slice it
                 // If it's 1536, we use it as is
                 let embeddingForPostgres = sectionToCache.section_embedding;
                 if (embeddingForPostgres && embeddingForPostgres.length > 1536) {
-                   console.log(`[generate-structure] Truncating embedding from ${embeddingForPostgres.length} to 1536 dims for Postgres`);
-                   embeddingForPostgres = embeddingForPostgres.slice(0, 1536);
+                  console.log(`[generate-structure] Truncating embedding from ${embeddingForPostgres.length} to 1536 dims for Postgres`);
+                  embeddingForPostgres = embeddingForPostgres.slice(0, 1536);
                 }
 
                 // Format embedding for Postgres vector column (if present)
-                const primaryEmbeddingStr = embeddingForPostgres 
+                const primaryEmbeddingStr = embeddingForPostgres
                   ? formatVectorForPostgres(embeddingForPostgres)
                   : null;
 
@@ -1586,23 +1620,23 @@ serve(async (req) => {
                   // For problems, originalSection is required for problem_statement
                   cacheEntry.problem_statement_text = originalSection?.problem_statement || "Problem statement missing";
                   cacheEntry.problem_statement_embedding = primaryEmbeddingStr;
-                  
+
                   if (!originalSection) {
-                     console.warn(`[generate-structure] ⚠️ Warning: Original section data missing for problem ${sectionToCache.section_id}`);
+                    console.warn(`[generate-structure] ⚠️ Warning: Original section data missing for problem ${sectionToCache.section_id}`);
                   }
                 } else if (sectionToCache.section_type === 'topic') {
                   // For topics, originalSection is required for topic_summary
                   cacheEntry.topic_summary_text = originalSection?.topic_summary || "Topic summary missing";
                   cacheEntry.topic_summary_embedding = primaryEmbeddingStr;
                 }
-            
+
                 // Insert into Supabase (include embeddings to satisfy constraints)
                 const { error, data } = await supabase
                   .from('cached_blueprint_structures')
                   .insert([cacheEntry])
                   .select('id')
                   .single();
-            
+
                 if (error) {
                   console.error(`[generate-structure] ❌ Error caching section in Supabase ${sectionToCache.section_id}:`, error);
                   console.error(`[generate-structure]   Error details:`, JSON.stringify(error));
@@ -1610,7 +1644,7 @@ serve(async (req) => {
                   const cacheId = data?.id;
                   console.log(`[generate-structure] ✅ Successfully cached section ${sectionToCache.section_id} with COMPLETE data (ID: ${cacheId})`);
                   supabaseCachedCount++;
-                  
+
                   // Store the cache ID for Pinecone linking
                   if (cacheId) {
                     supabaseCacheIds.set(sectionToCache.section_id, cacheId);
@@ -1620,9 +1654,9 @@ serve(async (req) => {
                 console.error(`[generate-structure] ❌ Exception caching section ${sectionToCache.section_id}:`, err);
               }
             }
-        
+
             console.log(`[generate-structure] Successfully cached in Supabase: ${supabaseCachedCount}/${sectionsToCache.length} NEW sections`);
-            
+
             // STEP 2: Store in Pinecone with cache IDs linking back to Supabase
             console.log(`[generate-structure] Storing ${generatedUnits.size} NEW sections in Pinecone with cache IDs...`);
             const pineconeResult = await storeSectionsInPinecone(
@@ -1631,7 +1665,7 @@ serve(async (req) => {
               blueprint_id,
               supabaseCacheIds // Pass the Supabase row IDs for linking
             );
-            
+
             console.log(`[generate-structure] Successfully cached in Pinecone: ${pineconeResult.stored}/${sectionsToCache.length} NEW sections`);
           } else {
             console.log('[generate-structure] No new sections to cache (all sections were from cache or none generated)');
@@ -1656,7 +1690,7 @@ serve(async (req) => {
     console.log('[generate-structure] Complete!');
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
         step: 'generate_structure',
         status: 'structure_generated',
@@ -1671,7 +1705,7 @@ serve(async (req) => {
         },
         message: `Learning structure generated with ${allSearchQueries.length} search queries and ${equationResults.totalCached + equationResults.totalNew} equations. Ready for Step 3 (Search Resources).`,
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       }
@@ -1685,7 +1719,7 @@ serve(async (req) => {
       try {
         await supabase
           .from('blueprints')
-          .update({ 
+          .update({
             generation_status: 'failed',
             generation_error: error?.message || 'Structure generation failed',
           })
@@ -1694,13 +1728,13 @@ serve(async (req) => {
         console.error('[generate-structure] Failed to update error status:', updateError);
       }
     }
-    
+
     return new Response(
-      JSON.stringify({ 
-        success: false, 
+      JSON.stringify({
+        success: false,
         error: error?.message || 'Unknown error occurred',
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       }

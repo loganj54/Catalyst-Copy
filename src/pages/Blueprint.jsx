@@ -958,6 +958,7 @@ const Blueprint = () => {
       let section = null;
       let struct = learningStructure?.structure;
       if (struct?.learning_structure) struct = struct.learning_structure;
+      let isPrereq = false;
 
       if (struct) {
         if (struct.content_sections) {
@@ -965,110 +966,54 @@ const Blueprint = () => {
         }
         if (!section && struct.prerequisites_section?.learning_units?.some(u => u.unit_id === unit.unit_id)) {
           section = struct.prerequisites_section;
+          isPrereq = true;
         }
       }
 
-      const queries = unit.search_queries || [];
       const webhookUrl = 'https://hook.us2.make.com/4biukvihdmvo4aianlpqk5sbnewjbonh';
 
-      const payloadBase = {
+      // Match the format used in triggerAllWebhooks (Developer Mode)
+      // Wrap the single unit in an array
+      const unitPayload = {
         unit_id: unit.unit_id,
         topic: unit.topic,
         description: unit.description,
         topic_description: unit.description,
         learning_objective: unit.learning_objective,
-        section_title: section?.title || null,
-        section_learning_objective: section?.learning_objective || null,
-        section_description: section?.description || null,
         target_resource_profile: unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase || `Video tutorial explaining ${unit.topic}: ${unit.description || ''}`,
-        ideal_video_description: unit.ideal_video_description || null,
-        semantic_search_phrase: unit.semantic_search_phrase || null,
+        search_queries: unit.search_queries || []
+      };
+
+      const payload = {
+        section_title: section?.title || 'Single Unit Trigger',
+        section_learning_objective: section?.learning_objective || '',
+        section_description: section?.description || '',
+        is_prerequisite: isPrereq,
+        units: [unitPayload],
         blueprint_id: id,
         user_id: user.id,
         triggered_at: new Date().toISOString()
       };
 
-      // If we have search queries, send one webhook per query
-      if (queries.length > 0) {
-        console.log(`[Blueprint] Triggering ${queries.length} individual webhooks...`);
+      console.log('[Blueprint] Triggering manual webhook for unit (as array of 1):', unit.topic);
 
-        // Execute requests in parallel
-        const promises = queries.map(async (query, index) => {
-          try {
-            const response = await fetch(webhookUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                ...payloadBase,
-                search_query: query, // The specific query for this webhook
-                query_index: index + 1,
-                total_queries: queries.length,
-              })
-            });
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
 
-            if (response.ok) {
-              const data = await response.json();
-              if (data.found && data.resource) {
-                console.log(`[Blueprint] Resource found via webhook for query "${query}"!`);
-
-                // Add "from_cache" flag if not present
-                const resource = {
-                  ...data.resource,
-                  from_cache: true
-                };
-
-                // Update resources for this unit
-                setTopicResources(prev => {
-                  const existing = prev[unit.unit_id] || [];
-                  // Avoid duplicates by URL
-                  if (existing.some(r => r.url === resource.url)) return prev;
-                  return {
-                    ...prev,
-                    [unit.unit_id]: [...existing, resource]
-                  };
-                });
-
-                return { success: true, found: true };
-              }
-              return { success: true, found: false };
-            }
-            return { success: false, status: response.status };
-          } catch (err) {
-            console.error('Error in single webhook trigger:', err);
-            return { success: false, error: err };
-          }
-        });
-
-        const results = await Promise.all(promises);
-        const foundCount = results.filter(r => r.found).length;
-
-        if (foundCount > 0) {
-          alert(`Success! Found ${foundCount} cached resources immediately.`);
-        } else {
-          alert(`Successfully triggered ${queries.length} webhooks. Analysis is running in background.`);
-        }
-      } else {
-        // Fallback: No specific queries, send one generic webhook
-        console.log('[Blueprint] No queries found, triggering generic webhook...');
-
-        const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            ...payloadBase,
-            search_queries: [],
-          })
-        });
-
-        if (response.ok) {
+      if (response.ok) {
+        // Try to parse partial results or cache hits if returned
+        try {
           const data = await response.json();
-          if (data.found && data.resource) {
-            console.log('[Blueprint] Resource found via generic webhook!');
-            // Add "from_cache" flag if not present
+
+          // Handle immediate cache hit if the webhook returns it
+          if (data && data.found && data.resource) {
+            console.log('[Blueprint] Resource found via webhook!');
+
             const resource = {
               ...data.resource,
               from_cache: true
@@ -1086,10 +1031,15 @@ const Blueprint = () => {
           } else {
             alert('Webhook triggered successfully! Analysis is running in background.');
           }
-        } else {
-          throw new Error(`Webhook failed with status ${response.status}`);
+        } catch (e) {
+          // Response was OK but not JSON (likely "Accepted" string)
+          console.log('[Blueprint] Webhook accepted (non-JSON response).');
+          alert('Webhook triggered successfully! Analysis is running in background.');
         }
+      } else {
+        throw new Error(`Webhook failed with status ${response.status}`);
       }
+
     } catch (error) {
       console.error('Error triggering webhook:', error);
       alert('Failed to trigger webhook. Please try again.');
