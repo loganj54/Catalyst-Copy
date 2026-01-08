@@ -5,7 +5,7 @@ import {
   ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp,
   ChevronRight, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
   Layout, Grid, Circle, Eye, Info, Database, ToggleLeft, ToggleRight, Timer,
-  AlignLeft
+  AlignLeft, X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -428,8 +428,8 @@ const TopicListItem = ({
                       setShowSearchContext(!showSearchContext);
                     }}
                     className={`p-2 rounded-lg transition-colors border ${showSearchContext
-                        ? 'bg-stone-200 dark:bg-stone-700 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600'
-                        : 'bg-transparent text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 border-transparent hover:bg-stone-100 dark:hover:bg-stone-800'
+                      ? 'bg-stone-200 dark:bg-stone-700 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600'
+                      : 'bg-transparent text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 border-transparent hover:bg-stone-100 dark:hover:bg-stone-800'
                       }`}
                     title="View Search Logic & Queries"
                   >
@@ -575,15 +575,14 @@ const Blueprint = () => {
 
           setIsScrolled(prev => {
             if (prev) {
-              // Currently COMPACT: Keep compact until we scroll very close to top
-              // Use slightly higher value (60) to avoid edge cases near top
-              return scrollPosition > 60;
+              // Currently COMPACT: strict stickiness. Only expand if we hit the absolute top.
+              // This prevents the "scroll anchoring" jump from triggering a re-expand.
+              return scrollPosition > 0;
             } else {
-              // Currently EXPANDED: Wait until we've scrolled well past the height difference
-              // The header collapse causes a layout shift of ~170-200px
-              // We need this threshold to be significantly higher than (CollapseThreshold + LayoutShift)
-              // 60 + 200 = 260. Using 350 provides a safe buffer.
-              return scrollPosition > 350;
+              // Currently EXPANDED: Collapse threshold.
+              // Must strictly exceed the heavy layout shift (~175px) to prevent a loop.
+              // 190 provides the tightest valid "early" transition without shaking.
+              return scrollPosition > 190;
             }
           });
 
@@ -618,6 +617,7 @@ const Blueprint = () => {
   // UI State
   const [activeTab, setActiveTab] = useState(null);
   const [expandedTopics, setExpandedTopics] = useState({});
+  const [showInputPopover, setShowInputPopover] = useState(false);
 
   // Generation State
   const [generating, setGenerating] = useState(false);
@@ -2048,14 +2048,46 @@ const Blueprint = () => {
     }
     if (structure.content_sections) {
       structure.content_sections.forEach((section, idx) => {
-        let labelPrefix = 'Topic';
-        if (section.section_type === 'problem' || section.title?.toLowerCase().includes('problem')) {
-          labelPrefix = 'Problem';
+        let label = '';
+
+        // Try to parse clean label from title (e.g. "Problem 1A: ..." -> "Problem 1A")
+        if (section.title) {
+          // Check for colon separator first (most common format: "Topic 1: Introduction")
+          // We limit length to avoid using long titles as labels if they just happen to have a colon far in
+          const colonMatch = section.title.match(/^([^:]+):/);
+          if (colonMatch && colonMatch[1].length < 20) {
+            label = colonMatch[1].trim();
+          }
+          // Check for regex pattern (e.g. "Problem 1A Description", "Topic 1 Details")
+          else {
+            const patterns = [
+              /^(Problem|Topic)\s+\d+(\s*[A-Za-z])?/i,  // "Problem 1A", "Problem 1 A", "Topic 1"
+              /^(Part)\s+[a-zA-Z0-9]+/i,                 // "Part A", "Part 1"
+              /^(Section)\s+\d+/i                        // "Section 1"
+            ];
+
+            for (const pattern of patterns) {
+              const match = section.title.match(pattern);
+              if (match) {
+                label = match[0];
+                break;
+              }
+            }
+          }
+        }
+
+        // Fallback to default numbering if extraction failed
+        if (!label) {
+          let labelPrefix = 'Topic';
+          if (section.section_type === 'problem' || section.title?.toLowerCase().includes('problem')) {
+            labelPrefix = 'Problem';
+          }
+          label = `${labelPrefix} ${idx + 1}`;
         }
 
         tabs.push({
           id: section.section_id || `section-${idx}`,
-          label: `${labelPrefix} ${idx + 1}`,
+          label: label,
           fullTitle: section.title,
           sectionIndex: idx
         });
@@ -2129,11 +2161,11 @@ const Blueprint = () => {
             <div className="px-6 lg:px-12 max-w-7xl mx-auto">
               {/* When scrolled: single row with title left, tabs center, doc right */}
               {/* When not scrolled: traditional layout with title/class left, doc right, tabs below */}
-              <div className={`transition-all duration-300 ease-in-out ${isScrolled ? 'mb-0' : 'mb-6'}`}>
+              <div className={`transition-all duration-300 ease-in-out relative ${isScrolled ? 'mb-0' : 'mb-6'}`}>
                 {/* Top row: Back button, Title, Document */}
-                <div className={`flex items-center justify-between gap-6 transition-all duration-300 ease-in-out ${isScrolled ? 'mb-0 relative' : 'mb-3'}`}>
+                <div className={`flex justify-between gap-6 transition-all duration-300 ease-in-out ${isScrolled ? 'items-center mb-0 relative' : 'items-start mb-3'}`}>
                   {/* Left side: Title and class name */}
-                  <div className="flex-1 min-w-0">
+                  <div className={`min-w-0 ${isScrolled ? 'flex-1' : 'w-full'}`}>
                     <button
                       onClick={() => {
                         if (blueprint.class_id) {
@@ -2160,6 +2192,28 @@ const Blueprint = () => {
                         </p>
                       )}
                     </div>
+
+                    {/* Tabs (non-scrolled) - Moved here to prevent layout shift */}
+                    {structure && !isScrolled && (
+                      <div className="transition-all duration-300 ease-in-out mt-5">
+                        <div className="flex justify-center mb-0 overflow-x-auto no-scrollbar pb-2">
+                          <div className="inline-flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
+                            {tabs.map(tab => (
+                              <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ease-in-out whitespace-nowrap snap-center ${activeTab === tab.id
+                                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
+                                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
+                                  }`}
+                              >
+                                {tab.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Center: Tabs (only when scrolled) - absolutely positioned to stay centered */}
@@ -2171,8 +2225,8 @@ const Blueprint = () => {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`px-3 py-1 rounded-md text-xs font-medium transition-all duration-200 ease-in-out whitespace-nowrap ${activeTab === tab.id
-                                ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
-                                : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
+                              ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
+                              : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
                               }`}
                           >
                             {tab.label}
@@ -2184,143 +2238,69 @@ const Blueprint = () => {
 
                   {/* Right side: Input/Document Card */}
                   {(doc || (blueprint.description || blueprint.content?.textInput)) && (
-                    <div className={`transition-all duration-300 ease-in-out ${isScrolled ? 'w-auto' : 'w-full lg:w-80 shrink-0'}`}>
-                      {(() => {
-                        const inputText = blueprint.description || blueprint.content?.textInput;
-                        const hasDoc = !!doc;
-                        const hasText = !!inputText && inputText.trim().length > 0;
+                    <div className={`transition-all duration-300 ease-in-out z-50 ${isScrolled ? 'w-auto relative' : 'absolute right-0 top-0 w-auto flex justify-end'}`}>
+                      <div className="flex items-center gap-2 relative">
+                        {(() => {
+                          const inputText = blueprint.description || blueprint.content?.textInput;
+                          const hasText = !!inputText && inputText.trim().length > 0;
+                          const hasDoc = !!doc;
 
-                        if (isScrolled) {
-                          // Compact View (Scrolled)
                           return (
-                            <div className="flex items-center gap-2">
+                            <>
                               {hasText && (
-                                <div
-                                  className="flex items-center gap-2 px-3 py-2 bg-stone-100 dark:bg-stone-800 rounded-lg text-sm text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700 cursor-help"
-                                  title={inputText}
-                                >
-                                  <AlignLeft className="w-4 h-4" />
-                                  <span className="truncate max-w-[100px] font-medium">Input Text</span>
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setShowInputPopover(!showInputPopover);
+                                    }}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm
+                                      ${showInputPopover
+                                        ? 'bg-stone-200 dark:bg-stone-700 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-500'
+                                        : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-300 dark:border-stone-600 hover:bg-stone-50 dark:hover:bg-stone-700'
+                                      }`}
+                                  >
+                                    <AlignLeft className="w-3 h-3" />
+                                    <span className="truncate max-w-[100px]">Text Input</span>
+                                  </button>
+
+                                  {/* Popover */}
+                                  {showInputPopover && (
+                                    <div className="absolute top-full right-0 mt-2 w-96 p-4 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 z-50 animate-in fade-in slide-in-from-top-2">
+                                      <div className="flex justify-between items-start mb-3">
+                                        <h4 className="font-semibold text-stone-900 dark:text-stone-100 text-sm flex items-center gap-2">
+                                          <AlignLeft className="w-4 h-4 text-stone-500 dark:text-stone-400" />
+                                          Text Input
+                                        </h4>
+                                      </div>
+                                      <div className="text-sm text-stone-600 dark:text-stone-300 max-h-[300px] overflow-y-auto custom-scrollbar whitespace-pre-wrap leading-relaxed">
+                                        {inputText}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               )}
+
                               {hasDoc && (
                                 <button
                                   onClick={handleViewDocument}
-                                  className="flex items-center gap-2 px-3 py-2 bg-stone-100 dark:bg-stone-800 rounded-lg text-sm text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 transition-all duration-200 border border-stone-200 dark:border-stone-700"
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-xs font-medium transition-colors shadow-sm"
                                   title={doc.name}
                                 >
-                                  <FileText className="w-4 h-4" />
-                                  <span className="truncate max-w-[150px] font-medium">{doc.name}</span>
-                                  <Eye className="w-3 h-3 ml-1 opacity-50" />
-                                </button>
-                              )}
-                            </div>
-                          );
-                        }
-
-                        // Expanded View
-                        if (hasDoc && hasText) {
-                          // Case 1: Both Document and Text
-                          return (
-                            <div className="bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-                              <div className="flex items-center justify-between mb-2 pb-2 border-b border-stone-100 dark:border-stone-700">
-                                <span className="text-xs font-bold text-stone-500 uppercase tracking-wider flex items-center gap-2">
-                                  <AlignLeft className="w-3 h-3" />
-                                  Input Context
-                                </span>
-
-                                <button
-                                  onClick={handleViewDocument}
-                                  className="flex items-center gap-1.5 text-xs font-medium text-[#FF4A1C] hover:bg-[#FF4A1C]/5 px-2 py-1 rounded transition-colors border border-transparent hover:border-[#FF4A1C]/20"
-                                  title={doc.name}
-                                >
-                                  <FileText className="w-3 h-3" />
+                                  <Eye className="w-3 h-3" />
                                   View Document
                                 </button>
-                              </div>
-
-                              <div className="text-sm text-stone-600 dark:text-stone-300 max-h-[120px] overflow-y-auto custom-scrollbar leading-relaxed whitespace-pre-wrap">
-                                {inputText}
-                              </div>
-                            </div>
+                              )}
+                            </>
                           );
-                        } else if (hasText) {
-                          // Case 2: Text Only
-                          return (
-                            <div className="bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                              <div className="flex items-center gap-3 mb-3">
-                                <div className="p-2 bg-stone-100 dark:bg-stone-900 rounded-lg text-stone-500 dark:text-stone-400">
-                                  <AlignLeft className="w-5 h-5" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-medium text-stone-900 dark:text-stone-100 text-sm">
-                                    Input Context
-                                  </h4>
-                                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                                    {inputText.length} characters
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="text-sm text-stone-600 dark:text-stone-300 max-h-[200px] overflow-y-auto custom-scrollbar leading-relaxed whitespace-pre-wrap px-1">
-                                {inputText}
-                              </div>
-                            </div>
-                          );
-                        } else {
-                          // Case 3: Document Only (Original)
-                          return (
-                            <div className="bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                              <div className="flex items-start gap-3 mb-3">
-                                <div className="p-2 bg-stone-100 dark:bg-stone-900 rounded-lg text-stone-500 dark:text-stone-400">
-                                  <FileText className="w-5 h-5" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-medium text-stone-900 dark:text-stone-100 text-sm truncate" title={doc.name}>
-                                    {doc.name}
-                                  </h4>
-                                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                                    {doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : 'Document'}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <button
-                                onClick={handleViewDocument}
-                                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-sm font-medium transition-colors"
-                              >
-                                <Eye className="w-4 h-4" />
-                                View Document
-                              </button>
-                            </div>
-                          );
-                        }
-                      })()}
+                        })()}
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Tabs below - only show when not scrolled */}
-              {structure && !isScrolled && (
-                <div className="transition-all duration-300 ease-in-out mt-3">
-                  <div className="flex justify-center mb-0 overflow-x-auto no-scrollbar pb-2">
-                    <div className="inline-flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
-                      {tabs.map(tab => (
-                        <button
-                          key={tab.id}
-                          onClick={() => setActiveTab(tab.id)}
-                          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ease-in-out whitespace-nowrap snap-center ${activeTab === tab.id
-                              ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
-                              : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
-                            }`}
-                        >
-                          {tab.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
+
             </div>
           </div>
         </div>
@@ -2543,8 +2523,8 @@ const Blueprint = () => {
                       onClick={runAnalyzeStep}
                       disabled={generating && generationStatus === 'analyzing'}
                       className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 border rounded-lg transition-all font-medium ${documentAnalysis || generationStatus === 'analyzed' || generationStatus === 'structure_generated' || generationStatus === 'completed'
-                          ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-600 text-green-900 dark:text-green-100'
-                          : 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-800/40'
+                        ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-600 text-green-900 dark:text-green-100'
+                        : 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-800/40'
                         } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                       {documentAnalysis || generationStatus === 'analyzed' || generationStatus === 'structure_generated' || generationStatus === 'completed' ? (
@@ -2573,8 +2553,8 @@ const Blueprint = () => {
                         (generating && generationStatus === 'generating')
                       }
                       className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 border rounded-lg transition-all font-medium ${generationStatus === 'structure_generated' || generationStatus === 'completed'
-                          ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-600 text-green-900 dark:text-green-100'
-                          : 'bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-600 text-purple-900 dark:text-purple-100 hover:bg-purple-200 dark:hover:bg-purple-800/40'
+                        ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-600 text-green-900 dark:text-green-100'
+                        : 'bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-600 text-purple-900 dark:text-purple-100 hover:bg-purple-200 dark:hover:bg-purple-800/40'
                         } disabled:opacity-50 disabled:cursor-not-allowed`}
                       title={!documentAnalysis ? 'Please run Step 1 (Analyze Document) first' : 'Generate learning structure'}
                     >
