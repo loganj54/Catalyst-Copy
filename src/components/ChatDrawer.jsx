@@ -71,7 +71,8 @@ const ChatDrawer = ({
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages, isLoading]);
+    }, [messages, isLoading, input]); // Add input dependency to scroll when textarea expands
+
 
     // Focus input when opened
     useEffect(() => {
@@ -212,6 +213,12 @@ const ChatDrawer = ({
         const userMessage = { role: 'user', content: input.trim() };
         setMessages(prev => [...prev, userMessage]);
         setInput('');
+
+        // Reset height
+        if (inputRef.current) {
+            inputRef.current.style.height = 'auto';
+        }
+
         setIsLoading(true);
 
         try {
@@ -300,11 +307,26 @@ const ChatDrawer = ({
         }
     };
 
+    // Auto-resize textarea
+    const handleInput = (e) => {
+        const target = e.target;
+        target.style.height = 'auto';
+        target.style.height = `${Math.min(target.scrollHeight, 200)}px`; // Max height 200px
+        setInput(target.value);
+    };
+
+    useEffect(() => {
+        if (inputRef.current) {
+            inputRef.current.style.height = 'auto';
+            inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 200)}px`;
+        }
+    }, [input]);
+
     return (
         <>
             {/* Drawer */}
             <div
-                className={`fixed inset-y-0 right-0 z-50 w-full md:w-[450px] bg-white dark:bg-stone-900 shadow-2xl transform transition-transform duration-300 ease-in-out border-l border-stone-200 dark:border-stone-800 ${isOpen ? 'translate-x-0' : 'translate-x-full'
+                className={`fixed inset-y-0 right-0 z-50 w-full md:w-[450px] bg-white dark:bg-stone-900 shadow-2xl transform transition-transform duration-300 ease-in-out border-l border-stone-200 dark:border-stone-800 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'
                     }`}
             >
                 {/* Header */}
@@ -323,7 +345,7 @@ const ChatDrawer = ({
                 )}
 
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto p-6 h-[calc(100vh-8rem)] space-y-6 bg-white dark:bg-stone-900">
+                <div className="flex-1 overflow-y-auto p-6 min-h-0 pb-32 space-y-6 bg-white dark:bg-stone-900">
                     {messages.map((msg, idx) => {
                         const isUser = msg.role === 'user';
                         const isSystem = msg.role === 'system';
@@ -371,22 +393,23 @@ const ChatDrawer = ({
                 </div>
 
                 {/* Input Area */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-white dark:bg-stone-900 border-t border-stone-100 dark:border-stone-800">
-                    <div className="relative flex items-center">
-                        <input
+                <div className="absolute bottom-8 left-4 right-4 p-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl shadow-lg z-20 transition-all focus-within:ring-2 focus-within:ring-[#FF4A1C]/20 focus-within:border-[#FF4A1C]">
+                    <div className="relative flex items-end">
+                        <textarea
                             ref={inputRef}
-                            type="text"
                             value={input}
-                            onChange={(e) => setInput(e.target.value)}
+                            onChange={handleInput}
                             onKeyDown={handleKeyDown}
                             placeholder="Ask a question about your document..."
                             disabled={isLoading || isProcessingEmbeddings || isResolvingDocId}
-                            className="w-full pl-4 pr-12 py-3.5 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 dark:focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] dark:focus:border-[#FF4A1C] transition-all text-sm shadow-inner text-stone-900 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500"
+                            rows={1}
+                            className="w-full pl-4 pr-12 py-3.5 bg-transparent border-0 focus:ring-0 focus:outline-none resize-none text-sm text-stone-900 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 max-h-[200px] overflow-y-auto"
+                            style={{ minHeight: '44px' }}
                         />
                         <button
                             onClick={handleSend}
                             disabled={!input.trim() || isLoading || isProcessingEmbeddings || isResolvingDocId}
-                            className="absolute right-2 p-2 bg-[#FF4A1C] text-white rounded-lg hover:bg-[#e03e15] disabled:opacity-50 disabled:hover:bg-[#FF4A1C] transition-colors shadow-sm"
+                            className="absolute right-2 bottom-2 p-2 bg-[#FF4A1C] text-white rounded-lg hover:bg-[#e03e15] disabled:opacity-50 disabled:hover:bg-[#FF4A1C] transition-colors shadow-sm mb-0.5"
                         >
                             {isLoading ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
