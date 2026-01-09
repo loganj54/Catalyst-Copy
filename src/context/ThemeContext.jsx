@@ -16,9 +16,9 @@ export const ThemeProvider = ({ children }) => {
 
   const [bgPattern, setBgPattern] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('bgPattern') || 'dots'; // default to dots as it seems to be the preferred one in Dashboard
+      return localStorage.getItem('bgPattern') || 'grid'; // User requested permanent grid default
     }
-    return 'dots';
+    return 'grid';
   });
 
   useEffect(() => {

@@ -1,10 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Layers, ArrowRight, LogOut, ChevronDown, Plus } from 'lucide-react';
+import { Layers, ArrowRight, LogOut, ChevronDown, Plus, Sun, Moon } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { useUiState } from '../context/UiStateContext';
 
 const Navbar = () => {
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const { chatState } = useUiState();
   const navigate = useNavigate();
   const location = useLocation();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -37,8 +41,12 @@ const Navbar = () => {
     return 128; // Default Dashboard sidebar width (256px)
   })();
 
+  // Chat offset for centering/positioning
+  const chatOffset = chatState.isOpen ? 225 : 0; // Half of 450px
+  const rightMargin = chatState.isOpen ? 450 : 0;
+
   return (
-    <nav className="lg:px-12 flex fixed z-50 bg-white/90 dark:bg-stone-900/90 w-full border-stone-200 dark:border-stone-800 border-b pt-6 pr-6 pb-6 pl-6 top-0 backdrop-blur-sm items-center transition-colors duration-300">
+    <nav className="lg:px-12 flex fixed z-50 bg-white/90 dark:bg-stone-900/90 w-full border-stone-200 dark:border-stone-800 border-b py-6 top-0 backdrop-blur-sm items-center transition-all duration-300">
       <div className="flex items-center flex-1">
         <Link to="/" className="flex items-center gap-2">
           <img
@@ -63,7 +71,7 @@ const Navbar = () => {
 
       <div
         className="hidden lg:flex items-center justify-center gap-12 text-sm font-medium text-black/60 dark:text-white/60 absolute -translate-x-1/2 transition-all duration-300"
-        style={{ left: `calc(50% + ${sidebarOffset}px)` }}
+        style={{ left: `calc(50% + ${sidebarOffset}px - ${chatOffset}px)` }}
       >
         <Link to="/create" className="hover:text-black dark:hover:text-white transition-colors">
           Create
@@ -74,9 +82,23 @@ const Navbar = () => {
         <a href="#" className="hover:text-black dark:hover:text-white transition-colors">Misc</a>
       </div>
 
-      <div className="flex items-center justify-end gap-4 flex-1">
+      <div
+        className="flex items-center justify-end gap-4 flex-1 transition-all duration-300 ease-in-out"
+        style={{ marginRight: `${rightMargin}px` }}
+      >
         {user ? (
           <>
+            <button
+              onClick={toggleTheme}
+              className="p-2 mr-2 rounded-lg text-black/60 dark:text-white/60 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-black dark:hover:text-white transition-colors"
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
+              {theme === 'light' ? (
+                <Moon className="w-5 h-5" />
+              ) : (
+                <Sun className="w-5 h-5" />
+              )}
+            </button>
             <Link to="/classes" className="text-sm font-medium text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors pr-6">
               Dashboard
             </Link>

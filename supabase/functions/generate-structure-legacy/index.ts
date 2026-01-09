@@ -226,41 +226,41 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
       }
     }
   }
-}
 
-// Process content section units
-for (const section of structure.content_sections || []) {
-  if (section.learning_units) {
-    totalUnits += section.learning_units.length;
 
-    for (const unit of section.learning_units) {
-      try {
-        // Use target_resource_profile if available, otherwise construct from semantic_search_phrase or topic
-        const embeddingText = unit.target_resource_profile
-          || unit.semantic_search_phrase
-          || `${unit.topic} ${unit.description || ''} ${unit.learning_objective || ''}`;
+  // Process content section units
+  for (const section of structure.content_sections || []) {
+    if (section.learning_units) {
+      totalUnits += section.learning_units.length;
 
-        const result = await generateEmbedding(embeddingText.trim());
+      for (const unit of section.learning_units) {
+        try {
+          // Use target_resource_profile if available, otherwise construct from semantic_search_phrase or topic
+          const embeddingText = unit.target_resource_profile
+            || unit.semantic_search_phrase
+            || `${unit.topic} ${unit.description || ''} ${unit.learning_objective || ''}`;
 
-        // Store embedding directly in the unit (for blueprint structure)
-        unit.target_resource_embedding = result.embedding;
+          const result = await generateEmbedding(embeddingText.trim());
 
-        successCount++;
-      } catch (error) {
-        console.error(`[generate-structure] Failed to generate embedding for unit "${unit.topic}":`, error);
-        failCount++;
+          // Store embedding directly in the unit (for blueprint structure)
+          unit.target_resource_embedding = result.embedding;
+
+          successCount++;
+        } catch (error) {
+          console.error(`[generate-structure] Failed to generate embedding for unit "${unit.topic}":`, error);
+          failCount++;
+        }
       }
     }
   }
-}
 
-// NOTE: Pinecone storage for target_profiles has been removed to reduce storage bloat.
-// We now save the embedding in the blueprint structure (Supabase) and reuse it during search.
+  // NOTE: Pinecone storage for target_profiles has been removed to reduce storage bloat.
+  // We now save the embedding in the blueprint structure (Supabase) and reuse it during search.
 
-console.log(`[generate-structure] Target resource embedding generation complete:`);
-console.log(`  - Total units: ${totalUnits}`);
-console.log(`  - Success: ${successCount}`);
-console.log(`  - Failed: ${failCount}`);
+  console.log(`[generate-structure] Target resource embedding generation complete:`);
+  console.log(`  - Total units: ${totalUnits}`);
+  console.log(`  - Success: ${successCount}`);
+  console.log(`  - Failed: ${failCount}`);
 }
 
 /**

@@ -276,19 +276,19 @@ const Create = () => {
           // Changed from 4MB to 5MB as requested
           const MAX_SIZE = 5 * 1024 * 1024;
 
-          if (file.size > MAX_SIZE) {
+          if (formData.fileUpload.size > MAX_SIZE) {
             alert('File is too large. Please be under 5 MB.');
             setLoading(false);
             return;
           }
 
           // Standard small file upload
-          const fileExt = file.name.split('.').pop();
+          const fileExt = formData.fileUpload.name.split('.').pop();
           const fileName = `${user.id}/${finalClassId || 'unorganized'}/${Date.now()}.${fileExt}`;
 
           const { error: uploadError } = await supabase.storage
             .from('class-documents')
-            .upload(fileName, file);
+            .upload(fileName, formData.fileUpload);
 
           if (uploadError) throw uploadError;
 
@@ -299,24 +299,33 @@ const Create = () => {
         }
 
 
-        // Save metadata only if we have a class
-        if (finalClassId) {
-          const { data: newDocData } = await supabase
+        // Save document metadata to class_documents table
+        // ALWAYS save the document, even if no class is selected (class_id will be null)
+        // This ensures we always have a document_id to link to the blueprint
+        if (!documentId) { // Only insert if we didn't find a duplicate earlier
+          const { data: newDocData, error: docInsertError } = await supabase
             .from('class_documents')
             .insert([{
-              class_id: finalClassId,
+              class_id: finalClassId, // Can be null for unorganized blueprints
               user_id: user.id,
               name: formData.fileUpload.name,
-              file_path: fileUrl, // Just store main URL (first chunk or full file)
+              file_path: fileUrl,
               file_url: fileUrl,
               file_size: formData.fileUpload.size,
-              file_type: formData.fileUpload.type,
-              metadata: fileUrls ? { chunks: fileUrls } : null // Store chunks in metadata
+              file_type: formData.fileUpload.type
             }])
             .select()
             .single();
 
-          if (newDocData) documentId = newDocData.id;
+          if (docInsertError) {
+            console.error('[Create] Error saving document metadata:', docInsertError);
+            throw docInsertError;
+          }
+
+          if (newDocData) {
+            documentId = newDocData.id;
+            console.log('[Create] ✅ Document saved with ID:', documentId);
+          }
         }
       }
 
@@ -336,6 +345,8 @@ const Create = () => {
         } : null,
         mode: mode
       };
+
+      console.log('[Create] Creating blueprint with document_id:', documentId);
 
       const { data, error } = await supabase
         .from('blueprints')
@@ -357,6 +368,12 @@ const Create = () => {
         console.error('Supabase error details:', error);
         throw error;
       }
+
+      console.log('[Create] ✅ Blueprint created successfully:', {
+        blueprint_id: data.id,
+        document_id: data.document_id,
+        title: data.title
+      });
 
       // Navigate to blueprint page - if dev mode enabled, pass query param to trigger automatic pipeline
       navigate(`/blueprint/${data.id}${devModeEnabled ? '?devMode=true' : ''}`);

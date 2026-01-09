@@ -2,7 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
-import ThemeToggle from './components/ThemeToggle';
+import { UiStateProvider } from './context/UiStateContext';
+// import ThemeToggle from './components/ThemeToggle'; // Dormant
 import Background from './components/Background';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
@@ -22,7 +23,7 @@ function Layout() {
   return (
     <div className="w-full min-h-screen relative flex flex-col pt-20">
       <Navbar />
-      <ThemeToggle />
+      {/* <ThemeToggle /> */}
       <Background />
       <Routes>
         <Route path="/" element={<Home />} />
@@ -47,29 +48,29 @@ function Layout() {
             <Skills />
           </ProtectedRoute>
         } />
-        <Route 
-          path="/create" 
+        <Route
+          path="/create"
           element={
             <ProtectedRoute>
               <Create />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/class/:id" 
+        <Route
+          path="/class/:id"
           element={
             <ProtectedRoute>
               <ClassDetails />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-          path="/blueprint/:id" 
+        <Route
+          path="/blueprint/:id"
           element={
             <ProtectedRoute>
               <Blueprint />
             </ProtectedRoute>
-          } 
+          }
         />
       </Routes>
     </div>
@@ -80,9 +81,11 @@ function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <Router>
-          <Layout />
-        </Router>
+        <UiStateProvider>
+          <Router>
+            <Layout />
+          </Router>
+        </UiStateProvider>
       </ThemeProvider>
     </AuthProvider>
   );

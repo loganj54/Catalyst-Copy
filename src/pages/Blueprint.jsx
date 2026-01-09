@@ -5,15 +5,17 @@ import {
   ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp,
   ChevronRight, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
   Layout, Grid, Circle, Eye, Info, Database, ToggleLeft, ToggleRight, Timer,
-  AlignLeft, X
+  AlignLeft, X, MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useUiState } from '../context/UiStateContext';
 import { supabase } from '../lib/supabase';
 import EquationDisplay from '../components/EquationDisplay';
 import FigureDisplay from '../components/FigureDisplay';
 import Sidebar from '../components/Sidebar';
 import ClassSidebar from '../components/ClassSidebar';
 import StructureGenerationProgress from '../components/StructureGenerationProgress';
+import ChatDrawer from '../components/ChatDrawer';
 
 // Generation status display configuration
 const STATUS_CONFIG = {
@@ -634,6 +636,11 @@ const Blueprint = () => {
   const [showProgressPanel, setShowProgressPanel] = useState(false);
   const [isGeneratingWithProgress, setIsGeneratingWithProgress] = useState(false);
 
+  // Chat State
+  const { chatState, setChatOpen } = useUiState();
+  const isChatOpen = chatState.isOpen;
+  const setIsChatOpen = setChatOpen; // Convenience alias
+
   // Dev Mode State - Automated pipeline for development/testing
   const [devModeEnabled, setDevModeEnabled] = useState(false);
   const [devModeStep, setDevModeStep] = useState('idle'); // 'idle' | 'analyzing' | 'generating' | 'webhooks' | 'waiting' | 'searching' | 'complete' | 'error'
@@ -757,6 +764,7 @@ const Blueprint = () => {
         setDocumentAnalysis({
           success: true,
           analysis_id: analysisData.id,
+          document_id: analysisData.document_id, // Add this for ChatDrawer
           document_type: analysisData.raw_analysis?.document_type,
           subject_area: analysisData.raw_analysis?.subject_area,
           raw_analysis: analysisData.raw_analysis,
@@ -2255,7 +2263,7 @@ const Blueprint = () => {
         <ClassSidebar />
       </div>
 
-      <div className="min-w-0 lg:ml-[304px]">
+      <div className={`min-w-0 lg:ml-[304px] transition-all duration-300 ease-in-out ${isChatOpen ? 'mr-0 md:mr-[450px]' : ''}`}>
         {/* Sticky Header - positioned to stick below the navbar */}
         <div className={`sticky top-20 z-50 transition-all duration-300 ease-in-out ${isScrolled ? 'bg-white/80 dark:bg-stone-900/80 backdrop-blur-md' : 'bg-transparent'}`}>
           {/* Fixed height container to prevent layout shifts */}
@@ -2761,6 +2769,31 @@ const Blueprint = () => {
           )}
         </div>
       </div>
+      {/* Floating Chat Toggle Button */}
+      {/* Floating Chat Toggle Button - Always rendered */}
+      <button
+        onClick={() => setIsChatOpen(!isChatOpen)}
+        className={`fixed bottom-8 z-[60] flex items-center gap-2 px-6 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 ease-in-out border group
+          bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-300 dark:border-stone-600 hover:bg-stone-50 dark:hover:bg-stone-700
+          ${isChatOpen
+            ? 'right-8 md:right-[482px]'
+            : 'right-8 hover:scale-105'
+          }`}
+      >
+        {isChatOpen ? <X className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+        <span className="font-medium text-sm whitespace-nowrap">
+          {isChatOpen ? 'Close chat' : 'Chat with your document'}
+        </span>
+      </button>
+
+      {/* Chat Drawer */}
+      <ChatDrawer
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        documentId={blueprint?.document_id || documentAnalysis?.document_id}
+        blueprintId={id}
+        contextTitle={blueprint?.document?.name || "Uploaded Document"}
+      />
     </div>
   );
 };
