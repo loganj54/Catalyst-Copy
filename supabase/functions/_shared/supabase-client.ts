@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 export function createSupabaseClient() {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  
+
   return createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
@@ -17,7 +17,7 @@ export function createSupabaseClient() {
 export function createSupabaseClientWithAuth(authHeader: string) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-  
+
   return createClient(supabaseUrl, supabaseAnonKey, {
     global: {
       headers: { Authorization: authHeader },
@@ -47,7 +47,7 @@ export interface ClaudeResponse {
 }
 
 export async function callClaude(
-  systemPrompt: string, 
+  systemPrompt: string,
   userPrompt: string,
   options?: {
     maxTokens?: number;
@@ -58,13 +58,8 @@ export async function callClaude(
     throw new Error('ANTHROPIC_API_KEY is not set. Run: supabase secrets set ANTHROPIC_API_KEY=your-key');
   }
 
-  const maxTokens = options?.maxTokens ?? 4096;
+  const maxTokens = options?.maxTokens ?? 8192;
   const temperature = options?.temperature ?? 0.3;
-
-  console.log('Calling Claude API...');
-  console.log('Model:', CLAUDE_MODEL);
-  console.log('System prompt length:', systemPrompt.length);
-  console.log('User prompt length:', userPrompt.length);
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -93,7 +88,7 @@ export async function callClaude(
   }
 
   const data = await response.json();
-  
+
   // Extract text content from Claude's response format
   const textContent = data.content?.find((block: any) => block.type === 'text');
   if (!textContent) {
@@ -129,11 +124,11 @@ CRITICAL JSON INSTRUCTIONS:
 5. Do not truncate mid-string - if you must stop early, end the last string properly with a closing quote.`;
 
   const response = await callClaude(jsonSystemPrompt, userPrompt, options);
-  
+
   try {
     // Try to extract JSON from the response (handle potential markdown wrapping)
     let jsonStr = response.content.trim();
-    
+
     // Remove markdown code blocks if present
     if (jsonStr.startsWith('```json')) {
       jsonStr = jsonStr.slice(7);
@@ -152,23 +147,23 @@ CRITICAL JSON INSTRUCTIONS:
     console.error('First 500 chars:', response.content.substring(0, 500));
     console.error('Last 500 chars:', response.content.substring(response.content.length - 500));
     console.error('Parse error:', parseError);
-    
+
     // Try to salvage truncated JSON by closing open brackets
     try {
       let jsonStr = response.content.trim();
-      
+
       // Remove markdown if present
       if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
       else if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
       if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
       jsonStr = jsonStr.trim();
-      
+
       // Count open brackets and braces
       let openBraces = 0;
       let openBrackets = 0;
       let inString = false;
       let escaped = false;
-      
+
       for (const char of jsonStr) {
         if (escaped) {
           escaped = false;
@@ -189,18 +184,18 @@ CRITICAL JSON INSTRUCTIONS:
           else if (char === ']') openBrackets--;
         }
       }
-      
+
       console.log(`Attempting JSON repair: ${openBraces} unclosed braces, ${openBrackets} unclosed brackets`);
-      
+
       // If we're in the middle of a string, close it
       if (inString) {
         jsonStr += '"';
       }
-      
+
       // Close any open brackets and braces
       jsonStr += ']'.repeat(Math.max(0, openBrackets));
       jsonStr += '}'.repeat(Math.max(0, openBraces));
-      
+
       const repaired = JSON.parse(jsonStr);
       console.log('JSON repair successful!');
       return repaired;
@@ -294,8 +289,8 @@ CRITICAL JSON INSTRUCTIONS:
       temperature: temperature,
       system: jsonSystemPrompt,
       messages: [
-        { 
-          role: 'user', 
+        {
+          role: 'user',
           content: messageContent,
         }
       ],
@@ -311,7 +306,7 @@ CRITICAL JSON INSTRUCTIONS:
   }
 
   const data = await response.json();
-  
+
   // Extract text content from Claude's response format
   const textContent = data.content?.find((block: any) => block.type === 'text');
   if (!textContent) {
@@ -324,7 +319,7 @@ CRITICAL JSON INSTRUCTIONS:
   // Parse the JSON response with repair logic for truncated responses
   try {
     let jsonStr = textContent.text.trim();
-    
+
     // Remove markdown code blocks if present
     if (jsonStr.startsWith('```json')) {
       jsonStr = jsonStr.slice(7);
@@ -344,23 +339,23 @@ CRITICAL JSON INSTRUCTIONS:
     console.error('Last 500 chars:', textContent.text.substring(textContent.text.length - 500));
     console.error('Parse error:', parseError);
     console.error('Usage stats:', data.usage);
-    
+
     // Try to salvage truncated JSON by closing open brackets
     try {
       let jsonStr = textContent.text.trim();
-      
+
       // Remove markdown if present
       if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
       else if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
       if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
       jsonStr = jsonStr.trim();
-      
+
       // Count open brackets and braces
       let openBraces = 0;
       let openBrackets = 0;
       let inString = false;
       let escaped = false;
-      
+
       for (const char of jsonStr) {
         if (escaped) {
           escaped = false;
@@ -381,18 +376,18 @@ CRITICAL JSON INSTRUCTIONS:
           else if (char === ']') openBrackets--;
         }
       }
-      
+
       console.log(`Attempting JSON repair: ${openBraces} unclosed braces, ${openBrackets} unclosed brackets, inString=${inString}`);
-      
+
       // If we're in the middle of a string, close it
       if (inString) {
         jsonStr += '"';
       }
-      
+
       // Close any open brackets and braces
       jsonStr += ']'.repeat(Math.max(0, openBrackets));
       jsonStr += '}'.repeat(Math.max(0, openBraces));
-      
+
       const repaired = JSON.parse(jsonStr);
       console.log('JSON repair successful!');
       return repaired;
@@ -420,7 +415,7 @@ export async function callClaudeWithPDFAndText<T = any>(
 
   // If no PDF, just use regular text call
   if (!pdfDocument) {
-    const fullPrompt = additionalText 
+    const fullPrompt = additionalText
       ? `${userPrompt}\n\nADDITIONAL CONTEXT:\n${additionalText}`
       : userPrompt;
     return callClaudeJSON<T>(systemPrompt, fullPrompt, options);
@@ -458,7 +453,7 @@ CRITICAL JSON INSTRUCTIONS:
   ];
 
   // Add the user prompt with any additional text context
-  const fullPrompt = additionalText 
+  const fullPrompt = additionalText
     ? `${userPrompt}\n\nADDITIONAL CONTEXT PROVIDED BY STUDENT:\n${additionalText}`
     : userPrompt;
 
@@ -481,8 +476,8 @@ CRITICAL JSON INSTRUCTIONS:
       temperature: temperature,
       system: jsonSystemPrompt,
       messages: [
-        { 
-          role: 'user', 
+        {
+          role: 'user',
           content: messageContent,
         }
       ],
@@ -498,7 +493,7 @@ CRITICAL JSON INSTRUCTIONS:
   }
 
   const data = await response.json();
-  
+
   const textContent = data.content?.find((block: any) => block.type === 'text');
   if (!textContent) {
     console.error('No text content in Claude response:', JSON.stringify(data));
@@ -510,7 +505,7 @@ CRITICAL JSON INSTRUCTIONS:
   // Parse the JSON response with repair logic for truncated responses
   try {
     let jsonStr = textContent.text.trim();
-    
+
     // Remove markdown code blocks if present
     if (jsonStr.startsWith('```json')) {
       jsonStr = jsonStr.slice(7);
@@ -529,23 +524,23 @@ CRITICAL JSON INSTRUCTIONS:
     console.error('First 500 chars:', textContent.text.substring(0, 500));
     console.error('Last 500 chars:', textContent.text.substring(textContent.text.length - 500));
     console.error('Parse error:', parseError);
-    
+
     // Try to salvage truncated JSON by closing open brackets
     try {
       let jsonStr = textContent.text.trim();
-      
+
       // Remove markdown if present
       if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
       else if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
       if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
       jsonStr = jsonStr.trim();
-      
+
       // Count open brackets and braces
       let openBraces = 0;
       let openBrackets = 0;
       let inString = false;
       let escaped = false;
-      
+
       for (const char of jsonStr) {
         if (escaped) {
           escaped = false;
@@ -566,18 +561,18 @@ CRITICAL JSON INSTRUCTIONS:
           else if (char === ']') openBrackets--;
         }
       }
-      
+
       console.log(`Attempting JSON repair: ${openBraces} unclosed braces, ${openBrackets} unclosed brackets, inString=${inString}`);
-      
+
       // If we're in the middle of a string, close it
       if (inString) {
         jsonStr += '"';
       }
-      
+
       // Close any open brackets and braces
       jsonStr += ']'.repeat(Math.max(0, openBrackets));
       jsonStr += '}'.repeat(Math.max(0, openBraces));
-      
+
       const repaired = JSON.parse(jsonStr);
       console.log('JSON repair successful!');
       return repaired;

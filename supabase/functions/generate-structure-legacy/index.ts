@@ -23,7 +23,7 @@ import {
   callClaudeJSON,
 } from '../_shared/supabase-client.ts';
 import { PROMPTS } from '../_shared/prompts.ts';
-import { generateEmbedding, formatVectorForPostgres } from '../_shared/embeddings.ts';
+import { generateEmbedding, generateEmbedding1536, formatVectorForPostgres } from '../_shared/embeddings.ts';
 // NEW: Use section-level caching utilities
 import {
   generateAllSectionEmbeddings,
@@ -215,24 +215,9 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
 
         const result = await generateEmbedding(embeddingText.trim());
 
+
         // Store embedding directly in the unit (for blueprint structure)
         unit.target_resource_embedding = result.embedding;
-
-        // Prepare for Pinecone batch upsert
-        const pineconeId = `target-${blueprintId}-prereq-${unit.unit_id}`;
-        pineconeVectors.push({
-          id: pineconeId,
-          values: result.embedding,
-          metadata: {
-            blueprint_id: blueprintId,
-            unit_id: unit.unit_id,
-            unit_type: unit.unit_type,
-            topic: unit.topic,
-            section_type: 'prerequisite',
-            target_profile: embeddingText.substring(0, 500), // Store first 500 chars
-            type: 'target_profile'
-          }
-        });
 
         successCount++;
       } catch (error) {
@@ -241,67 +226,41 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
       }
     }
   }
+}
 
-  // Process content section units
-  for (const section of structure.content_sections || []) {
-    if (section.learning_units) {
-      totalUnits += section.learning_units.length;
+// Process content section units
+for (const section of structure.content_sections || []) {
+  if (section.learning_units) {
+    totalUnits += section.learning_units.length;
 
-      for (const unit of section.learning_units) {
-        try {
-          // Use target_resource_profile if available, otherwise construct from semantic_search_phrase or topic
-          const embeddingText = unit.target_resource_profile
-            || unit.semantic_search_phrase
-            || `${unit.topic} ${unit.description || ''} ${unit.learning_objective || ''}`;
+    for (const unit of section.learning_units) {
+      try {
+        // Use target_resource_profile if available, otherwise construct from semantic_search_phrase or topic
+        const embeddingText = unit.target_resource_profile
+          || unit.semantic_search_phrase
+          || `${unit.topic} ${unit.description || ''} ${unit.learning_objective || ''}`;
 
-          const result = await generateEmbedding(embeddingText.trim());
+        const result = await generateEmbedding(embeddingText.trim());
 
-          // Store embedding directly in the unit (for blueprint structure)
-          unit.target_resource_embedding = result.embedding;
+        // Store embedding directly in the unit (for blueprint structure)
+        unit.target_resource_embedding = result.embedding;
 
-          // Prepare for Pinecone batch upsert
-          const pineconeId = `target-${blueprintId}-${section.section_id}-${unit.unit_id}`;
-          pineconeVectors.push({
-            id: pineconeId,
-            values: result.embedding,
-            metadata: {
-              blueprint_id: blueprintId,
-              section_id: section.section_id,
-              unit_id: unit.unit_id,
-              unit_type: unit.unit_type,
-              topic: unit.topic,
-              section_type: section.section_type,
-              target_profile: embeddingText.substring(0, 500), // Store first 500 chars
-              type: 'target_profile'
-            }
-          });
-
-          successCount++;
-        } catch (error) {
-          console.error(`[generate-structure] Failed to generate embedding for unit "${unit.topic}":`, error);
-          failCount++;
-        }
+        successCount++;
+      } catch (error) {
+        console.error(`[generate-structure] Failed to generate embedding for unit "${unit.topic}":`, error);
+        failCount++;
       }
     }
   }
+}
 
-  // Batch upsert all vectors to Pinecone
-  if (pineconeVectors.length > 0) {
-    try {
-      console.log(`[generate-structure] Upserting ${pineconeVectors.length} target profile vectors to Pinecone...`);
-      await upsertVectors(pineconeVectors, 'target_profiles');
-      console.log(`[generate-structure] Successfully stored ${pineconeVectors.length} vectors in Pinecone`);
-    } catch (pineconeError) {
-      console.error('[generate-structure] Failed to store vectors in Pinecone:', pineconeError);
-      console.error('[generate-structure] Continuing without Pinecone storage (embeddings still in blueprint)');
-    }
-  }
+// NOTE: Pinecone storage for target_profiles has been removed to reduce storage bloat.
+// We now save the embedding in the blueprint structure (Supabase) and reuse it during search.
 
-  console.log(`[generate-structure] Target resource embedding generation complete:`);
-  console.log(`  - Total units: ${totalUnits}`);
-  console.log(`  - Success: ${successCount}`);
-  console.log(`  - Failed: ${failCount}`);
-  console.log(`  - Pinecone vectors: ${pineconeVectors.length}`);
+console.log(`[generate-structure] Target resource embedding generation complete:`);
+console.log(`  - Total units: ${totalUnits}`);
+console.log(`  - Success: ${successCount}`);
+console.log(`  - Failed: ${failCount}`);
 }
 
 /**
@@ -392,7 +351,7 @@ async function createEquation(
 
     let embedding: number[] | null = null;
     try {
-      const result = await generateEmbedding(embeddingText);
+      const result = await generateEmbedding1536(embeddingText);
       embedding = result.embedding;
     } catch (embError) {
       console.log('[generate-structure] Could not generate equation embedding:', embError);

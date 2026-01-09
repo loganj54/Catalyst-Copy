@@ -19,11 +19,12 @@ serve(async (req: Request) => {
 
   try {
     // Parse request body
-    const { 
-      target_resource_profile, 
+    const {
+      target_resource_profile,
+      target_resource_embedding, // NEW: optional pre-computed embedding
       unit_id,
       topic,
-      blueprint_id 
+      blueprint_id
     } = await req.json();
 
     // Get user from auth header for DB updates
@@ -39,20 +40,25 @@ serve(async (req: Request) => {
       userId = user?.id;
     }
 
-    if (!target_resource_profile && !topic) {
-      throw new Error('Missing target_resource_profile or topic for search');
+    if (!target_resource_profile && !topic && !target_resource_embedding) {
+      throw new Error('Missing target_resource_profile, topic, or target_resource_embedding for search');
     }
 
-    // Determine what text to embed
-    // Prioritize target_resource_profile, fallback to topic
-    const textToEmbed = target_resource_profile || topic;
-
     console.log(`[search-resources-database] Searching for unit ${unit_id || 'unknown'}`);
-    console.log(`[search-resources-database] Embedding text length: ${textToEmbed.length}`);
 
-    // 1. Generate OpenAI Embedding (3072 dimensions)
-    const embeddingResponse = await generateEmbedding(textToEmbed);
-    const vector = embeddingResponse.embedding;
+    let vector: number[];
+
+    // 1. Determine vector source (Reuse > Generate)
+    if (target_resource_embedding && Array.isArray(target_resource_embedding) && target_resource_embedding.length === 3072) {
+      console.log('[search-resources-database] ✅ Using provided pre-computed embedding (3072 dims)');
+      vector = target_resource_embedding;
+    } else {
+      // Fallback: Generate embedding
+      const textToEmbed = target_resource_profile || topic;
+      console.log(`[search-resources-database] ⚠️ Logic fallback: Generating new embedding (Text length: ${textToEmbed.length})`);
+      const embeddingResponse = await generateEmbedding(textToEmbed);
+      vector = embeddingResponse.embedding;
+    }
 
     // 2. Query Pinecone 'resources' namespace
     // We fetch top 3 to return the 3 highest similarity resources
@@ -77,7 +83,7 @@ serve(async (req: Request) => {
     }
 
     console.log(`[search-resources-database] Found ${searchResults.matches.length} matches in Pinecone`);
-    
+
     // Log scores and metadata for debugging
     searchResults.matches.forEach((match, idx) => {
       console.log(`  - Match ${idx + 1}: Vector ID=${match.id}, Score=${match.score.toFixed(4)}`);
@@ -88,9 +94,9 @@ serve(async (req: Request) => {
 
     // 3. Process Top 3 Matches
     const MIN_SIMILARITY_THRESHOLD = 0.60;
-    
+
     const validMatches = searchResults.matches.filter(m => m.score >= MIN_SIMILARITY_THRESHOLD);
-    
+
     if (validMatches.length === 0) {
       console.log(`[search-resources-database] No matches above threshold ${MIN_SIMILARITY_THRESHOLD}.`);
       return new Response(
@@ -101,13 +107,13 @@ serve(async (req: Request) => {
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
+
     // 4. Extract resource IDs from Pinecone metadata
     // The metadata contains 'resource_id' which matches the 'id' column in resources_from_make table
     const resourceIds = validMatches
       .map(m => m.metadata?.resource_id)
       .filter((id): id is string => typeof id === 'string' && id.length > 0);
-    
+
     if (resourceIds.length === 0) {
       console.error('[search-resources-database] ❌ No resource IDs found in Pinecone metadata!');
       console.error('[search-resources-database] Check that vectors have "resource_id" in metadata');
@@ -121,14 +127,14 @@ serve(async (req: Request) => {
     }
 
     console.log(`[search-resources-database] Resource IDs from metadata: ${resourceIds.join(', ')}`);
-    
+
     // 5. Fetch full resource data from Supabase resources_from_make table
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log(`[search-resources-database] Fetching ${resourceIds.length} resources from resources_from_make table...`);
-    
+
     const { data: resources, error: dbError } = await supabase
       .from('resources_from_make')
       .select('*')
@@ -155,7 +161,7 @@ serve(async (req: Request) => {
     // 6. Save resources to curated_resources and link to blueprint
     if (resources.length > 0 && blueprint_id && unit_id) {
       console.log(`[search-resources-database] Saving ${resources.length} resources to blueprint ${blueprint_id}...`);
-      
+
       const parseDuration = (input: any): number | null => {
         if (typeof input === 'number') return input;
         if (typeof input === 'string') {
@@ -184,13 +190,13 @@ serve(async (req: Request) => {
             from_cache: true,
             resource_explanation: resource.summary // Use summary as explanation
           };
-          
+
           console.log(`[search-resources-database] Linking resource to blueprint:`, {
             resource_id: resource.id,
             unit_id,
             has_explanation: !!resource.summary
           });
-          
+
           const { error: linkError } = await supabase
             .from('blueprint_topic_resources')
             .upsert(linkData, {
@@ -206,7 +212,7 @@ serve(async (req: Request) => {
           console.error(`[search-resources-database] Error processing resource ${resource.id}:`, err);
         }
       }
-      
+
       // Update topic response to mark as searched
       if (userId) {
         await supabase
@@ -219,7 +225,7 @@ serve(async (req: Request) => {
             searched_at: new Date().toISOString(),
           }, { onConflict: 'blueprint_id,unit_id' }); // user_id might be part of constraint too, but usually blueprint_id+unit_id implies user context if unique
       }
-        
+
     }
 
     // 7. Format results - preserve order by similarity score
@@ -227,10 +233,10 @@ serve(async (req: Request) => {
       .map(match => {
         const metadataResourceId = match.metadata?.resource_id;
         if (!metadataResourceId) return null;
-        
+
         const resource = resources.find(r => r.id === metadataResourceId);
         if (!resource) return null;
-        
+
         return {
           id: resource.id,
           title: resource.title,

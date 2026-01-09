@@ -159,6 +159,21 @@ IMPORTANT:
 ${taskType ? `STUDENT'S STATED GOAL: ${taskType}` : 'STUDENT\'S GOAL: Determine from document content what the student needs to accomplish.'}
 
 ${content ? `ADDITIONAL CONTEXT FROM STUDENT:\n${content}\n` : ''}
+SPECIAL HANDLING FOR TEXT-ONLY INPUTS:
+If the student provided ONLY text (no PDF/document), their input might be vague like "I'm struggling with collisions in Dynamics".
+In this case:
+1. Treat this as document_type: "study_guide" with section_type: "topic" for all sections
+2. LIMIT sections to 3-5 MAX - only the most important concrete concepts
+3. AVOID creating sections for meta-concepts like:
+   - ❌ "Problem-solving strategies"
+   - ❌ "Mathematical techniques" 
+   - ❌ "Step-by-step approaches"
+4. Instead, focus on CONCRETE, SEARCHABLE topics like:
+   - ✅ "Conservation of Momentum"
+   - ✅ "Elastic vs Inelastic Collisions"
+   - ✅ "Coefficient of Restitution"
+5. key_concepts within each section should also be concrete and searchable
+
 INSTRUCTIONS:
 1. FIRST, classify the document type - is it homework problems, lecture notes, or a hybrid?
 2. Set content_classification with your reasoning and inferred student goal
@@ -197,6 +212,22 @@ CRITICAL RULES:
 11. For problem units, generate BOTH search_queries AND problem_solving_queries.
 12. PRIORITY: Complete the JSON structure. If approaching token limit, skip suggested_figures and focus on core content.
 
+AVOIDING META-CONCEPTS - CRITICAL FOR VAGUE INPUTS:
+When the input is vague or general (like "I'm struggling with collisions in Dynamics"), DO NOT create concepts for:
+- ❌ "Problem-solving strategies" or "Problem-solving techniques"
+- ❌ "Mathematical solution techniques" or "Algebraic methods"
+- ❌ "Step-by-step approaches" or "General methodology"
+- ❌ "Study tips" or "Learning strategies"
+
+These meta-concepts are IMPOSSIBLE to find good YouTube videos for. Instead, focus on CONCRETE, SEARCHABLE topics:
+- ✅ "Types of Collisions (Elastic vs Inelastic)"
+- ✅ "Conservation of Momentum"
+- ✅ "Coefficient of Restitution"
+- ✅ "Impulse and Impact Forces"
+- ✅ "Two-Body Collision Problems"
+
+The math and problem-solving strategies will be COVERED NATURALLY when explaining these concrete topics.
+
 DOCUMENT TYPE AWARENESS - THIS IS CRITICAL:
 The input analysis includes a "content_classification" field that tells you what type of document this is:
 - If content_classification.primary_type is "problem_set": Use "Problem 1", "Problem 2" etc. for section titles
@@ -230,12 +261,13 @@ For lecture documents, each topic section should contain INDIVIDUAL CONCEPTS as 
   * suggested_figures: 0-2 figures for THIS CONCEPT (if essential)
 - Example: If Topic 1 has key_concepts ["Newton's Laws", "Free Body Diagrams", "Force Analysis"], create 3 separate learning_units, one for each concept
 
-DYNAMIC SECTION NAMING:
-- For sections with section_type: "problem" → title should be "Problem X: [Description]"
-- For sections with section_type: "topic" → title should be "Topic X: [Description]"
-- Match the numbering to the input: if input has "Problem 1" and "Problem 2", output should too
-- If input has "Topic 1" and "Topic 2", output should maintain that naming
-- NEVER use "Problem" naming for lecture content - use "Topic" instead
+DYNAMIC SECTION NAMING & TITLES - CRITICAL:
+- EVERY content_section MUST have a "title" field.
+- The title MUST be descriptive, not just a number.
+- BAD: "Topic 1", "Problem 2", "Section 3"
+- GOOD: "Topic 1: Introduction to Thermodynamics", "Problem 2: Calculating Entropy", "Section 3: Forces and Motion"
+- If the input analysis only has "Topic 1", YOU MUST GENERATE A DESCRIPTION based on the topic_summary or key_concepts.
+- Format: "[Type] [Number]: [Descriptive Title]"
 
 TUTOR GUIDANCE - REQUIRED BUT BRIEF:
 Write a "tutor_guidance" field (2-3 sentences) that explains WHY this topic matters and HOW to approach it. Speak directly to the student. Reference equations by name, don't write them inline.
@@ -329,7 +361,9 @@ For units where a visual would significantly help:
 - Format: suggested_figures array with {name, figure_type, description (brief!), search_terms (2-3 words)}
 - LIMIT: 0-2 figures per unit maximum to save tokens
 
-OUTPUT: JSON with summary, prerequisites_section (learning_units array), content_sections array. Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), target_resource_profile (2-3 sentences for topic/prerequisite units, FULL PROBLEM STATEMENT + solution description for walkthrough units), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), suggested_figures (0-2 max, only if essential). For problems: also add walkthrough unit at end with problem_solving_queries.`,
+OUTPUT: JSON with summary, prerequisites_section (learning_units array), content_sections array. 
+For content_sections, each item MUST have: section_id, section_type, title (DESCRIPTIVE), description, learning_units array.
+Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), target_resource_profile (2-3 sentences for topic/prerequisite units, FULL PROBLEM STATEMENT + solution description for walkthrough units), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), suggested_figures (0-2 max, only if essential). For problems: also add walkthrough unit at end with problem_solving_queries.`,
 
     user: (input: any, inputType: 'document_analysis' | 'custom' = 'document_analysis') => `Generate learning structure with search queries.
 
@@ -340,6 +374,26 @@ STUDENT'S ADDITIONAL CONTEXT:
 "${input.student_context}"
 
 Note: The student provided this context along with the document. If they mention a specific problem, concept, or area of focus, give that section slightly more attention (expanded tutor_guidance, more specific search queries). Don't ignore other sections, but weight their priority accordingly.
+` : ''}
+${!input?.sections || input.sections.length === 0 ? `
+IMPORTANT - THIS IS A VAGUE/GENERAL INPUT:
+The student has provided a general description rather than a specific document. You MUST:
+1. LIMIT to 3-5 core concepts MAX (not 8-10!) - focus only on the most essential topics
+2. AVOID meta-concepts like "problem-solving strategies" - these have no searchable videos
+3. Focus on CONCRETE physics/engineering topics that are SEARCHABLE on YouTube
+4. Keep the entire blueprint CONCISE - quality over quantity
+5. Remember: YouTube videos about specific concepts (like "coefficient of restitution") will NATURALLY cover the math and problem-solving techniques
+
+Example for "struggling with collisions in Dynamics":
+GOOD concepts (3-4 total):
+- "Conservation of Momentum in Collisions"
+- "Elastic vs Inelastic Collisions" 
+- "Coefficient of Restitution"
+
+BAD concepts (avoid these):
+- "Problem-solving strategies for collision problems"
+- "Mathematical techniques for momentum analysis"
+- "Step-by-step approach to impact calculations"
 ` : ''}
 
 INSTRUCTIONS:

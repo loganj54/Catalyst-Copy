@@ -892,6 +892,11 @@ const Blueprint = () => {
     if (user && id) fetchBlueprint();
   }, [user, id, fetchBlueprint]);
 
+  // Reset active tab when blueprint ID changes
+  useEffect(() => {
+    setActiveTab(null);
+  }, [id]);
+
   // Set initial active tab when structure loads
   useEffect(() => {
     console.log('[Blueprint] Tab initialization effect triggered');
@@ -1688,7 +1693,63 @@ const Blueprint = () => {
     }
   };
 
+  // Helper function to fetch with timeout and retry logic
+  // Supports large PDF processing with 10-minute timeout for structure generation
+  const fetchWithTimeout = async (url, options, timeoutMs = 600000, retryOnError = true) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      // If it's a timeout or network error and retry is enabled, try once more
+      if (retryOnError && (error.name === 'AbortError' || error.message.includes('fetch'))) {
+        console.log('[Blueprint] Request failed, retrying once...', error.message);
+
+        // Wait 2 seconds before retry
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Retry without further retries
+        const retryController = new AbortController();
+        const retryTimeoutId = setTimeout(() => retryController.abort(), timeoutMs);
+
+        try {
+          const retryResponse = await fetch(url, {
+            ...options,
+            signal: retryController.signal,
+          });
+          clearTimeout(retryTimeoutId);
+          console.log('[Blueprint] Retry successful');
+          return retryResponse;
+        } catch (retryError) {
+          clearTimeout(retryTimeoutId);
+
+          // Provide helpful error message
+          if (retryError.name === 'AbortError') {
+            throw new Error(`Request timed out after ${timeoutMs / 1000} seconds. Large PDFs may take several minutes to process. Please try again or contact support if the issue persists.`);
+          }
+          throw retryError;
+        }
+      }
+
+      // If it's an abort error, provide helpful message
+      if (error.name === 'AbortError') {
+        throw new Error(`Request timed out after ${timeoutMs / 1000} seconds. Large PDFs may take several minutes to process. Please try again.`);
+      }
+
+      throw error;
+    }
+  };
+
   const runAnalyzeStep = async () => {
+    if (!blueprint) return; // Wait for blueprint data
     if (!session?.access_token) return;
 
     // If we already have an analysis loaded, just update the status
@@ -1704,19 +1765,89 @@ const Blueprint = () => {
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const fileUrls = blueprint.content?.fileUpload?.file_urls || blueprint.file_metadata?.file_urls;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/analyze-document-legacy`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blueprint_id: id }),
-      });
-      const data = await response.json();
-      if (!data.success) throw new Error(data.error);
+      // CLIENT-SIDE ORCHESTRATION FOR LARGE FILES
+      // If we have multiple chunks, we must analyze them sequentially from the client
+      // to avoid Serverless Function execution time limits (546 Error).
+      if (fileUrls && fileUrls.length > 1) {
+        console.log(`[Blueprint] Orchestrating analysis for ${fileUrls.length} chunks...`);
+        const partialAnalyses = [];
 
-      setDocumentAnalysis(data);
-      setGenerationStatus('analyzed');
-      await fetchBlueprint();
+        for (let i = 0; i < fileUrls.length; i++) {
+          console.log(`[Blueprint] Analyzing chunk ${i + 1}/${fileUrls.length}`);
+
+          const response = await fetchWithTimeout(
+            `${supabaseUrl}/functions/v1/analyze-document-legacy`,
+            {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                blueprint_id: id,
+                analysis_mode: 'chunk',
+                file_url: fileUrls[i],
+                chunk_index: i,
+                total_chunks: fileUrls.length
+              }),
+            },
+            480000, // 8 minutes timeout per chunk
+            true
+          );
+          const data = await response.json();
+          if (!data.success) throw new Error(data.error || `Chunk ${i + 1} analysis failed`);
+
+          if (data.analysis) {
+            partialAnalyses.push(data.analysis);
+          }
+        }
+
+        console.log('[Blueprint] Merging analyses...');
+        const response = await fetchWithTimeout(
+          `${supabaseUrl}/functions/v1/analyze-document-legacy`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              blueprint_id: id,
+              analysis_mode: 'merge',
+              partial_analyses: partialAnalyses
+            }),
+          },
+          480000,
+          true
+        );
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Merge failed');
+
+        console.log('[Blueprint] Document analysis complete (merged)');
+        setDocumentAnalysis(data);
+        setGenerationStatus('analyzed');
+        await fetchBlueprint();
+
+      } else {
+        // LEGACY SINGLE FILE / TEXT MODE
+        console.log('[Blueprint] Starting standard document analysis...');
+        const response = await fetchWithTimeout(
+          `${supabaseUrl}/functions/v1/analyze-document-legacy`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ blueprint_id: id }),
+          },
+          480000,
+          true
+        );
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error);
+
+        console.log('[Blueprint] Document analysis complete');
+        setDocumentAnalysis(data);
+        setGenerationStatus('analyzed');
+        await fetchBlueprint();
+      }
+
     } catch (error) {
+      console.error('[Blueprint] Analysis error:', error);
       setGenerationError(error.message);
       setGenerationStatus('failed');
     } finally {
@@ -1734,18 +1865,27 @@ const Blueprint = () => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/generate-structure-legacy`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blueprint_id: id }),
-      });
+      console.log('[Blueprint] Starting structure generation (may take up to 10 minutes for complex documents)...');
+
+      const response = await fetchWithTimeout(
+        `${supabaseUrl}/functions/v1/generate-structure-legacy`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blueprint_id: id }),
+        },
+        600000, // 10 minutes for structure generation
+        true // enable retry
+      );
       const data = await response.json();
       if (!data.success) throw new Error(data.error);
 
+      console.log('[Blueprint] Structure generation complete');
       setStructureGenerationResult(data);
       setGenerationStatus('completed');
       await fetchBlueprint();
     } catch (error) {
+      console.error('[Blueprint] Structure generation error:', error);
       setGenerationError(error.message);
       setGenerationStatus('failed');
     } finally {
@@ -1772,11 +1912,16 @@ const Blueprint = () => {
       // Check if analysis already exists
       if (!documentAnalysis) {
         console.log('[Blueprint] Dev Mode: Running document analysis...');
-        const analyzeResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-document-legacy`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ blueprint_id: id }),
-        });
+        const analyzeResponse = await fetchWithTimeout(
+          `${supabaseUrl}/functions/v1/analyze-document-legacy`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ blueprint_id: id }),
+          },
+          480000, // 8 minutes
+          true // enable retry
+        );
         const analyzeData = await analyzeResponse.json();
         if (!analyzeData.success) throw new Error(analyzeData.error || 'Document analysis failed');
         setDocumentAnalysis(analyzeData);
@@ -1792,11 +1937,16 @@ const Blueprint = () => {
       setDevModeProgress(prev => ({ ...prev, message: 'Generating learning structure...' }));
 
       console.log('[Blueprint] Dev Mode: Generating structure...');
-      const structureResponse = await fetch(`${supabaseUrl}/functions/v1/generate-structure-legacy`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blueprint_id: id }),
-      });
+      const structureResponse = await fetchWithTimeout(
+        `${supabaseUrl}/functions/v1/generate-structure-legacy`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blueprint_id: id }),
+        },
+        600000, // 10 minutes for structure generation
+        true // enable retry
+      );
       const structureData = await structureResponse.json();
       if (!structureData.success) throw new Error(structureData.error || 'Structure generation failed');
       setStructureGenerationResult(structureData);
@@ -2077,7 +2227,9 @@ const Blueprint = () => {
     }
 
     currentUnits = activeSection?.learning_units || [];
-    currentSectionTitle = activeSection?.title || '';
+    // Use title if available, otherwise fallback to the tab label (e.g. "Topic 1")
+    const activeTabLabel = tabs.find(t => t.id === activeTab)?.label;
+    currentSectionTitle = activeSection?.title || activeTabLabel || 'Untitled Section';
   }
 
   console.log('[Blueprint] Final currentUnits count:', currentUnits.length);
