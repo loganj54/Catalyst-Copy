@@ -24,7 +24,7 @@ import {
   PdfDocument,
 } from '../_shared/supabase-client.ts';
 import { PROMPTS } from '../_shared/prompts.ts';
-import { generateEmbedding } from '../_shared/embeddings.ts';
+import { generateEmbedding, generateEmbedding1536 } from '../_shared/embeddings.ts';
 import { queryVectors } from '../_shared/pinecone-client.ts';
 
 // RAG processing threshold - files larger than this use RAG
@@ -392,6 +392,52 @@ serve(async (req) => {
     }
 
     // =========================================================================
+    // STEP 0: Check for SEMANTIC MATCH (Copy-Paste Duplicate Check)
+    // =========================================================================
+    // If the user pasted text (or we have text content) but didn't select a document,
+    // check if this content matches an existing document chunk.
+
+    if (!blueprint.document_id && !forceReanalyze && (extractedText && extractedText.length > 50)) {
+      console.log('[analyze-document] Checking for semantic match (copy-paste detection)...');
+
+      try {
+        // Generate embedding for the input text (1536 dim for document_chunks)
+        const { embedding } = await generateEmbedding1536(extractedText);
+
+        // Search for matching chunks across ALL user documents
+        const { data: matches, error: matchError } = await supabase.rpc('find_matching_document_chunk', {
+          query_embedding: embedding,
+          match_threshold: 0.99, // Very strict - must be virtually identical
+          match_count: 1,
+          p_user_id: blueprint.user_id
+        });
+
+        if (matchError) {
+          console.error('[analyze-document] Semantic match error:', matchError);
+        } else if (matches && matches.length > 0) {
+          const match = matches[0];
+          console.log(`[analyze-document] ✅ Found semantic match! Similarity: ${match.similarity.toFixed(4)}`);
+          console.log(`[analyze-document] Linked to existing document: ${match.document_id}`);
+
+          // Set the document_id to the matched document
+          // This will cause Step 1 & 2 to find and reuse the existing analysis!
+          blueprint.document_id = match.document_id;
+
+          // Update the blueprint immediately so we don't lose this link
+          await supabase
+            .from('blueprints')
+            .update({ document_id: match.document_id })
+            .eq('id', blueprint_id);
+        } else {
+          console.log('[analyze-document] No semantic match found.');
+        }
+      } catch (err) {
+        console.error('[analyze-document] Error detection semantic match:', err);
+        // Continue gracefully - don't block analysis if cache check fails
+      }
+    }
+
+    // =========================================================================
     // STEP 1: Find or identify the class_document record
     // =========================================================================
     let documentId: string | null = blueprint.document_id || null;
@@ -726,9 +772,22 @@ serve(async (req) => {
     console.log('[analyze-document] Auto-naming skipped (feature removed).');
 
     // Update blueprint with document_id and status
+    // Also update task_type with formatted document type to replace "Auto-detect"
+    const docTypeMap: Record<string, string> = {
+      'problem_set': 'Problem Set',
+      'lecture': 'Lecture Notes',
+      'textbook': 'Textbook Chapter',
+      'study_guide': 'Study Guide',
+      'hybrid': 'Mixed Content'
+    };
+
+    const formattedTaskType = docTypeMap[analysis.document_type] || 'General Document';
+
     const blueprintUpdate: any = {
       generation_status: 'analyzed',
       document_id: documentId,
+      task_type: formattedTaskType,
+      goal_type: `Analyze ${formattedTaskType}` // Also update goal to be specific
     };
 
     await supabase

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
     X, Send, RefreshCw, MessageSquare, Loader2, Sparkles,
-    ChevronRight, FileText, Minimize2
+    ChevronRight, FileText, Minimize2, Plus, ArrowLeft, Trash2, Clock, Folder
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
@@ -24,7 +24,7 @@ const TypewriterText = ({ text, onComplete }) => {
         return () => clearInterval(timer);
     }, [text, onComplete]);
 
-    return <ReactMarkdown className="prose prose-sm max-w-none">{displayedText}</ReactMarkdown>;
+    return <ReactMarkdown className="prose prose-sm max-w-none dark:prose-invert break-words">{displayedText}</ReactMarkdown>;
 };
 
 const ChatDrawer = ({
@@ -34,12 +34,16 @@ const ChatDrawer = ({
     blueprintId,
     contextTitle = "Document Context"
 }) => {
-    const [messages, setMessages] = useState([
-        {
-            role: 'assistant',
-            content: "Hello! I've read your document. Ask me anything about it!"
-        }
-    ]);
+    // View state: 'chat' or 'list'
+    const [view, setView] = useState('chat');
+
+    // Thread state
+    const [threads, setThreads] = useState([]);
+    const [activeThreadId, setActiveThreadId] = useState(null);
+    const [isLoadingThreads, setIsLoadingThreads] = useState(false);
+
+    // Chat state
+    const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isProcessingEmbeddings, setIsProcessingEmbeddings] = useState(false);
@@ -51,183 +55,255 @@ const ChatDrawer = ({
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
 
-    // DEBUG: Log all props and state
+    // Initial load: resolve doc ID and fetch threads
     useEffect(() => {
-        console.log('[ChatDrawer] Props/State Update:', {
-            isOpen,
-            documentId,
-            blueprintId,
-            fetchedDocumentId,
-            activeDocumentId,
-            isResolvingDocId,
-            contextTitle
-        });
-    }, [isOpen, documentId, blueprintId, fetchedDocumentId, activeDocumentId, isResolvingDocId, contextTitle]);
-
-    // Auto-scroll to bottom
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
-
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages, isLoading, input]); // Add input dependency to scroll when textarea expands
-
-
-    // Focus input when opened
-    useEffect(() => {
-        if (isOpen && inputRef.current) {
-            setTimeout(() => inputRef.current.focus(), 100);
+        if (isOpen && blueprintId) {
+            resolveDocumentId();
+            fetchThreads();
         }
-    }, [isOpen]);
+    }, [isOpen, blueprintId]);
 
-    // Fetch document ID if missing
+    // When thread changes, load messages
     useEffect(() => {
-        const fetchLinkedDocument = async () => {
-            if (isOpen && !documentId && blueprintId && !fetchedDocumentId) {
-                setIsResolvingDocId(true);
-                console.log("[ChatDrawer] Fetching linked document for blueprint:", blueprintId);
+        if (activeThreadId) {
+            fetchMessages(activeThreadId);
+        } else if (isOpen) {
+            // If no thread active, ensure we have a clean slate (or create new temporary)
+            // But actually, we want to allow user to start typing to create a thread?
+            // Or explicitly create one.
+            // For now, let's just clear messages if no thread
+            setMessages([{
+                role: 'assistant',
+                content: "Hello! I've read your document. Ask me anything about it!"
+            }]);
+        }
+    }, [activeThreadId, isOpen]);
 
-                // 1. Get blueprint data including file_metadata
-                const { data: bpData, error: bpError } = await supabase
-                    .from('blueprints')
-                    .select('document_id, file_metadata, class_id')
-                    .eq('id', blueprintId)
-                    .single();
+    // Auto-scroll
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, isLoading, input]);
 
-                if (bpData?.document_id) {
-                    console.log("[ChatDrawer] Found document_id in blueprint:", bpData.document_id);
-                    setFetchedDocumentId(bpData.document_id);
-                    setIsResolvingDocId(false);
-                    return;
-                }
 
-                // 2. Try to find document via file_metadata in class_documents
-                if (bpData?.file_metadata && bpData.class_id) {
-                    const fileName = bpData.file_metadata.name;
-                    const fileSize = bpData.file_metadata.size;
-                    console.log("[ChatDrawer] Searching class_documents by file metadata:", fileName, fileSize);
+    // --- DATA FETCHING ---
 
-                    const { data: docData, error: docError } = await supabase
-                        .from('class_documents')
-                        .select('id')
-                        .eq('class_id', bpData.class_id)
-                        .eq('name', fileName)
-                        .eq('file_size', fileSize)
-                        .maybeSingle();
+    const resolveDocumentId = async () => {
+        if (documentId || fetchedDocumentId) return;
 
-                    if (docData?.id) {
-                        console.log("[ChatDrawer] Found document via file_metadata:", docData.id);
-                        setFetchedDocumentId(docData.id);
-                        setIsResolvingDocId(false);
-                        return;
-                    }
-                }
+        setIsResolvingDocId(true);
+        try {
+            // 1. Get blueprint data
+            const { data: bpData } = await supabase
+                .from('blueprints')
+                .select('document_id, file_metadata, class_id')
+                .eq('id', blueprintId)
+                .single();
 
-                // 3. Try document_analyses table (legacy link)
-                console.log("[ChatDrawer] Checking document_analyses for legacy link...");
-                const { data: daData, error: daError } = await supabase
-                    .from('document_analyses')
-                    .select('document_id')
-                    .eq('blueprint_id', blueprintId)
+            if (bpData?.document_id) {
+                setFetchedDocumentId(bpData.document_id);
+                return;
+            }
+
+            // 2. Try file_metadata match
+            if (bpData?.file_metadata && bpData.class_id) {
+                const { data: docData } = await supabase
+                    .from('class_documents')
+                    .select('id')
+                    .eq('class_id', bpData.class_id)
+                    .eq('name', bpData.file_metadata.name)
+                    .eq('file_size', bpData.file_metadata.size)
                     .maybeSingle();
 
-                if (daData?.document_id) {
-                    console.log("[ChatDrawer] Found document_id in analyses:", daData.document_id);
-                    setFetchedDocumentId(daData.document_id);
-                    setIsResolvingDocId(false);
+                if (docData?.id) {
+                    setFetchedDocumentId(docData.id);
                     return;
                 }
-
-                // 4. Check if truly text-only (no file_metadata at all)
-                if (!bpData?.file_metadata) {
-                    console.log("[ChatDrawer] Blueprint is text-only (no file_metadata)");
-                    setMessages(prev => [...prev, {
-                        role: 'system',
-                        content: 'This blueprint was created from text input only. Chat is not available.'
-                    }]);
-                } else {
-                    console.error("[ChatDrawer] Has file but couldn't find document_id");
-                    setMessages(prev => [...prev, {
-                        role: 'system',
-                        content: 'Could not find document chunks for this file. Try re-analyzing the document.'
-                    }]);
-                }
-                setIsResolvingDocId(false);
             }
-        };
-        fetchLinkedDocument();
-    }, [isOpen, documentId, blueprintId, fetchedDocumentId]);
 
-    // Check and generate embeddings on first open
-    useEffect(() => {
-        if (isOpen && activeDocumentId) {
-            checkAndEmbedDocument();
-        }
-    }, [isOpen, activeDocumentId]);
+            // 3. Document Analyses
+            const { data: daData } = await supabase
+                .from('document_analyses')
+                .select('document_id')
+                .eq('blueprint_id', blueprintId)
+                .maybeSingle();
 
-    const checkAndEmbedDocument = async () => {
-        if (!activeDocumentId) return;
-
-        try {
-            // Clean check: see if chunks exist
-            const { count, error } = await supabase
-                .from('document_chunks')
-                .select('*', { count: 'exact', head: true })
-                .eq('document_id', activeDocumentId);
-
-            if (count === 0 && !error) {
-                console.log("No embeddings found. Generating...");
-                setIsProcessingEmbeddings(true);
-
-                const { data, error: fnError } = await supabase.functions.invoke('process-document-embeddings', {
-                    body: { document_id: activeDocumentId }
-                });
-
-                if (fnError) throw fnError;
-                console.log("Embeddings generated:", data);
-                setMessages(prev => [...prev, {
-                    role: 'system',
-                    content: 'I just finished reading your document properly. I am now ready to answer specific questions!'
-                }]);
+            if (daData?.document_id) {
+                setFetchedDocumentId(daData.document_id);
+                return;
             }
-        } catch (err) {
-            console.error("Embedding generation failed:", err);
+        } catch (e) {
+            console.error("Error resolving doc ID:", e);
         } finally {
-            setIsProcessingEmbeddings(false);
+            setIsResolvingDocId(false);
         }
     };
+
+    const fetchThreads = async () => {
+        if (!blueprintId) return;
+        setIsLoadingThreads(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data, error } = await supabase
+                .from('chat_threads')
+                .select('*')
+                .eq('blueprint_id', blueprintId)
+                .eq('user_id', user.id)
+                .order('updated_at', { ascending: false });
+
+            if (error) throw error;
+            setThreads(data || []);
+
+            // If no active thread and threads exist, maybe select the most recent?
+            // Or keep it null to prompt new? User logic: "Save it... I can go back to it"
+            // Let's default to the most recent thread if available and we haven't selected one
+            if (data?.length > 0 && !activeThreadId) {
+                setActiveThreadId(data[0].id);
+            }
+        } catch (error) {
+            console.error("Error fetching threads:", error);
+        } finally {
+            setIsLoadingThreads(false);
+        }
+    };
+
+    const fetchMessages = async (threadId) => {
+        setIsLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('chat_messages')
+                .select('*')
+                .eq('thread_id', threadId)
+                .order('created_at', { ascending: true });
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                setMessages(data);
+            } else {
+                setMessages([{
+                    role: 'assistant',
+                    content: "Hello! This is a new thread. Ask me anything!"
+                }]);
+            }
+        } catch (error) {
+            console.error("Error fetching messages:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const createNewThread = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data, error } = await supabase
+                .from('chat_threads')
+                .insert({
+                    blueprint_id: blueprintId,
+                    user_id: user.id,
+                    title: 'New Conversation'
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            setThreads([data, ...threads]);
+            setActiveThreadId(data.id);
+            setView('chat'); // Ensure we are in chat view
+            setMessages([{
+                role: 'assistant',
+                content: "Hello! I've read your document. Ask me anything about it!"
+            }]);
+        } catch (error) {
+            console.error("Error creating thread:", error);
+        }
+    };
+
+    const deleteThread = async (e, threadId) => {
+        e.stopPropagation();
+        if (!confirm("Are you sure you want to delete this conversation?")) return;
+
+        try {
+            const { error } = await supabase
+                .from('chat_threads')
+                .delete()
+                .eq('id', threadId);
+
+            if (error) throw error;
+
+            setThreads(threads.filter(t => t.id !== threadId));
+            if (activeThreadId === threadId) {
+                setActiveThreadId(null);
+                setMessages([{
+                    role: 'assistant',
+                    content: "Hello! I've read your document. Ask me anything about it!"
+                }]);
+            }
+        } catch (error) {
+            console.error("Error deleting thread:", error);
+        }
+    };
+
+    // --- MESSAGING ---
 
     const handleSend = async () => {
         if (!input.trim() || isLoading) return;
 
-        if (!activeDocumentId) {
-            console.error("Chat Error: No document ID provided (even after fallback).");
-            setMessages(prev => [...prev, {
-                role: 'system',
-                content: 'Error: Context lost (missing document ID). Please try reopening the document.'
-            }]);
-            return;
+        // Ensure we have a thread
+        let currentThreadId = activeThreadId;
+        if (!currentThreadId) {
+            // Create a thread on the fly!
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                const { data, error } = await supabase
+                    .from('chat_threads')
+                    .insert({
+                        blueprint_id: blueprintId,
+                        user_id: user.id,
+                        title: input.trim().substring(0, 30) + '...' // Simple auto-title
+                    })
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                setThreads([data, ...threads]);
+                setActiveThreadId(data.id);
+                currentThreadId = data.id;
+            } catch (err) {
+                console.error("Failed to create thread on send:", err);
+                return;
+            }
         }
 
-        const userMessage = { role: 'user', content: input.trim() };
+        const userMessageContent = input.trim();
+        const userMessage = { role: 'user', content: userMessageContent };
+
+        // Optimistic update
         setMessages(prev => [...prev, userMessage]);
         setInput('');
-
-        // Reset height
-        if (inputRef.current) {
-            inputRef.current.style.height = 'auto';
-        }
-
+        if (inputRef.current) inputRef.current.style.height = 'auto';
         setIsLoading(true);
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error("No active session");
+            // 1. Save User Message
+            await supabase.from('chat_messages').insert({
+                thread_id: currentThreadId,
+                role: 'user',
+                content: userMessageContent
+            });
 
+            // 2. Call Edge Function
+            const { data: { session } } = await supabase.auth.getSession();
             const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-document`;
 
-            console.log("Sending chat request:", { documentId: activeDocumentId, messageCount: messages.length + 1 });
+            // Build history from current messages (excluding the one we just added optimistically to avoid dupes if logic weirdness, but actually we need to send it)
+            // Best to send the full history including the new one.
+            const messageHistory = [...messages, userMessage];
 
             const res = await fetch(functionUrl, {
                 method: 'POST',
@@ -237,38 +313,29 @@ const ChatDrawer = ({
                 },
                 body: JSON.stringify({
                     document_id: activeDocumentId,
-                    messages: [...messages, userMessage],
-                    current_message: userMessage.content
+                    messages: messageHistory,
+                    current_message: userMessageContent
                 })
             });
 
-            if (!res.ok) {
-                const errorText = await res.text();
-                let errorJson;
-                try { errorJson = JSON.parse(errorText); } catch (e) { errorJson = { error: errorText }; }
-                console.error("Chat Function Error:", errorJson);
-                throw new Error(errorJson.error || `Server error: ${res.status}`);
-            }
+            if (!res.ok) throw new Error("Failed to fetch response");
 
             const streamReader = res.body.getReader();
             const decoder = new TextDecoder();
             let assistantMessageContent = '';
 
-            // Add placeholder message
+            // Placeholder for streaming
             setMessages(prev => [...prev, { role: 'assistant', content: '', isStreaming: true }]);
 
             while (true) {
                 const { done, value } = await streamReader.read();
                 if (done) break;
-
                 const chunk = decoder.decode(value, { stream: true });
                 assistantMessageContent += chunk;
 
-                // Update the last message
                 setMessages(prev => {
                     const newMsg = [...prev];
-                    const lastIndex = newMsg.length - 1;
-                    newMsg[lastIndex] = {
+                    newMsg[newMsg.length - 1] = {
                         role: 'assistant',
                         content: assistantMessageContent,
                         isStreaming: true
@@ -277,11 +344,17 @@ const ChatDrawer = ({
                 });
             }
 
-            // Finalize
+            // 3. Save Assistant Message
+            await supabase.from('chat_messages').insert({
+                thread_id: currentThreadId,
+                role: 'assistant',
+                content: assistantMessageContent
+            });
+
+            // Finalize state
             setMessages(prev => {
                 const newMsg = [...prev];
-                const lastIndex = newMsg.length - 1;
-                newMsg[lastIndex] = {
+                newMsg[newMsg.length - 1] = {
                     role: 'assistant',
                     content: assistantMessageContent,
                     isStreaming: false
@@ -289,15 +362,51 @@ const ChatDrawer = ({
                 return newMsg;
             });
 
+            // Update thread timestamp
+            await supabase.from('chat_threads')
+                .update({ updated_at: new Date().toISOString() })
+                .eq('id', currentThreadId);
+
+            fetchThreads(); // Refresh list order to show latest on top
+
+            // Auto-title if this is the first real message (or title is default)
+            // We can check if thread title is "New Conversation" locally or just fire and forget
+            const currentThread = threads.find(t => t.id === currentThreadId) || { title: 'New Conversation' };
+            if (currentThread.title === 'New Conversation' || currentThread.title === '') {
+                // Fire and forget title generation
+                supabase.functions.invoke('generate-chat-title', {
+                    body: {
+                        message: userMessageContent,
+                        thread_id: currentThreadId
+                    }
+                }).then(({ data, error }) => {
+                    if (!error && data?.title) {
+                        // Update local state
+                        setThreads(prev => prev.map(t =>
+                            t.id === currentThreadId ? { ...t, title: data.title } : t
+                        ));
+                    }
+                });
+            }
+
         } catch (err) {
             console.error("Chat error:", err);
             setMessages(prev => [...prev, {
                 role: 'system',
-                content: `Sorry, I encountered an error: ${err.message}`
+                content: `Error: ${err.message}`
             }]);
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // --- UI HELPERS ---
+
+    const handleInput = (e) => {
+        const target = e.target;
+        target.style.height = 'auto';
+        target.style.height = `${Math.min(target.scrollHeight, 200)}px`;
+        setInput(target.value);
     };
 
     const handleKeyDown = (e) => {
@@ -307,120 +416,158 @@ const ChatDrawer = ({
         }
     };
 
-    // Auto-resize textarea
-    const handleInput = (e) => {
-        const target = e.target;
-        target.style.height = 'auto';
-        target.style.height = `${Math.min(target.scrollHeight, 200)}px`; // Max height 200px
-        setInput(target.value);
-    };
-
-    useEffect(() => {
-        if (inputRef.current) {
-            inputRef.current.style.height = 'auto';
-            inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 200)}px`;
-        }
-    }, [input]);
 
     return (
-        <>
-            {/* Drawer */}
-            <div
-                className={`fixed inset-y-0 right-0 z-50 w-full md:w-[450px] bg-white dark:bg-stone-900 shadow-2xl transform transition-transform duration-300 ease-in-out border-l border-stone-200 dark:border-stone-800 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'
-                    }`}
-            >
-                {/* Header */}
-                <div className="h-[84px] flex items-center justify-between px-6 border-b border-stone-200 dark:border-stone-800 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm sticky top-0 z-10">
-                    <div>
-                        <h3 className="font-semibold text-stone-900 dark:text-stone-100">{contextTitle}</h3>
-                    </div>
-                </div>
+        <div
+            className={`fixed inset-y-0 right-0 z-[100] w-full md:w-[450px] bg-white dark:bg-stone-900 shadow-2xl transform transition-transform duration-300 ease-in-out border-l border-stone-200 dark:border-stone-800 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        >
+            {/* Header */}
+            <div className="h-[84px] flex items-center justify-between px-4 border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10 transition-all">
+                <h3 className="font-semibold text-stone-900 dark:text-stone-100 truncate flex-1 mr-4">
+                    {view === 'list' ? 'Conversations' : (threads.find(t => t.id === activeThreadId)?.title || contextTitle)}
+                </h3>
 
-                {/* Info Banner if processing */}
-                {isProcessingEmbeddings && (
-                    <div className="bg-blue-50 dark:bg-blue-900/20 px-6 py-2 text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2">
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        Reading document and preparing brain...
-                    </div>
-                )}
-
-                {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto p-6 min-h-0 pb-32 space-y-6 bg-white dark:bg-stone-900">
-                    {messages.map((msg, idx) => {
-                        const isUser = msg.role === 'user';
-                        const isSystem = msg.role === 'system';
-
-                        if (isSystem) {
-                            return (
-                                <div key={idx} className="flex justify-center">
-                                    <span className="text-xs bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 px-3 py-1 rounded-full">
-                                        {msg.content}
-                                    </span>
-                                </div>
-                            );
-                        }
-
-                        return (
-                            <div key={idx} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                                <div
-                                    className={`max-w-[85%] rounded-lg px-5 py-3 text-sm leading-relaxed shadow-sm ${isUser
-                                        ? 'bg-[#FF4A1C]/5 dark:bg-[#FF4A1C]/10 text-stone-900 dark:text-stone-100 border border-[#FF4A1C]'
-                                        : 'bg-white dark:bg-stone-800 border border-stone-100 dark:border-stone-700 text-stone-700 dark:text-stone-300 shadow-sm ring-1 ring-black/5 dark:ring-white/5'
-                                        }`}
-                                >
-                                    {isUser ? (
-                                        msg.content
-                                    ) : (
-                                        <div className="markdown-prose dark:prose-invert">
-                                            <ReactMarkdown>{msg.content}</ReactMarkdown>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
-
-                    {isLoading && !messages[messages.length - 1]?.isStreaming && (
-                        <div className="flex justify-start">
-                            <div className="bg-white dark:bg-stone-800 border border-stone-100 dark:border-stone-700 rounded-lg px-5 py-3 shadow-sm ring-1 ring-black/5 dark:ring-white/5 flex items-center gap-2">
-                                <Loader2 className="w-4 h-4 animate-spin text-stone-400" />
-                                <span className="text-xs text-stone-400">Thinking...</span>
-                            </div>
-                        </div>
-                    )}
-
-                    <div ref={messagesEndRef} />
-                </div>
-
-                {/* Input Area */}
-                <div className="absolute bottom-8 left-4 right-4 p-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl shadow-lg z-20 transition-all focus-within:ring-2 focus-within:ring-[#FF4A1C]/20 focus-within:border-[#FF4A1C]">
-                    <div className="relative flex items-end">
-                        <textarea
-                            ref={inputRef}
-                            value={input}
-                            onChange={handleInput}
-                            onKeyDown={handleKeyDown}
-                            placeholder="Ask a question about your document..."
-                            disabled={isLoading || isProcessingEmbeddings || isResolvingDocId}
-                            rows={1}
-                            className="w-full pl-4 pr-12 py-3.5 bg-transparent border-0 focus:ring-0 focus:outline-none resize-none text-sm text-stone-900 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 max-h-[200px] overflow-y-auto"
-                            style={{ minHeight: '44px' }}
-                        />
+                <div className="flex items-center gap-2">
+                    {view === 'chat' && (
                         <button
-                            onClick={handleSend}
-                            disabled={!input.trim() || isLoading || isProcessingEmbeddings || isResolvingDocId}
-                            className="absolute right-2 bottom-2 p-2 bg-[#FF4A1C] text-white rounded-lg hover:bg-[#e03e15] disabled:opacity-50 disabled:hover:bg-[#FF4A1C] transition-colors shadow-sm mb-0.5"
+                            onClick={() => setView('list')}
+                            className="p-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-400 transition-all shadow-sm"
+                            title="View History"
                         >
-                            {isLoading ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <Send className="w-4 h-4" />
-                            )}
+                            <Folder className="w-4 h-4" />
                         </button>
-                    </div>
+                    )}
+                    <button
+                        onClick={createNewThread}
+                        className="p-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-400 transition-all shadow-sm"
+                        title="New Chat"
+                    >
+                        <Plus className="w-4 h-4" />
+                    </button>
                 </div>
             </div>
-        </>
+
+            {/* Content Area */}
+            <div className="flex-1 min-h-0 relative flex flex-col bg-white dark:bg-stone-900">
+
+                {/* List View */}
+                {view === 'list' ? (
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                        {threads.length === 0 ? (
+                            <div className="text-center py-10 text-stone-500">
+                                <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                <p>No conversations yet.</p>
+                                <button onClick={createNewThread} className="mt-4 text-[#FF4A1C] hover:underline font-medium">Start a new chat</button>
+                            </div>
+                        ) : (
+                            threads.map(thread => (
+                                <div
+                                    key={thread.id}
+                                    onClick={() => { setActiveThreadId(thread.id); setView('chat'); }}
+                                    className={`group p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md ${activeThreadId === thread.id
+                                        ? 'bg-[#FF4A1C]/5 border-[#FF4A1C]/30'
+                                        : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 hover:border-[#FF4A1C]/30'
+                                        }`}
+                                >
+                                    <div className="flex justify-between items-start mb-1">
+                                        <h4 className="font-medium text-stone-900 dark:text-stone-100 line-clamp-1">{thread.title || 'New Conversation'}</h4>
+                                        <button
+                                            onClick={(e) => deleteThread(e, thread.id)}
+                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-red-500 transition-opacity"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
+                                        <Clock className="w-3 h-3" />
+                                        <span>{new Date(thread.updated_at).toLocaleDateString()}</span>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                ) : (
+                    /* Chat View */
+                    <>
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-white dark:bg-stone-900">
+                            {messages.map((msg, idx) => {
+                                const isUser = msg.role === 'user';
+                                const isSystem = msg.role === 'system';
+
+                                if (isSystem) {
+                                    return (
+                                        <div key={idx} className="flex justify-center">
+                                            <span className="text-xs bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 px-3 py-1 rounded-full">
+                                                {msg.content}
+                                            </span>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div key={idx} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                                        <div
+                                            className={`max-w-[85%] rounded-lg px-5 py-3 text-sm leading-relaxed shadow-sm ${isUser
+                                                ? 'bg-[#FF4A1C]/5 dark:bg-[#FF4A1C]/10 text-stone-900 dark:text-stone-100 border border-[#FF4A1C]'
+                                                : 'bg-white dark:bg-stone-800 border border-stone-100 dark:border-stone-700 text-stone-700 dark:text-stone-300 shadow-sm ring-1 ring-black/5 dark:ring-white/5'
+                                                }`}
+                                        >
+                                            {isUser ? (
+                                                msg.content
+                                            ) : (
+                                                <div className="prose prose-sm max-w-none dark:prose-invert break-words">
+                                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            {isLoading && !messages[messages.length - 1]?.isStreaming && (
+                                <div className="flex justify-start">
+                                    <div className="bg-white dark:bg-stone-800 border border-stone-100 dark:border-stone-700 rounded-lg px-5 py-3 shadow-sm ring-1 ring-black/5 dark:ring-white/5 flex items-center gap-2">
+                                        <Loader2 className="w-4 h-4 animate-spin text-stone-400" />
+                                        <span className="text-xs text-stone-400">Thinking...</span>
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={messagesEndRef} />
+                        </div>
+
+                        {/* Input Area */}
+                        <div className="px-4 py-4 bg-white dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800">
+                            <div className="p-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl shadow-sm transition-all focus-within:ring-2 focus-within:ring-[#FF4A1C]/20 focus-within:border-[#FF4A1C]">
+                                <div className="relative flex items-end">
+                                    <textarea
+                                        ref={inputRef}
+                                        value={input}
+                                        onChange={handleInput}
+                                        onKeyDown={handleKeyDown}
+                                        placeholder="Ask a question..."
+                                        disabled={isLoading}
+                                        rows={1}
+                                        className="w-full pl-4 pr-12 py-3 bg-transparent border-0 focus:ring-0 focus:outline-none resize-none text-sm text-stone-900 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 max-h-[200px] overflow-y-auto"
+                                        style={{ minHeight: '44px' }}
+                                    />
+                                    <button
+                                        onClick={handleSend}
+                                        disabled={!input.trim() || isLoading}
+                                        className="absolute right-2 bottom-1.5 p-2 bg-[#FF4A1C] text-white rounded-lg hover:bg-[#e03e15] disabled:opacity-50 disabled:hover:bg-[#FF4A1C] transition-colors shadow-sm"
+                                    >
+                                        {isLoading ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <Send className="w-4 h-4" />
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
     );
 };
 

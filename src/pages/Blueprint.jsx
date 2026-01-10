@@ -551,6 +551,71 @@ const TopicListItem = ({
 };
 
 // ============================================================================
+// SKELETON LOADING COMPONENT
+// ============================================================================
+const BlueprintSkeleton = () => {
+  return (
+    <div className="min-h-screen bg-transparent text-outline relative animate-pulse">
+      {/* Sidebars */}
+      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-30 hidden lg:block w-20 bg-stone-100 dark:bg-stone-900/50 border-r border-stone-200 dark:border-stone-800" />
+      <div className="fixed top-20 left-20 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
+        <div className="p-6 space-y-6">
+          <div className="h-6 w-32 bg-stone-200 dark:bg-stone-800 rounded" />
+          <div className="space-y-3">
+            <div className="h-4 w-full bg-stone-100 dark:bg-stone-800/50 rounded" />
+            <div className="h-4 w-3/4 bg-stone-100 dark:bg-stone-800/50 rounded" />
+            <div className="h-4 w-5/6 bg-stone-100 dark:bg-stone-800/50 rounded" />
+          </div>
+        </div>
+      </div>
+
+      <div className="min-w-0 lg:ml-[304px] transition-all duration-300 ease-in-out">
+        {/* Sticky Header */}
+        <div className="sticky top-20 z-50 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md">
+          <div className="py-6">
+            <div className="px-6 lg:px-12 max-w-7xl mx-auto">
+              <div className="mb-6">
+                {/* Back Button */}
+                <div className="h-4 w-24 bg-stone-200 dark:bg-stone-800 rounded mb-3" />
+
+                {/* Title */}
+                <div className="h-10 w-2/3 bg-stone-200 dark:bg-stone-800 rounded mb-2" />
+
+                {/* Class Name */}
+                <div className="h-6 w-1/3 bg-stone-100 dark:bg-stone-800/50 rounded" />
+
+                {/* Tabs */}
+                <div className="mt-5 flex gap-2 overflow-hidden">
+                  {[1, 2, 3, 4, 5].map(i => (
+                    <div key={i} className="h-8 w-24 bg-stone-200 dark:bg-stone-800 rounded-md shrink-0" />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="px-6 lg:px-12 pb-20 max-w-7xl mx-auto space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl p-4">
+              <div className="flex items-center gap-4">
+                <div className="h-6 w-6 bg-stone-200 dark:bg-stone-800 rounded-full" />
+                <div className="space-y-2 flex-1">
+                  <div className="h-5 w-1/3 bg-stone-200 dark:bg-stone-800 rounded" />
+                  <div className="h-3 w-1/2 bg-stone-100 dark:bg-stone-800/50 rounded" />
+                </div>
+                <div className="h-8 w-8 bg-stone-200 dark:bg-stone-800 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
 // MAIN BLUEPRINT COMPONENT
 // ============================================================================
 
@@ -656,7 +721,8 @@ const Blueprint = () => {
   // Fetch blueprint data
   const fetchBlueprint = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      // 1. Fetch main Blueprint data first
+      const { data: bp, error: bpError } = await supabase
         .from('blueprints')
         .select(`
           *,
@@ -666,105 +732,152 @@ const Blueprint = () => {
         .eq('user_id', user.id)
         .single();
 
-      if (error) throw error;
+      if (bpError) throw bpError;
 
-      // Fetch associated document if it exists
-      if (data.document_id) {
-        const { data: docData } = await supabase
-          .from('class_documents')
-          .select('*')
-          .eq('id', data.document_id)
-          .single();
-
-        if (docData) {
-          data.document = docData;
-        }
-      }
-
-      setBlueprint(data);
-
-      // Update last_viewed_at
+      // Update access time immediately
       supabase.from('blueprints')
         .update({ last_viewed_at: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', id)
+        .then(() => { }); // Fire and forget
 
-      setGenerationStatus(data.generation_status || 'pending');
-      setGenerationError(data.generation_error);
+      setBlueprint(bp);
+      setGenerationStatus(bp.generation_status || 'pending');
+      setGenerationError(bp.generation_error);
 
-      // Load Structure
-      const { data: structureData } = await supabase
-        .from('blueprint_structures')
-        .select('*')
-        .eq('blueprint_id', id)
-        .maybeSingle();
+      // 2. Prepare Parallel Fetches
+      const promises = [];
 
+      // A. Document Fetch (if linked)
+      if (bp.document_id) {
+        promises.push(
+          supabase
+            .from('class_documents')
+            .select('*')
+            .eq('id', bp.document_id)
+            .single()
+            .then(({ data }) => ({ type: 'document', data }))
+            .catch(err => ({ type: 'document', error: err }))
+        );
+      }
+
+      // B. Structure Fetch
+      promises.push(
+        supabase
+          .from('blueprint_structures')
+          .select('*')
+          .eq('blueprint_id', id)
+          .maybeSingle()
+          .then(({ data }) => ({ type: 'structure', data }))
+      );
+
+      // C. Document Analysis
+      // Try by document_id first if available, else blueprint_id
+      if (bp.document_id) {
+        promises.push(
+          supabase
+            .from('document_analyses')
+            .select('*')
+            .eq('document_id', bp.document_id)
+            .maybeSingle()
+            .then(({ data }) => ({ type: 'analysis_doc', data }))
+        );
+      }
+      // Always fetch by blueprint_id as backup or primary
+      promises.push(
+        supabase
+          .from('document_analyses')
+          .select('*')
+          .eq('blueprint_id', id)
+          .maybeSingle()
+          .then(({ data }) => ({ type: 'analysis_bp', data }))
+      );
+
+      // D. Topic Responses
+      promises.push(
+        supabase
+          .from('topic_responses')
+          .select('*')
+          .eq('blueprint_id', id)
+          .eq('user_id', user.id)
+          .then(({ data }) => ({ type: 'responses', data }))
+      );
+
+      // E. Resources
+      promises.push(
+        supabase
+          .from('blueprint_topic_resources')
+          .select(`*, resources_from_make (*)`)
+          .eq('blueprint_id', id)
+          .then(({ data }) => ({ type: 'resources', data }))
+      );
+
+      // F. Equations
+      promises.push(
+        supabase
+          .from('blueprint_unit_equations')
+          .select(`*, curated_equations (*)`)
+          .eq('blueprint_id', id)
+          .order('display_index', { ascending: true })
+          .then(({ data }) => ({ type: 'equations', data }))
+      );
+
+      // G. Figures
+      promises.push(
+        supabase
+          .from('blueprint_unit_figures')
+          .select(`*, curated_figures (*)`)
+          .eq('blueprint_id', id)
+          .order('display_index', { ascending: true })
+          .then(({ data }) => ({ type: 'figures', data }))
+      );
+
+      // 3. Execute Parallel Fetches
+      const results = await Promise.all(promises);
+
+      // 4. Process Results
+      let docData = null;
+      let structureData = null;
+      let analysisData = null;
+
+      // Helper to extract data from results array
+      const getResult = (type) => results.find(r => r && r.type === type)?.data;
+
+      // Process Document
+      docData = getResult('document');
+      if (docData) {
+        setBlueprint(prev => ({ ...prev, document: docData }));
+      }
+
+      // Process Structure
+      structureData = getResult('structure');
       if (structureData) {
-        // The database column is 'structure', just use it directly
         setLearningStructure(structureData);
-        // Also set structure generation result for debug panel
         setStructureGenerationResult({
           success: true,
           structure_id: structureData.id,
-          structure: structureData.structure_data || structureData.structure, // Handle both column names
+          structure: structureData.structure_data || structureData.structure,
           metrics: {
             total_prerequisites: structureData.total_prerequisites,
             total_sections: structureData.total_sections,
             total_learning_units: structureData.total_learning_units,
             total_search_queries: structureData.total_search_queries,
           },
-          equations: {
-            cached: 0, // We don't store this in the DB
-            new: 0,
-            total: 0,
-          },
           created_at: structureData.created_at,
-          // Cache information (if available)
           from_cache: structureData.from_cache || false,
-          cache_similarity: structureData.cache_similarity,
-          cache_source_id: structureData.cache_source_id,
           model_used: structureData.model_used || 'claude-haiku-4-5',
         });
       }
 
-      // Load Document Analysis (for debug panel)
-      // First try to find by document_id (multiple blueprints can share same document analysis)
-      // Then fall back to blueprint_id (legacy/backwards compatibility)
-      let analysisData = null;
-
-      if (data.document_id) {
-        console.log('[Blueprint] Looking for document analysis by document_id:', data.document_id);
-        const { data: docAnalysis } = await supabase
-          .from('document_analyses')
-          .select('*')
-          .eq('document_id', data.document_id)
-          .maybeSingle();
-
-        if (docAnalysis) {
-          console.log('[Blueprint] Found document analysis by document_id:', docAnalysis.id);
-          analysisData = docAnalysis;
-        }
-      }
-
-      // Fallback: try by blueprint_id
-      if (!analysisData) {
-        console.log('[Blueprint] Looking for document analysis by blueprint_id:', id);
-        const { data: bpAnalysis } = await supabase
-          .from('document_analyses')
-          .select('*')
-          .eq('blueprint_id', id)
-          .maybeSingle();
-
-        if (bpAnalysis) {
-          console.log('[Blueprint] Found document analysis by blueprint_id:', bpAnalysis.id);
-          analysisData = bpAnalysis;
-        }
-      }
+      // Process Analysis (Prioritize document_id match)
+      const analysisDoc = getResult('analysis_doc');
+      const analysisBp = getResult('analysis_bp');
+      analysisData = analysisDoc || analysisBp;
 
       if (analysisData) {
         setDocumentAnalysis({
           success: true,
           analysis_id: analysisData.id,
-          document_id: analysisData.document_id, // Add this for ChatDrawer
+          document_id: analysisData.document_id,
           document_type: analysisData.raw_analysis?.document_type,
           subject_area: analysisData.raw_analysis?.subject_area,
           raw_analysis: analysisData.raw_analysis,
@@ -773,35 +886,23 @@ const Blueprint = () => {
         });
       }
 
-      // Load Topic Responses
-      const { data: responsesData } = await supabase
-        .from('topic_responses')
-        .select('*')
-        .eq('blueprint_id', id)
-        .eq('user_id', user.id);
-
+      // Process Responses
+      const responsesData = getResult('responses');
       if (responsesData) {
         const responsesMap = {};
         responsesData.forEach(r => responsesMap[r.unit_id] = r);
         setTopicResponses(responsesMap);
       }
 
-      // Load Topic Resources
-      console.log('[Blueprint] Loading resources from database for blueprint:', id);
-      const { data: resourcesData, error: resourcesError } = await supabase
-        .from('blueprint_topic_resources')
-        .select(`*, resources_from_make (*)`)
-        .eq('blueprint_id', id);
-
-      if (resourcesError) {
-        console.error('[Blueprint] Error loading resources from database:', resourcesError);
-      } else if (resourcesData) {
-        console.log(`[Blueprint] Loaded ${resourcesData.length} resource links from database`);
+      // Process Resources
+      const resourcesData = getResult('resources');
+      if (resourcesData) {
         const resourcesMap = {};
+        let count = 0;
+
         resourcesData.forEach(r => {
           if (!resourcesMap[r.unit_id]) resourcesMap[r.unit_id] = [];
           if (r.resources_from_make) {
-            // Filter out ONLY explicitly irrelevant resources
             const explanation = r.resource_explanation?.toLowerCase() || '';
             const isExplicitlyIrrelevant =
               explanation === 'not_relevant' ||
@@ -815,43 +916,27 @@ const Blueprint = () => {
                 from_cache: r.from_cache,
                 resource_explanation: r.resource_explanation,
               });
-              console.log(`[Blueprint] Loaded resource for unit ${r.unit_id}:`, r.resources_from_make.title);
-            } else {
-              console.log('[Blueprint] Filtered out explicitly irrelevant resource:', r.resources_from_make.title);
+              count++;
             }
           }
         });
 
-        console.log('[Blueprint] Resource map by unit:', Object.keys(resourcesMap).map(unitId => ({
-          unitId,
-          count: resourcesMap[unitId].length
-        })));
+        console.log(`[Blueprint] Loaded ${count} resources in parallel`);
 
-        // Only update resources that aren't currently being loaded
+        // Intelligent Merge: Don't overwrite what might be loading
         setTopicResources(prev => {
           const updated = { ...prev };
           for (const [unitId, resources] of Object.entries(resourcesMap)) {
-            // Don't overwrite resources that are currently being loaded from API
             if (!loadingResourcesRef.current.has(unitId)) {
               updated[unitId] = resources;
-              console.log(`[Blueprint] Set ${resources.length} resources for unit ${unitId}`);
-            } else {
-              console.log(`[Blueprint] Skipping unit ${unitId} - currently loading from API`);
             }
           }
           return updated;
         });
-      } else {
-        console.log('[Blueprint] No resources found in database for this blueprint');
       }
 
-      // Load Equations
-      const { data: equationsData } = await supabase
-        .from('blueprint_unit_equations')
-        .select(`*, curated_equations (*)`)
-        .eq('blueprint_id', id)
-        .order('display_index', { ascending: true });
-
+      // Process Equations
+      const equationsData = getResult('equations');
       if (equationsData) {
         const equationsMap = {};
         equationsData.forEach(e => {
@@ -866,13 +951,8 @@ const Blueprint = () => {
         setTopicEquations(equationsMap);
       }
 
-      // Load Figures
-      const { data: figuresData } = await supabase
-        .from('blueprint_unit_figures')
-        .select(`*, curated_figures (*)`)
-        .eq('blueprint_id', id)
-        .order('display_index', { ascending: true });
-
+      // Process Figures
+      const figuresData = getResult('figures');
       if (figuresData) {
         const figuresMap = {};
         figuresData.forEach(f => {
@@ -900,9 +980,33 @@ const Blueprint = () => {
     if (user && id) fetchBlueprint();
   }, [user, id, fetchBlueprint]);
 
-  // Reset active tab when blueprint ID changes
+  // Reset state when blueprint ID changes
   useEffect(() => {
+    // UI State
     setActiveTab(null);
+    setExpandedTopics({});
+    setIsScrolled(false);
+
+    // Data State
+    setBlueprint(null);
+    setLoading(true);
+    setLearningStructure(null);
+    setTopicResponses({});
+    setTopicResources({});
+    setTopicEquations({});
+    setTopicFigures({});
+
+    // Debug & Analysis State
+    setDocumentAnalysis(null);
+    setStructureGenerationResult(null); // Clear previous structure debug info
+
+    // Generation State
+    setGenerationStatus('pending');
+    setGenerationError(null);
+    setSearchingTopics(new Set());
+
+    // Refs
+    loadingResourcesRef.current = new Set();
   }, [id]);
 
   // Set initial active tab when structure loads
@@ -2130,11 +2234,7 @@ const Blueprint = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-stone-900 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FF4A1C]" />
-      </div>
-    );
+    return <BlueprintSkeleton />;
   }
   if (!blueprint) return null;
 
@@ -2773,7 +2873,7 @@ const Blueprint = () => {
       {/* Floating Chat Toggle Button - Always rendered */}
       <button
         onClick={() => setIsChatOpen(!isChatOpen)}
-        className={`fixed bottom-8 z-[60] flex items-center gap-2 px-6 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 ease-in-out border group
+        className={`fixed bottom-8 z-[110] flex items-center gap-2 px-6 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 ease-in-out border group
           bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-300 dark:border-stone-600 hover:bg-stone-50 dark:hover:bg-stone-700
           ${isChatOpen
             ? 'right-8 md:right-[482px]'
