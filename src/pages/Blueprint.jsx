@@ -72,7 +72,11 @@ const STATUS_CONFIG = {
 // ============================================================================
 // RESOURCE TABLE COMPONENT
 // ============================================================================
-const ResourceTable = ({ resources }) => {
+const ResourceTable = ({ resources, session }) => {
+  const [userRatings, setUserRatings] = useState({});
+  const [ratingInProgress, setRatingInProgress] = useState(null);
+  const [localAverages, setLocalAverages] = useState({});
+
   const getPlatformIcon = (platform) => {
     if (platform?.toLowerCase().includes('youtube')) {
       return <Youtube className="w-4 h-4 text-red-500" />;
@@ -102,6 +106,116 @@ const ResourceTable = ({ resources }) => {
     const textarea = document.createElement('textarea');
     textarea.innerHTML = text;
     return textarea.value;
+  };
+
+  // Submit rating to API
+  const handleRating = async (resourceId, rating) => {
+    if (!session?.access_token) {
+      console.log('User not authenticated');
+      return;
+    }
+
+    setRatingInProgress(resourceId);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/rate-resource`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ resource_id: resourceId, rating })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setUserRatings(prev => ({ ...prev, [resourceId]: rating }));
+        setLocalAverages(prev => ({
+          ...prev,
+          [resourceId]: {
+            average_rating: result.average_rating,
+            rating_count: result.rating_count
+          }
+        }));
+        console.log(`Rated resource ${resourceId}: ${rating} stars. New average: ${result.average_rating}`);
+      } else {
+        console.error('Failed to submit rating:', result.error);
+      }
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+    } finally {
+      setRatingInProgress(null);
+    }
+  };
+
+  // Star Rating Component
+  const StarRating = ({ resource }) => {
+    const [hoverRating, setHoverRating] = useState(0);
+    const resourceId = resource.id;
+
+    // Use local state if updated, otherwise use resource data
+    const displayData = localAverages[resourceId] || {
+      average_rating: resource.average_rating,
+      rating_count: resource.rating_count || 0
+    };
+
+    const averageRating = displayData.average_rating;
+    const ratingCount = displayData.rating_count;
+    const userRating = userRatings[resourceId];
+    const isRating = ratingInProgress === resourceId;
+
+    return (
+      <div className="flex items-center gap-2 mt-2" onClick={(e) => e.preventDefault()}>
+        {/* Interactive stars */}
+        <div className="flex items-center gap-0.5">
+          {[1, 2, 3, 4, 5].map((star) => {
+            const isFilled = hoverRating ? star <= hoverRating : (userRating ? star <= userRating : star <= Math.round(averageRating || 0));
+            return (
+              <button
+                key={star}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleRating(resourceId, star);
+                }}
+                onMouseEnter={() => setHoverRating(star)}
+                onMouseLeave={() => setHoverRating(0)}
+                disabled={isRating || !session}
+                className={`p-0.5 transition-all disabled:cursor-not-allowed ${isRating ? 'opacity-50' : 'hover:scale-110'
+                  }`}
+                title={session ? `Rate ${star} star${star > 1 ? 's' : ''}` : 'Sign in to rate'}
+              >
+                <Star
+                  className={`w-4 h-4 transition-colors ${isFilled
+                    ? 'fill-yellow-400 text-yellow-400'
+                    : 'fill-transparent text-stone-300 dark:text-stone-600'
+                    }`}
+                />
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Rating info */}
+        <div className="flex items-center gap-1 text-xs text-stone-500 dark:text-stone-400">
+          {averageRating ? (
+            <>
+              <span className="font-medium text-stone-700 dark:text-stone-300">
+                {parseFloat(averageRating).toFixed(1)}
+              </span>
+              <span>({ratingCount})</span>
+            </>
+          ) : (
+            <span className="italic">No ratings yet</span>
+          )}
+          {userRating && (
+            <span className="text-green-600 dark:text-green-400 ml-1">
+              ✓ You: {userRating}★
+            </span>
+          )}
+        </div>
+      </div>
+    );
   };
 
   if (!resources || resources.length === 0) return null;
@@ -157,6 +271,8 @@ const ResourceTable = ({ resources }) => {
                       {getPlatformIcon(resource.platform)}
                       <span>{decodeHtmlEntities(resource.channel_name) || resource.platform}</span>
                     </div>
+                    {/* Star Rating */}
+                    <StarRating resource={resource} />
                   </div>
                 </a>
               </td>
@@ -180,6 +296,7 @@ const ResourceTable = ({ resources }) => {
   );
 };
 
+
 // ============================================================================
 // TOPIC LIST ITEM COMPONENT
 // ============================================================================
@@ -194,10 +311,22 @@ const TopicListItem = ({
   onGenerateBlueprint,
   onTriggerWebhook,
   onLoadResourcesToDatabase,
+  onGeneratePracticeProblem,
+  practiceProblem,
+  isGeneratingPractice,
   isSearching,
   isExpanded,
-  onToggle
+  onToggle,
+  session
 }) => {
+  // Track expanded state for each problem's sections
+  // Format: { [`${problemIndex}-hints`]: boolean, [`${problemIndex}-solution`]: boolean }
+  const [expandedSections, setExpandedSections] = useState({});
+
+  // Track revealed count for each problem's hints and solution steps
+  // Format: { [`${problemIndex}-hints`]: number, [`${problemIndex}-solution`]: number }
+  const [revealedCounts, setRevealedCounts] = useState({});
+
   const [showSearchContext, setShowSearchContext] = useState(false);
   const hasResources = topicResources && topicResources.length > 0;
   const isComfortable = topicResponse?.response === 'comfortable';
@@ -225,7 +354,7 @@ const TopicListItem = ({
             </h4>
             {isWalkthrough && (
               <span className="px-2 py-0.5 bg-[#FF4A1C]/10 dark:bg-[#FF4A1C]/20 text-[#FF4A1C] dark:text-[#FF4A1C] text-xs rounded-full font-medium">
-                Problem Solving
+                Build Expertise
               </span>
             )}
             {isComfortable && !isWalkthrough && (
@@ -252,16 +381,9 @@ const TopicListItem = ({
           {unit.tutor_guidance && (
             <div className={`mb-6 p-4 rounded-lg border bg-stone-50 dark:bg-stone-900 border-stone-200 dark:border-stone-700`}>
               <div className="flex items-start gap-3">
-                <div className="shrink-0 mt-0.5">
-                  {isWalkthrough ? (
-                    <Sparkles className="w-4 h-4 text-[#FF4A1C] dark:text-[#FF4A1C]" />
-                  ) : (
-                    <Sparkles className="w-4 h-4 text-stone-600 dark:text-stone-400" />
-                  )}
-                </div>
                 <div>
                   <p className={`text-sm font-semibold uppercase tracking-wide mb-1 ${isWalkthrough ? 'text-[#FF4A1C] dark:text-[#FF4A1C]' : 'text-stone-700 dark:text-stone-300'}`}>
-                    {isWalkthrough ? 'Problem-Solving Approach' : 'Core overview'}
+                    {isWalkthrough ? 'Walkthrough Strategy' : 'Core overview'}
                   </p>
                   <p className="text-stone-700 dark:text-stone-300 text-m leading-relaxed">
                     {unit.tutor_guidance}
@@ -440,6 +562,193 @@ const TopicListItem = ({
                 </div>
               </div>
 
+              {/* Generated Practice Problem Display */}
+              {isWalkthrough && practiceProblem && (
+                <div className="space-y-6 mb-6">
+                  {/* Handle legacy single object or new array format */}
+                  {(Array.isArray(practiceProblem) ? practiceProblem : [practiceProblem]).map((problem, idx) => (
+                    <div key={idx} className="rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-900/50 overflow-hidden animate-scale-in">
+                      <div className="p-5">
+                        {/* Problem Statement */}
+                        <div className="text-stone-800 dark:text-stone-200 text-base leading-relaxed mb-5 font-medium">
+                          {problem.practice_problem}
+                        </div>
+
+                        {/* Interactive Sections */}
+                        <div className="space-y-2">
+                          {/* Hints Section - Progressive Reveal */}
+                          <div className="rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 overflow-hidden">
+                            <button
+                              onClick={() => {
+                                const key = `${idx}-hints`;
+                                setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
+                                // Initialize reveal count to 1 if not set
+                                if (!revealedCounts[key]) {
+                                  setRevealedCounts(prev => ({ ...prev, [key]: 1 }));
+                                }
+                              }}
+                              className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors text-sm font-medium text-stone-600 dark:text-stone-300"
+                            >
+                              <span className="flex items-center gap-2">
+                                <HelpCircle className="w-4 h-4 text-stone-400" />
+                                Show Hints
+                              </span>
+                              {expandedSections[`${idx}-hints`] ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
+                            </button>
+
+                            {expandedSections[`${idx}-hints`] && problem.hints && (
+                              <div className="px-4 pb-4 pt-1 border-t border-stone-100 dark:border-stone-700/50">
+                                <div className="space-y-3 mt-2">
+                                  {problem.hints.slice(0, revealedCounts[`${idx}-hints`] || 1).map((hint, i) => (
+                                    <div key={i} className="flex items-start gap-2 text-sm text-stone-600 dark:text-stone-400 animate-slide-down">
+                                      <span className="text-stone-300 mt-1.5 text-[6px] flex-shrink-0">•</span>
+                                      <span>{hint}</span>
+                                    </div>
+                                  ))}
+
+                                  {(revealedCounts[`${idx}-hints`] || 1) < problem.hints.length && (
+                                    <button
+                                      onClick={() => setRevealedCounts(prev => ({
+                                        ...prev,
+                                        [`${idx}-hints`]: (prev[`${idx}-hints`] || 1) + 1
+                                      }))}
+                                      className="text-xs font-medium text-[#FF4A1C] hover:text-[#e03e15] flex items-center gap-1 mt-2 transition-colors ml-3"
+                                    >
+                                      Reveal Next Hint <ChevronRight className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Solution & Answer */}
+                          <div className="rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 overflow-hidden">
+                            <button
+                              onClick={() => {
+                                const key = `${idx}-solution`;
+                                setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
+                                // Initialize reveal count to 1 if not set
+                                if (!revealedCounts[key]) {
+                                  setRevealedCounts(prev => ({ ...prev, [key]: 1 }));
+                                }
+                              }}
+                              disabled={problem.solving}
+                              className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors text-sm font-medium text-stone-600 dark:text-stone-300 disabled:opacity-50"
+                            >
+                              <span className="flex items-center gap-2">
+                                {problem.solving ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin text-stone-400" />
+                                    Calculating Solution...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="w-4 h-4 text-stone-400" />
+                                    View Step-by-Step Solution
+                                  </>
+                                )}
+                              </span>
+                              {!problem.solving && (expandedSections[`${idx}-solution`] ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />)}
+                            </button>
+
+                            {expandedSections[`${idx}-solution`] && !problem.solving && problem.solution_steps && (
+                              <div className="px-4 pb-4 pt-1 border-t border-stone-100 dark:border-stone-700/50">
+                                {/* Solution Steps */}
+                                <div className="mt-3 space-y-3">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">Step-by-Step Solution:</p>
+                                  {problem.solution_steps.slice(0, revealedCounts[`${idx}-solution`] || 1).map((step, i) => (
+                                    <div key={i} className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed pl-3 border-l-2 border-stone-200 dark:border-stone-700 animate-slide-down">
+                                      <span className="font-semibold text-stone-500 text-xs uppercase tracking-wider mb-1 block">Step {i + 1}</span>
+                                      {step}
+                                    </div>
+                                  ))}
+
+                                  {(revealedCounts[`${idx}-solution`] || 1) < problem.solution_steps.length && (
+                                    <button
+                                      onClick={() => setRevealedCounts(prev => ({
+                                        ...prev,
+                                        [`${idx}-solution`]: (prev[`${idx}-solution`] || 1) + 1
+                                      }))}
+                                      className="w-full py-2 bg-stone-100 dark:bg-stone-700/50 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-sm rounded-lg transition-colors flex items-center justify-center gap-2 mt-2"
+                                    >
+                                      Reveal Step {(revealedCounts[`${idx}-solution`] || 1) + 1} <ChevronDown className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+
+
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Final Answer Section - Independent */}
+                          <div className="rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 overflow-hidden">
+                            <button
+                              onClick={() => {
+                                const key = `${idx}-answer`;
+                                setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
+                              }}
+                              disabled={problem.solving}
+                              className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors text-sm font-medium text-stone-600 dark:text-stone-300 disabled:opacity-50"
+                            >
+                              <span className="flex items-center gap-2">
+                                {problem.solving ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin text-stone-400" />
+                                    Calculating Answer...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="w-4 h-4 text-stone-400" />
+                                    View Answer
+                                  </>
+                                )}
+                              </span>
+                              {!problem.solving && (expandedSections[`${idx}-answer`] ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />)}
+                            </button>
+
+                            {expandedSections[`${idx}-answer`] && !problem.solving && problem.final_answer && (
+                              <div className="px-4 pb-4 pt-1 border-t border-stone-100 dark:border-stone-700/50">
+                                <div className="mt-2 text-lg font-mono font-semibold text-stone-800 dark:text-stone-200 bg-stone-50 dark:bg-stone-900/50 p-3 rounded-lg border border-stone-200 dark:border-stone-700 inline-block">
+                                  {problem.final_answer}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Practice Problem Button - Always visible for walkthroughs */}
+              {isWalkthrough && (
+                <div className="mb-6">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onGeneratePracticeProblem(unit);
+                    }}
+                    disabled={isGeneratingPractice}
+                    className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-white dark:bg-stone-800 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-stone-700 dark:text-stone-200 rounded-lg font-medium text-sm transition-all disabled:opacity-50 border border-[#FF4A1C]"
+                  >
+                    {isGeneratingPractice ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-stone-500" />
+                        Generating Practice Problem...
+                      </>
+                    ) : (
+                      <>
+                        {practiceProblem ? 'Generate Another Problem' : 'Generate a Practice Problem'}
+                      </>
+                    )}
+                  </button>
+
+                </div>
+              )}
+
               {showSearchContext && (
                 <div className="mb-6 p-5 rounded-xl bg-stone-100 dark:bg-stone-900/50 border border-stone-200 dark:border-stone-700 text-sm animate-fade-in relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-4 opacity-5">
@@ -539,9 +848,9 @@ const TopicListItem = ({
             <div className="mt-4">
               <h5 className={`text-sm font-semibold mb-2 flex items-center gap-2 ${isWalkthrough ? 'text-[#FF4A1C] dark:text-[#FF4A1C]' : 'text-stone-700 dark:text-stone-300'}`}>
                 <Play className={`w-4 h-4 ${isWalkthrough ? 'text-[#FF4A1C] dark:text-[#FF4A1C]' : 'text-[#FF4A1C]'}`} />
-                {isWalkthrough ? 'Worked Example Videos' : 'Recommended Resources'}
+                {isWalkthrough ? 'Similar Example Walkthroughs' : 'Recommended Resources'}
               </h5>
-              <ResourceTable resources={topicResources} />
+              <ResourceTable resources={topicResources} session={session} />
             </div>
           )}
         </div>
@@ -677,9 +986,11 @@ const Blueprint = () => {
   const [topicResources, setTopicResources] = useState({});
   const [topicEquations, setTopicEquations] = useState({});
   const [topicFigures, setTopicFigures] = useState({});
+  const [practiceProblems, setPracticeProblems] = useState({}); // { unitId: { problem, hints, answer } }
 
   // Track resources that are currently being loaded to prevent overwrites
   const loadingResourcesRef = useRef(new Set());
+  const [generatingPractice, setGeneratingPractice] = useState(new Set()); // Set of unitIds
 
   // UI State
   const [activeTab, setActiveTab] = useState(null);
@@ -691,6 +1002,102 @@ const Blueprint = () => {
   const [generationStatus, setGenerationStatus] = useState('pending');
   const [generationError, setGenerationError] = useState(null);
   const [searchingTopics, setSearchingTopics] = useState(new Set());
+
+  // Handle Practice Problem Generation (With Caching & Multi-Model Verification)
+  const handleGeneratePracticeProblem = async (unit) => {
+    if (!session?.access_token) return;
+    const unitId = unit.unit_id;
+
+    setGeneratingPractice(prev => new Set([...prev, unitId]));
+
+    try {
+      console.log(`[Blueprint] Generating verified practice problem for unit ${unitId}...`);
+
+      // Get problem context from document analysis if available
+      let originalProblem = null;
+      const sections = documentAnalysis?.raw_analysis?.sections || [];
+
+      // Find the parent section of this unit
+      let struct = learningStructure?.structure;
+      if (struct?.learning_structure) struct = struct.learning_structure;
+
+      const currentSection = struct?.content_sections?.find(s =>
+        s.learning_units?.some(u => u.unit_id === unitId)
+      );
+
+      if (currentSection) {
+        const analysisSection = sections.find(s =>
+          s.section_id === currentSection.section_id ||
+          s.section_id === currentSection.section_id.replace('_walkthroughs', '')
+        );
+        if (analysisSection && analysisSection.problem_statement) {
+          originalProblem = analysisSection.problem_statement;
+        }
+      }
+
+      if (!originalProblem) {
+        originalProblem = unit.target_resource_profile || unit.description || unit.topic;
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+      // Call the new verification endpoint (handles cache check + multi-model verification)
+      const response = await fetch(`${supabaseUrl}/functions/v1/verify-practice-problem`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          topic: unit.topic,
+          original_problem: originalProblem,
+          unit_id: unitId,
+          blueprint_id: id,
+          context: {
+            learning_objective: unit.learning_objective,
+            unit_type: unit.unit_type,
+            description: unit.description
+          }
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to generate practice problem');
+      }
+
+      // Log cache/verification status
+      if (data.from_cache) {
+        console.log('[Blueprint] ✅ Used cached verified problem');
+      } else if (data.verified) {
+        console.log('[Blueprint] ✅ New problem verified by multiple models:', data.verification?.models_agreed);
+      } else {
+        console.warn('[Blueprint] ⚠️ Problem generated but not fully verified');
+      }
+
+      // Add problem to state
+      setPracticeProblems(prev => {
+        const existingProblems = prev[unitId] || [];
+        const currentList = Array.isArray(existingProblems) ? existingProblems : [existingProblems];
+
+        return {
+          ...prev,
+          [unitId]: [...currentList, { ...data.problem, solving: false }]
+        };
+      });
+
+    } catch (error) {
+      console.error('[Blueprint] Error in practice problem generation:', error);
+      alert(`Failed to generate practice problem: ${error.message}`);
+    } finally {
+      setGeneratingPractice(prev => {
+        const next = new Set(prev);
+        next.delete(unitId);
+        return next;
+      });
+    }
+  };
 
   // Debug State
   const [showDebug, setShowDebug] = useState(false);
@@ -831,6 +1238,25 @@ const Blueprint = () => {
           .then(({ data }) => ({ type: 'figures', data }))
       );
 
+      // H. Practice Problems (from cache link table)
+      promises.push(
+        supabase
+          .from('blueprint_practice_problems')
+          .select(`
+            unit_id,
+            cached_problem:practice_problems_cache(
+              problem_statement,
+              given_values,
+              hints,
+              solution_steps,
+              final_answer
+            )
+          `)
+          .eq('blueprint_id', id)
+          .order('created_at', { ascending: true })
+          .then(({ data }) => ({ type: 'practice_problems', data }))
+      );
+
       // 3. Execute Parallel Fetches
       const results = await Promise.all(promises);
 
@@ -966,6 +1392,29 @@ const Blueprint = () => {
           }
         });
         setTopicFigures(figuresMap);
+      }
+
+      // Process Practice Problems (from cache)
+      const practiceData = getResult('practice_problems');
+      if (practiceData && practiceData.length > 0) {
+        const problemsMap = {};
+        let count = 0;
+        practiceData.forEach(p => {
+          if (p.cached_problem) {
+            if (!problemsMap[p.unit_id]) problemsMap[p.unit_id] = [];
+            problemsMap[p.unit_id].push({
+              practice_problem: p.cached_problem.problem_statement,
+              given_values: p.cached_problem.given_values,
+              hints: p.cached_problem.hints,
+              solution_steps: p.cached_problem.solution_steps,
+              final_answer: p.cached_problem.final_answer,
+              solving: false
+            });
+            count++;
+          }
+        });
+        console.log(`[Blueprint] Loaded ${count} practice problems from cache`);
+        setPracticeProblems(problemsMap);
       }
 
     } catch (error) {
@@ -2853,9 +3302,13 @@ const Blueprint = () => {
                         onGenerateBlueprint={handleGenerateBlueprint}
                         onTriggerWebhook={handleTriggerWebhook}
                         onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
+                        onGeneratePracticeProblem={handleGeneratePracticeProblem}
+                        practiceProblem={practiceProblems[unit.unit_id]}
+                        isGeneratingPractice={generatingPractice.has(unit.unit_id)}
                         isSearching={searchingTopics.has(unit.unit_id)}
                         isExpanded={expandedTopics[unit.unit_id]}
                         onToggle={() => toggleTopic(unit.unit_id)}
+                        session={session}
                       />
                     </div>
                   ))
@@ -2882,7 +3335,7 @@ const Blueprint = () => {
       >
         {isChatOpen ? <X className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
         <span className="font-medium text-sm whitespace-nowrap">
-          {isChatOpen ? 'Close chat' : 'Chat with your document'}
+          {isChatOpen ? 'Close chat' : (doc ? 'Chat with your document' : 'Live chat with an AI')}
         </span>
       </button>
 
@@ -2892,7 +3345,8 @@ const Blueprint = () => {
         onClose={() => setIsChatOpen(false)}
         documentId={blueprint?.document_id || documentAnalysis?.document_id}
         blueprintId={id}
-        contextTitle={blueprint?.document?.name || "Uploaded Document"}
+        contextTitle={doc ? (blueprint?.document?.name || "Uploaded Document") : "AI Assistant"}
+        hasDocument={!!doc}
       />
     </div>
   );

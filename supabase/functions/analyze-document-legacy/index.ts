@@ -357,7 +357,7 @@ serve(async (req) => {
         PROMPTS.documentAnalysis.user("This is a single part of a larger document. Analyze it independently.", blueprint.task_type),
         pdfDocPart,
         null,
-        { temperature: 0.3, maxTokens: 8192 }
+        { temperature: 0.3, maxTokens: 16384 }
       );
 
       return new Response(JSON.stringify({
@@ -622,7 +622,7 @@ serve(async (req) => {
               PROMPTS.documentAnalysis.user(userPrompt, blueprint.task_type),
               pdfDocPart,
               textContent || null,
-              { temperature: 0.3, maxTokens: 8192 } // Increased tokens for parts to prevent truncation
+              { temperature: 0.3, maxTokens: 16384 } // Maximum output for Haiku 4.5 - prevents JSON truncation
 
               // Update context for this part
             );

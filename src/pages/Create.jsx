@@ -52,19 +52,49 @@ const Create = () => {
     };
   }, []);
 
+  const confirmNewClassLocal = () => {
+    if (!newClassName.trim()) {
+      setIsCreatingClass(false);
+      return;
+    }
+
+    const tempId = 'TEMP_NEW_CLASS';
+    const tempClass = {
+      id: tempId,
+      name: newClassName.trim(),
+      isTemp: true
+    };
+
+    // Remove any existing temp class and add the new one
+    setClasses(prev => [tempClass, ...prev.filter(c => c.id !== tempId)]);
+    setSelectedClassId(tempId);
+    setNewClassName('');
+    setIsCreatingClass(false);
+  };
+
+  const cancelNewClass = () => {
+    setIsCreatingClass(false);
+    setNewClassName('');
+  };
+
   // Handle clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
-        setIsCreatingClass(false);
-        setNewClassName('');
+        if (isCreatingClass) {
+          if (newClassName.trim()) {
+            confirmNewClassLocal();
+          } else {
+            cancelNewClass();
+          }
+        }
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [wrapperRef]);
+  }, [wrapperRef, isCreatingClass, newClassName]);
 
   useEffect(() => {
     if (mode !== 'classwork') {
@@ -177,35 +207,9 @@ const Create = () => {
     }
   };
 
-  const handleCreateClass = async () => {
-    if (!newClassName.trim() || !user) return;
+  // No longer used directly, but kept as reference or removed
+  // We use confirmNewClassLocal now
 
-    setIsCreatingClassLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('classes')
-        .insert([{
-          user_id: user.id,
-          name: newClassName.trim(),
-          professor: null // User only asked for name
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Add to list and select it
-      setClasses(prev => [data, ...prev]);
-      setSelectedClassId(data.id);
-      setNewClassName('');
-      setIsCreatingClass(false);
-    } catch (error) {
-      console.error('Error creating class:', error);
-      alert('Failed to create class');
-    } finally {
-      setIsCreatingClassLoading(false);
-    }
-  };
 
   // Submit Handler
   const handleSubmit = async () => {
@@ -217,13 +221,38 @@ const Create = () => {
     // Blueprint name is optional - AI will generate during analyze-document if empty
     const finalBlueprintName = formData.blueprintName.trim() || 'Untitled Blueprint';
 
-    // Class selection is optional - selectedClassId can be null for unorganized blueprints
+    // Class selection logic
     let finalClassId = selectedClassId;
     let finalClassName = '';
 
     if (selectedClassId) {
       const selectedClass = classes.find(c => c.id === selectedClassId);
-      if (selectedClass) {
+
+      // Handle Temporary Class Creation
+      if (selectedClass && selectedClass.isTemp) {
+        try {
+          // Now we actually create the class
+          const { data: newClassData, error: createClassError } = await supabase
+            .from('classes')
+            .insert([{
+              user_id: user.id,
+              name: selectedClass.name,
+              professor: null
+            }])
+            .select()
+            .single();
+
+          if (createClassError) throw createClassError;
+
+          finalClassId = newClassData.id;
+          finalClassName = newClassData.name;
+
+        } catch (err) {
+          console.error('Error creating deferred class:', err);
+          alert('Failed to create the new class. Please try again.');
+          return;
+        }
+      } else if (selectedClass) {
         finalClassName = selectedClass.name;
       }
     }
@@ -633,7 +662,6 @@ const Create = () => {
                     </button>
                   ))}
 
-                  {/* Create New Class UI */}
                   {isCreatingClass ? (
                     <div ref={wrapperRef} className="flex items-center gap-3 pl-[0px] w-full animate-in fade-in slide-in-from-left-2">
                       <div className="w-3 h-3 rounded-full border border-stone-300 dark:border-stone-600 flex-shrink-0 bg-white dark:bg-stone-800" />
@@ -644,25 +672,17 @@ const Create = () => {
                           onChange={(e) => setNewClassName(e.target.value)}
                           placeholder="Enter Class Name"
                           autoFocus
-                          className="bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-600 focus:border-[#FF4A1C] dark:focus:border-[#FF4A1C] focus:ring-0 text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-600 dark:placeholder:text-stone-400 placeholder:font-normal w-full px-0 py-1 outline-none transition-all"
+                          className="w-full p-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:border-stone-500 dark:focus:border-stone-400 focus:ring-0 transition-all"
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleCreateClass();
-                            if (e.key === 'Escape') {
-                              setIsCreatingClass(false);
-                              setNewClassName('');
-                            }
+                            if (e.key === 'Enter') confirmNewClassLocal();
+                            if (e.key === 'Escape') cancelNewClass();
                           }}
                         />
                         <button
-                          onClick={handleCreateClass}
-                          disabled={!newClassName.trim() || isCreatingClassLoading}
-                          className="p-1 rounded-full bg-[#FF4A1C] text-white hover:bg-[#e03e15] disabled:opacity-50 transition-colors flex-shrink-0"
+                          onClick={cancelNewClass}
+                          className="p-1 rounded-full bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-300 dark:hover:bg-stone-600 transition-colors flex-shrink-0"
                         >
-                          {isCreatingClassLoading ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <Check className="w-3 h-3" />
-                          )}
+                          <X className="w-3 h-3" />
                         </button>
                       </div>
                     </div>
@@ -700,7 +720,7 @@ const Create = () => {
                       value={formData.blueprintName}
                       onChange={(e) => setFormData(prev => ({ ...prev, blueprintName: e.target.value }))}
                       placeholder="Enter Blueprint Name"
-                      className=" pl-4 bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-600 focus:border-[#FF4A1C] focus:ring-0 text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-600 dark:placeholder:text-stone-400 placeholder:font-normal w-full px-0 py-1 outline-none transition-all"
+                      className="w-full p-3 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:border-stone-500 dark:focus:border-stone-400 focus:ring-0 transition-all"
                     />
                   </div>
                 </div>

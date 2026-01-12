@@ -45,7 +45,7 @@ serve(async (req) => {
         });
 
         // 3. Parse Request
-        const { document_id, messages, current_message } = await req.json();
+        const { document_id, messages, current_message, class_id, include_class_context = true } = await req.json();
 
         if (!document_id || !messages) {
             throw new Error("Missing document_id or messages");
@@ -55,6 +55,7 @@ serve(async (req) => {
         const query = current_message || messages[messages.length - 1].content;
 
         console.log(`[chat-with-document] Model: ${chatModel}, Query: "${query.substring(0, 50)}..."`);
+        console.log(`[chat-with-document] Document ID: ${document_id}, Class ID: ${class_id || 'N/A'}`);
 
         // 4. Generate Embedding for the Query (OpenAI)
         const embeddingResponse = await embeddingClient.embeddings.create({
@@ -67,6 +68,10 @@ serve(async (req) => {
 
         // 5. Retrieve Relevant Chunks via RPC
         const supabase = createSupabaseClient();
+        let allChunks: any[] = [];
+        const seenChunkIds = new Set();
+
+        // --- A. Search Active Document (Primary Context) ---
 
         // First, check if any chunks exist for this document
         const { count: totalChunks } = await supabase
@@ -76,10 +81,8 @@ serve(async (req) => {
 
         console.log(`[chat-with-document] Total chunks in DB for document ${document_id}: ${totalChunks || 0}`);
 
-        let chunks: any[] = [];
-
         // Try RPC first for semantic search
-        const { data: rpcChunks, error: searchError } = await supabase
+        const { data: docChunks, error: searchError } = await supabase
             .rpc("match_document_chunks", {
                 query_embedding: queryEmbedding,
                 match_threshold: 0.2, // Lowered further for better recall
@@ -88,13 +91,25 @@ serve(async (req) => {
             });
 
         if (searchError) {
-            console.error("[chat-with-document] Vector search RPC error:", searchError.message, searchError.details);
+            console.error("[chat-with-document] Vector search RPC error:", searchError.message);
+            // Don't error out, try fallback
         }
 
-        chunks = rpcChunks || [];
+        if (docChunks) {
+            docChunks.forEach((chunk: any) => {
+                if (!seenChunkIds.has(chunk.id || chunk.content)) { // Use content as backup key
+                    allChunks.push({
+                        ...chunk,
+                        source: "Current Document", // Label for standard chunks
+                        priority: "high"
+                    });
+                    seenChunkIds.add(chunk.id || chunk.content);
+                }
+            });
+        }
 
         // Fallback: If RPC failed OR returned empty but chunks exist, get them directly
-        if (chunks.length === 0 && totalChunks && totalChunks > 0) {
+        if (allChunks.length === 0 && totalChunks && totalChunks > 0) {
             console.log("[chat-with-document] RPC returned empty, falling back to direct chunk retrieval...");
             const { data: directChunks, error: directError } = await supabase
                 .from("document_chunks")
@@ -105,27 +120,79 @@ serve(async (req) => {
 
             if (directError) {
                 console.error("[chat-with-document] Direct chunk retrieval error:", directError);
-            } else {
-                chunks = directChunks || [];
-                console.log(`[chat-with-document] Direct retrieval got ${chunks.length} chunks`);
+            } else if (directChunks) {
+                directChunks.forEach((chunk: any) => {
+                    allChunks.push({
+                        ...chunk,
+                        source: "Current Document",
+                        priority: "high"
+                    });
+                    seenChunkIds.add(chunk.id || chunk.content);
+                });
+                console.log(`[chat-with-document] Direct retrieval got ${allChunks.length} chunks`);
             }
         }
 
-        console.log(`[chat-with-document] Found ${chunks?.length || 0} relevant chunks`);
+        // --- B. Search Class Documents (Secondary Context) ---
+        if (class_id && include_class_context) {
+            console.log(`[chat-with-document] Searching class documents for class ${class_id}...`);
+            const { data: classChunks, error: classSearchError } = await supabase
+                .rpc("match_class_document_chunks", {
+                    query_embedding: queryEmbedding,
+                    match_threshold: 0.25, // Slightly higher threshold for broad search to reduce noise
+                    match_count: 5,
+                    p_class_id: class_id
+                });
+
+            if (classSearchError) {
+                console.error("[chat-with-document] Class search RPC error:", classSearchError.message);
+            } else if (classChunks) {
+                console.log(`[chat-with-document] Found ${classChunks.length} class chunks`);
+                classChunks.forEach((chunk: any) => {
+                    // Deduplicate: avoid adding chunks we already have from the active document
+                    // Note: match_class_document_chunks returns document_id, check against active document_id?
+                    // Or just check content duplication.
+                    // The RPC returns { document_id, document_name, content, similarity }
+
+                    // Optimization: If it's the same document as active, we might have it already.
+                    // But match_class returns document_name which is valuable.
+
+                    const isSameDoc = chunk.document_id === document_id;
+
+                    // Allow it even if same doc if we haven't seen this specific content, 
+                    // OR if we want to upgrade the metadata (have name now).
+                    // For simplicity, just add if content unique.
+
+                    if (!seenChunkIds.has(chunk.content)) { // using content for dedupe across different queries
+                        allChunks.push({
+                            ...chunk,
+                            source: chunk.document_name || "Class Document",
+                            priority: isSameDoc ? "high" : "medium"
+                        });
+                        seenChunkIds.add(chunk.content);
+                    }
+                });
+            }
+        }
+
+        console.log(`[chat-with-document] Final context has ${allChunks.length} chunks`);
 
         // 6. Construct Context String
-        const contextString = chunks?.map((c, i) =>
-            `--- CONTEXT CHUNK ${i + 1} ---\n${c.content}`
+        // Sort by priority/similarity if needed, but they are roughly ordered by retrieval.
+        // We present them clearly labeled.
+        const contextString = allChunks.map((c, i) =>
+            `--- SOURCE: ${c.source} ---\n${c.content}`
         ).join("\n\n");
 
         // 7. Update System Message
         const baseSystemPrompt = `You are an expert AI tutor and assistant running on the Grok 4.1 model. 
-    You are analyzing a specific document provided by the user. 
+    You are analyzing specific documents provided by the user. 
     Use the provided CONTEXT to answer the user's question accurately.
     
-    RULES:
-    - Only answer based on the provided context if possible.
-    - If the context doesn't contain the answer, say "I couldn't find that specific information in the document, but..." and then use your general knowledge.
+    IMPORTANT:
+    - The CONTEXT may come from multiple documents (Lecture Notes, Homeworks, etc.).
+    - ALWAYS cite the source when using information (e.g., "According to Lecture 3 Notes...").
+    - If the context doesn't contain the answer, say "I couldn't find that specific information in the documents, but..." and then use your general knowledge.
     - Be concise, helpful, and educational.
     - Format your response in Markdown.`;
 

@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-    X, Send, RefreshCw, MessageSquare, Loader2, Sparkles,
-    ChevronRight, FileText, Minimize2, Plus, ArrowLeft, Trash2, Clock, Folder
+    ChevronRight, FileText, Minimize2, Plus, ArrowLeft, Trash2, Clock, Folder, Library
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
@@ -32,7 +31,8 @@ const ChatDrawer = ({
     onClose,
     documentId,
     blueprintId,
-    contextTitle = "Document Context"
+    contextTitle = "Document Context",
+    hasDocument = true
 }) => {
     // View state: 'chat' or 'list'
     const [view, setView] = useState('chat');
@@ -49,6 +49,8 @@ const ChatDrawer = ({
     const [isProcessingEmbeddings, setIsProcessingEmbeddings] = useState(false);
     const [fetchedDocumentId, setFetchedDocumentId] = useState(null);
     const [isResolvingDocId, setIsResolvingDocId] = useState(false);
+    const [classId, setClassId] = useState(null);
+    const [useClassContext, setUseClassContext] = useState(false);
 
     const activeDocumentId = documentId || fetchedDocumentId;
 
@@ -74,7 +76,9 @@ const ChatDrawer = ({
             // For now, let's just clear messages if no thread
             setMessages([{
                 role: 'assistant',
-                content: "Hello! I've read your document. Ask me anything about it!"
+                content: hasDocument
+                    ? "Hello! I've read your document. Ask me anything about it!"
+                    : "Hello! I'm here to help. Ask me anything!"
             }]);
         }
     }, [activeThreadId, isOpen]);
@@ -101,10 +105,13 @@ const ChatDrawer = ({
 
             if (bpData?.document_id) {
                 setFetchedDocumentId(bpData.document_id);
+                if (bpData.class_id) setClassId(bpData.class_id);
                 return;
             }
 
             // 2. Try file_metadata match
+            if (bpData?.class_id) setClassId(bpData.class_id);
+
             if (bpData?.file_metadata && bpData.class_id) {
                 const { data: docData } = await supabase
                     .from('class_documents')
@@ -216,7 +223,9 @@ const ChatDrawer = ({
             setView('chat'); // Ensure we are in chat view
             setMessages([{
                 role: 'assistant',
-                content: "Hello! I've read your document. Ask me anything about it!"
+                content: hasDocument
+                    ? "Hello! I've read your document. Ask me anything about it!"
+                    : "Hello! I'm here to help. Ask me anything!"
             }]);
         } catch (error) {
             console.error("Error creating thread:", error);
@@ -240,7 +249,9 @@ const ChatDrawer = ({
                 setActiveThreadId(null);
                 setMessages([{
                     role: 'assistant',
-                    content: "Hello! I've read your document. Ask me anything about it!"
+                    content: hasDocument
+                        ? "Hello! I've read your document. Ask me anything about it!"
+                        : "Hello! I'm here to help. Ask me anything!"
                 }]);
             }
         } catch (error) {
@@ -314,7 +325,9 @@ const ChatDrawer = ({
                 body: JSON.stringify({
                     document_id: activeDocumentId,
                     messages: messageHistory,
-                    current_message: userMessageContent
+                    current_message: userMessageContent,
+                    class_id: classId,
+                    include_class_context: useClassContext
                 })
             });
 
@@ -444,6 +457,19 @@ const ChatDrawer = ({
                     >
                         <Plus className="w-4 h-4" />
                     </button>
+
+                    {classId && (
+                        <button
+                            onClick={() => setUseClassContext(!useClassContext)}
+                            className={`p-2 border rounded-lg transition-all shadow-sm ${useClassContext
+                                    ? 'bg-[#FF4A1C]/10 border-[#FF4A1C] text-[#FF4A1C]'
+                                    : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-400 hover:text-stone-600'
+                                }`}
+                            title={useClassContext ? "Searching all class documents" : "Search specific document only"}
+                        >
+                            <Library className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
             </div>
 

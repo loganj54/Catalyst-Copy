@@ -61,11 +61,11 @@ serve(async (req: Request) => {
     }
 
     // 2. Query Pinecone 'resources' namespace
-    // We fetch top 3 to return the 3 highest similarity resources
+    // Fetch top 10 candidates, then filter by threshold and sort by user rating
     console.log('[search-resources-database] Querying Pinecone resources namespace...');
     const searchResults = await queryVectors(
       vector,
-      3, // Fetch top 3
+      10, // Fetch top 10 candidates for rating-based sorting
       undefined, // No filter
       'resources', // Namespace
       true // Include metadata
@@ -92,8 +92,10 @@ serve(async (req: Request) => {
       }
     });
 
-    // 3. Process Top 3 Matches
-    const MIN_SIMILARITY_THRESHOLD = 0.60;
+    // 3. Filter by similarity threshold
+    // text-embedding-3-large has a broader distribution. 0.55 is a strong semantic match.
+    // 0.92 is only for near-duplicates.
+    const MIN_SIMILARITY_THRESHOLD = 0.55;
 
     const validMatches = searchResults.matches.filter(m => m.score >= MIN_SIMILARITY_THRESHOLD);
 
@@ -228,7 +230,7 @@ serve(async (req: Request) => {
 
     }
 
-    // 7. Format results - preserve order by similarity score
+    // 7. Format results and sort by average rating (highest first)
     const formattedResources = validMatches
       .map(match => {
         const metadataResourceId = match.metadata?.resource_id;
@@ -251,10 +253,27 @@ serve(async (req: Request) => {
           // Default explanation (will be overwritten by generator)
           resource_explanation: resource.description || resource.summary || 'High similarity match from database.',
           relevance_score: match.score,
-          from_cache: true // Treat database results as "cached/trusted"
+          from_cache: true, // Treat database results as "cached/trusted"
+          // Rating fields
+          average_rating: resource.average_rating ? parseFloat(resource.average_rating) : null,
+          rating_count: resource.rating_count || 0
         };
       })
-      .filter(r => r !== null);
+      .filter(r => r !== null)
+      // Sort by average rating (highest first), unrated resources last
+      .sort((a, b) => {
+        // If both have ratings, sort by rating DESC
+        if (a.average_rating !== null && b.average_rating !== null) {
+          return b.average_rating - a.average_rating;
+        }
+        // Resources with ratings come before unrated
+        if (a.average_rating !== null) return -1;
+        if (b.average_rating !== null) return 1;
+        // If both unrated, maintain similarity order
+        return b.relevance_score - a.relevance_score;
+      })
+      // Return top 3 after sorting by rating
+      .slice(0, 3);
 
     console.log(`[search-resources-database] Returning ${formattedResources.length} resources`);
 

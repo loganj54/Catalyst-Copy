@@ -54,19 +54,19 @@ Lecture/Instructional indicators (creates section_type: "topic"):
 - "Today we will learn...", "The key concept is...", "This works because..."
 - "Example:", "For instance:", "Consider the following example:" (these are teaching aids, not assignments)
 - Slides or presentation format
-- Solutions already provided (teaching examples, not problems to solve)
+- Worked examples already provided (teaching examples, not problems to solve)
 
 FOR LECTURES WITH EXAMPLES:
 If a lecture contains worked examples, DO NOT create separate problem sections for them.
 Instead, create TOPIC sections for each major concept being taught, and include the worked
 examples as part of the topic's educational content. The topic_summary should reference
-that examples are provided to illustrate the concept.
+that similar examples are provided to illustrate the concept.
 
 FOR PROBLEMS (section_type: "problem"):
 - Use section_id like "Problem 1", "Problem 2", "Q1a"
 - Write a COMPLETE problem_statement with ALL numerical values, conditions, and context
 - Extract given_variables, unknown_variables, assumptions
-- Include solving_approach steps
+- Include solution_approach steps
 
 FOR TOPICS (section_type: "topic"):
 - Use section_id like "Topic 1", "Topic 2", "Section 1"
@@ -107,7 +107,7 @@ OUTPUT STRUCTURE:
         { "symbol": "λ_max", "description": "Wavelength at maximum emission" }
       ],
       "assumptions": ["Each assumption as a complete statement"],
-      "solving_approach": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+      "solution_approach": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
       
       // FOR TOPICS (section_type: "topic"):
       "topic_summary": "Summary of the main concepts explained in this section",
@@ -208,7 +208,7 @@ CRITICAL RULES:
 9. ALWAYS set "unit_type" for EVERY learning unit - this is REQUIRED.
 10. ALWAYS generate a "target_resource_profile" for EVERY unit. This is the text we will embed to find the perfect video.
     - For topic/prerequisite units: 2-3 sentences describing the ideal explanatory video
-    - For walkthrough units: Include the COMPLETE original problem statement with ALL details, followed by the solution approach description
+    - For walkthrough units: Include the COMPLETE original problem statement with ALL details, followed by the solving approach description
 11. For problem units, generate BOTH search_queries AND problem_solving_queries.
 12. PRIORITY: Complete the JSON structure. If approaching token limit, skip suggested_figures and focus on core content.
 
@@ -286,7 +286,7 @@ FOR "topic"/"prerequisite" units (Introductory/Concept videos):
 
 FOR "walkthrough" units (Problem-solving videos):
 - Include the COMPLETE problem statement with ALL details from the input
-- Then describe the solution approach
+- Then describe the solving approach
 - Format: "A video solving this problem: [COPY THE ENTIRE problem_statement FIELD FROM THE INPUT - include ALL given values with units, unknowns, conditions, and full context]. The video should show step-by-step calculations using [specific equations], explaining [key concepts], and demonstrating [solving approach]."
 - Example: "A video solving this problem: A 2000 kg car accelerates from rest to 25 m/s in 8 seconds on a level road. The coefficient of friction is 0.15. Calculate the force applied by the engine and the distance traveled during acceleration. The video should show step-by-step calculations using Newton's Second Law and kinematic equations, explaining the relationship between force, friction, and acceleration, and demonstrating how to solve for both the applied force and distance."
 
@@ -363,7 +363,11 @@ For units where a visual would significantly help:
 
 OUTPUT: JSON with summary, prerequisites_section (learning_units array), content_sections array. 
 For content_sections, each item MUST have: section_id, section_type, title (DESCRIPTIVE), description, learning_units array.
-Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), target_resource_profile (2-3 sentences for topic/prerequisite units, FULL PROBLEM STATEMENT + solution description for walkthrough units), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), suggested_figures (0-2 max, only if essential). For problems: also add walkthrough unit at end with problem_solving_queries.`,
+Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), target_resource_profile (2-3 sentences for topic/prerequisite units, FULL PROBLEM STATEMENT + solving approach description for walkthrough units), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), suggested_figures (0-2 max, only if essential). For problems: also add walkthrough unit at end with problem_solving_queries.
+
+IMPORTANT FOR WALKTHROUGH UNITS:
+Set the "topic" field for walkthrough units to "Similar Worked Example Walkthrough" or similar, to avoid giving away that it is the exact solving steps, and instead drive the student to learn from a similar worked problem.
+`,
 
     user: (input: any, inputType: 'document_analysis' | 'custom' = 'document_analysis') => `Generate learning structure with search queries.
 
@@ -692,5 +696,190 @@ Generate a JSON object with this structure:
   ]
 }
 
-Keep descriptions under 2 sentences. Limit to 3-5 search queries per unit. Focus on completing the structure.`
+Keep descriptions under 2 sentences. Limit to 3-5 search queries per unit. Focus on completing the structure.`,
+
+  // ==========================================================================
+  // STEP 5A: PRACTICE PROBLEM GENERATION (Problem Only)
+  // ==========================================================================
+  // Generates ONLY the problem statement, no answer
+  // ==========================================================================
+  practiceProblemGeneration: {
+    system: `You are an expert academic tutor and problem creator. Your goal is to help students build expertise by providing UNIQUE, VARIED practice problems.
+
+Given an original problem statement, your task is to:
+1. Generate a COMPLETELY NEW practice problem with DIFFERENT numerical values, scenario, and context.
+2. VARY the scenario significantly (use different objects, names, situations, contexts) while keeping the SAME underlying principles.
+3. Use DIFFERENT numerical values that are realistic but distinct from the original.
+4. Provide 2-3 progressive hints that guide without revealing the answer.
+
+CRITICAL REQUIREMENTS FOR UNIQUENESS:
+- NEVER reuse the exact scenario from the original problem
+- ALWAYS change ALL numerical values to different realistic values
+- Vary the context (e.g., if original uses a car, use a train; if original uses water, use oil)
+- Each problem you generate should be distinctly different from any previous one
+
+Do NOT calculate or provide the answer - that will be done separately to ensure accuracy.
+The difficulty level should match the original. Output must be valid JSON with no markdown formatting.`,
+
+    user: (originalProblem: string, topic: string) => `Original Problem (for reference only - DO NOT COPY):
+${originalProblem}
+
+Topic: ${topic}
+
+Generate a UNIQUE practice problem with DIFFERENT values and scenario. Current timestamp: ${Date.now()}
+
+IMPORTANT: Make this problem distinctly different from the original. Change the scenario, context, and all numerical values.
+
+Output format:
+{
+  "practice_problem": "The full text of the new practice problem with different scenario and values",
+  "given_values": [{ "symbol": "...", "value": "...", "unit": "..." }],
+  "learning_objective": "What this problem helps master",
+  "hints": ["Hint 1...", "Hint 2...", "Hint 3..."]
+}`
+  },
+
+  // ==========================================================================
+  // STEP 5B: PRACTICE PROBLEM SOLUTION (Answer Verification)
+  // ==========================================================================
+  // Independently solves the generated problem to get the correct answer
+  // ==========================================================================
+  practiceProblemSolution: {
+    system: `You are an expert problem solver and tutor. Your task is to solve a given practice problem completely and accurately.
+
+You will receive ONLY the problem statement. Your job is to:
+1. Carefully read and understand the problem
+2. Identify the relevant equations and principles
+3. Show your complete step-by-step solution process
+4. Calculate the final answer with proper units
+5. Verify your answer makes physical/mathematical sense
+
+CRITICAL REQUIREMENTS:
+- Show ALL steps in your solution
+- Explain your reasoning at each step
+- Double-check all calculations
+- Include units throughout
+- Verify the final answer is reasonable
+- Provide the final answer as JUST the literal answer. None of those filler words. Just the literal answer.
+
+Output must be valid JSON with no markdown formatting.`,
+
+    user: (problemStatement: string) => `Solve this problem completely:
+
+${problemStatement}
+
+Provide your complete solution.
+
+Output format:
+{
+  "solution_steps": [
+    "Step 1: [Explanation and calculation]",
+    "Step 2: [Explanation and calculation]",
+    "Step 3: [Explanation and calculation]"
+  ],
+  "final_answer": "The final numerical result with units (ONLY number and units, no text)"
+}`
+  },
+
+  // ==========================================================================
+  // STEP 5C: ANSWER-ONLY VERIFICATION (Cost-Optimized for Sonnet/GPT-5.2)
+  // ==========================================================================
+  // Generates ONLY the final answer for verification - minimal token usage
+  // ==========================================================================
+  verificationJudge: {
+    system: `You are an expert mathematical judge. Your task is to compare multiple solutions to a problem and determine the correct answer based on consensus.
+
+Rules:
+1. Compare the numerical values of the answers from Grok, Sonnet, GPT, Gemini, and Opus.
+2. Identify if there is a consensus (at least 2 models agreeing on the same value, within 5% tolerance).
+3. Minor formatting (e.g., "42 m/s" vs "42.0 m/s") is agreement.
+4. If there is a consensus, return that verified answer.
+5. If no consensus, return "consensus_found": false.
+
+CRITICAL: Do not output any explanation, reasoning, or analysis. Output ONLY the raw JSON object.
+
+Output format:
+{
+  "consensus_found": true,
+  "verified_answer": "value units",
+  "models_agreed": ["model1", "model2"]
+}`,
+
+    user: (problem: string, answers: Record<string, string | null>) => `Problem: ${problem}
+
+Model Answers:
+${Object.entries(answers).map(([k, v]) => `- ${k}: ${v || 'No answer'}`).join('\n')}
+
+Determine consensus. JSON ONLY.`
+  },
+
+  answerOnlyVerification: {
+    system: `You are an expert problem solver. Your task is to output the final numerical answer to the problem provided.
+
+Output format:
+{
+  "final_answer": "value units"
+}
+
+Example:
+{
+  "final_answer": "42.5 m/s"
+}
+
+Do not provide ANY explanation, steps, or thinking. JUST the JSON object.`,
+
+    user: (problemStatement: string) => `Solve this problem and output the final answer as JSON:
+
+${problemStatement}
+
+Respond ONLY with the JSON object.`
+  },
+
+  // ==========================================================================
+  // STEP 5D: VERIFIED PRACTICE PROBLEM GENERATION (For Cache)
+  // ==========================================================================
+  // Generates complete practice problem with solution for caching
+  // Used by Grok (cheap tokens) to create the full step-by-step solution
+  // ==========================================================================
+  verifiedPracticeProblemGeneration: {
+    system: `You are an expert academic tutor. Generate a unique practice problem with a COMPLETE, VERIFIED solution.
+
+This problem will be cached and reused, so it must be:
+1. MATHEMATICALLY CORRECT - triple-check all calculations
+2. CLEARLY WRITTEN - unambiguous problem statement
+3. EDUCATIONALLY VALUABLE - tests understanding, not just computation
+4. SELF-CONTAINED - all needed information is in the problem
+
+CRITICAL: Your solution MUST be correct. This will be verified by other models.
+
+Output must be valid JSON with no markdown formatting.`,
+
+    user: (topic: string, originalProblem: string, context: any) => `Generate a unique practice problem based on:
+
+TOPIC: ${topic}
+ORIGINAL PROBLEM CONTEXT: ${originalProblem}
+LEARNING OBJECTIVE: ${context?.learning_objective || 'Master the fundamental concepts'}
+
+Create a NEW problem with DIFFERENT numerical values and context.
+
+Output format:
+{
+  "practice_problem": "Complete problem statement with all given values and what to find",
+    "given_values": [
+      { "symbol": "m", "value": "5.0", "unit": "kg", "description": "mass of object" }
+    ],
+      "learning_objective": "What this problem helps master",
+        "hints": [
+          "Hint 1: Starting approach",
+          "Hint 2: Key equation to use",
+          "Hint 3: Watch out for this common mistake"
+        ],
+          "solution_steps": [
+            "Step 1: [Full explanation with equation and substitution]",
+            "Step 2: [Continue solving with clear reasoning]",
+            "Step 3: [Final calculation and verification]"
+          ],
+            "final_answer": "numerical answer with units only (e.g., '42.5 m/s')"
+} `
+  }
 };
