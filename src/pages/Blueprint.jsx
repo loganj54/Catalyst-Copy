@@ -299,6 +299,66 @@ const ResourceTable = ({ resources, session }) => {
 
 
 // ============================================================================
+// STEP BY STEP SOLUTION CARD COMPONENT
+// ============================================================================
+const StepByStepSolutionCard = ({ solutionApproach }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (!solutionApproach) return null;
+
+  return (
+    <div className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
+      <div
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full text-left py-4 px-4 flex items-start gap-3 cursor-pointer group select-none hover:bg-stone-50/30 dark:hover:bg-stone-800/30 transition-colors"
+      >
+        <div className="mt-1 text-stone-400 dark:text-stone-500 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
+          {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="font-semibold text-lg text-[#2A2B2A] dark:text-stone-100">
+              Step by Step Solution
+            </h4>
+            {/* Contextual Tag - Right Aligned */}
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="px-2 py-0.5 bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 text-xs rounded-full font-medium">
+                Solve
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="pl-12 pr-6 pb-8 animate-fade-in">
+          {/* Solution Steps */}
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border border-green-200 dark:border-green-800/50">
+            <div className="space-y-4">
+              {Array.isArray(solutionApproach) ? (
+                solutionApproach.map((step, i) => (
+                  <div key={i} className="flex items-start gap-4">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 dark:bg-green-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 pt-1">
+                      <p className="text-stone-700 dark:text-stone-200 leading-relaxed">{step}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="whitespace-pre-wrap text-stone-700 dark:text-stone-200 leading-relaxed">{solutionApproach}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
 // TOPIC LIST ITEM COMPONENT
 // ============================================================================
 const TopicListItem = ({
@@ -336,7 +396,7 @@ const TopicListItem = ({
   const [showSearchContext, setShowSearchContext] = useState(false);
   const hasResources = topicResources && topicResources.length > 0;
   const isComfortable = topicResponse?.response === 'comfortable';
-  const isWalkthrough = unit.unit_type === 'walkthrough';
+  const isWalkthrough = unit.unit_type === 'walkthrough' || unit.unit_type === 'problem';
 
   // Use equations from database if available, fallback to structure data
   const equations = topicEquations && topicEquations.length > 0
@@ -354,21 +414,29 @@ const TopicListItem = ({
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-3">
             <h4 className={`font-semibold text-lg ${isWalkthrough ? 'text-stone-900 dark:text-stone-100' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
-              {unit.topic}
+              {unit.topic === 'Similar Worked Example Walkthrough' ? 'Similar Examples' : unit.topic}
             </h4>
-            {isWalkthrough && (
-              <span className="px-2 py-0.5 bg-[#FF4A1C]/10 dark:bg-[#FF4A1C]/20 text-[#FF4A1C] dark:text-[#FF4A1C] text-xs rounded-full font-medium">
-                Build Expertise
-              </span>
-            )}
-            {isComfortable && !isWalkthrough && (
-              <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full flex items-center gap-1">
-                <Check className="w-3 h-3" />
-                Completed
-              </span>
-            )}
+            {/* Contextual Tags - Right Aligned */}
+            <div className="flex items-center gap-2 shrink-0">
+              {isWalkthrough && (
+                <span className="px-2 py-0.5 bg-[#FF4A1C]/10 dark:bg-[#FF4A1C]/20 text-[#FF4A1C] dark:text-[#FF4A1C] text-xs rounded-full font-medium">
+                  Practice
+                </span>
+              )}
+              {(unit.unit_type === 'topic' || unit.unit_type === 'prerequisite') && (
+                <span className="px-2 py-0.5 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs rounded-full font-medium">
+                  Learn
+                </span>
+              )}
+              {isComfortable && !isWalkthrough && (
+                <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Completed
+                </span>
+              )}
+            </div>
           </div>
           {!isExpanded && (
             <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 line-clamp-1">{unit.description}</p>
@@ -859,12 +927,14 @@ const TopicListItem = ({
             </>
           )}
 
+          {/* Step by Step Solution removed - now rendered as a standalone section outside TopicListItem */}
+
           {/* Resources Table */}
           {hasResources && (
             <div className="mt-4">
               <h5 className={`text-sm font-semibold mb-2 flex items-center gap-2 ${isWalkthrough ? 'text-[#FF4A1C] dark:text-[#FF4A1C]' : 'text-stone-700 dark:text-stone-300'}`}>
                 <Play className={`w-4 h-4 ${isWalkthrough ? 'text-[#FF4A1C] dark:text-[#FF4A1C]' : 'text-[#FF4A1C]'}`} />
-                {isWalkthrough ? 'Similar Example Walkthroughs' : 'Recommended Resources'}
+                {isWalkthrough ? 'Similar Examples' : 'Recommended Resources'}
               </h5>
               <ResourceTable resources={topicResources} session={session} />
             </div>
@@ -973,8 +1043,7 @@ const Blueprint = () => {
             } else {
               // Currently EXPANDED: Collapse threshold.
               // Must strictly exceed the heavy layout shift (~175px) to prevent a loop.
-              // 190 provides the tightest valid "early" transition without shaking.
-              return scrollPosition > 190;
+              return scrollPosition > 100;
             }
           });
 
@@ -989,8 +1058,14 @@ const Blueprint = () => {
 
     // Add scroll listener
     window.addEventListener('scroll', handleScroll, { passive: true });
+
+    // Disable scroll anchoring to prevent loop when header shrinks
+    const originalOverflowAnchor = document.body.style.overflowAnchor;
+    document.body.style.overflowAnchor = 'none';
+
     return () => {
       window.removeEventListener('scroll', handleScroll);
+      document.body.style.overflowAnchor = originalOverflowAnchor;
     };
   }, []);
 
@@ -2829,153 +2904,152 @@ const Blueprint = () => {
       </div>
 
       <div className={`min-w-0 lg:ml-[304px] transition-all duration-300 ease-in-out ${isChatOpen ? 'mr-0 md:mr-[450px]' : ''}`}>
-        {/* Sticky Header - positioned to stick below the navbar */}
-        <div className={`sticky top-20 z-50 transition-all duration-300 ease-in-out ${isScrolled ? 'bg-white/80 dark:bg-stone-900/80 backdrop-blur-md' : 'bg-transparent'}`}>
-          {/* Fixed height container to prevent layout shifts */}
-          <div className="py-6">
-            <div className="px-6 lg:px-12 max-w-7xl mx-auto">
-              {/* When scrolled: single row with title left, tabs center, doc right */}
-              {/* When not scrolled: traditional layout with title/class left, doc right, tabs below */}
-              <div className={`transition-all duration-300 ease-in-out relative ${isScrolled ? 'mb-0' : 'mb-6'}`}>
-                {/* Top row: Back button, Title, Document */}
-                <div className={`flex justify-between gap-6 transition-all duration-300 ease-in-out ${isScrolled ? 'items-center mb-0 relative' : 'items-start mb-3'}`}>
-                  {/* Left side: Title and class name */}
-                  <div className={`min-w-0 ${isScrolled ? 'flex-1' : 'w-full'}`}>
-                    <button
-                      onClick={() => {
-                        if (blueprint.class_id) {
-                          navigate(`/class/${blueprint.class_id}?tab=blueprints`);
-                        } else {
-                          navigate('/dashboard');
-                        }
-                      }}
-                      className={`flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-all duration-300 text-sm font-medium dark:text-stone-400 ${isScrolled ? 'mb-0.5' : 'mb-3'}`}
-                    >
-                      <ArrowLeft className="w-4 h-4" />
-                      {isScrolled ? 'Back' : (blueprint.class_id ? `Back to ${blueprint.class?.name || 'Class'}` : 'Back to Dashboard')}
-                    </button>
+        <div className="sticky top-20 z-50 min-h-[280px] pointer-events-none">
+          {/* Visual Wrapper - Handles background and transitions */}
+          <div className={`w-full transition-all duration-300 ease-in-out pointer-events-auto ${isScrolled ? 'bg-white/80 dark:bg-stone-900/80 backdrop-blur-md' : 'bg-transparent'}`}>
+            <div className="py-6">
+              <div className="px-6 lg:px-12 max-w-7xl mx-auto">
+                {/* When scrolled: single row with title left, tabs center, doc right */}
+                {/* When not scrolled: traditional layout with title/class left, doc right, tabs below */}
+                <div className={`transition-all duration-300 ease-in-out relative ${isScrolled ? 'mb-0' : 'mb-6'}`}>
+                  {/* Top row: Back button, Title, Document */}
+                  <div className={`flex justify-between gap-6 transition-all duration-300 ease-in-out ${isScrolled ? 'items-center mb-0 relative' : 'items-start mb-3'}`}>
+                    {/* Left side: Title and class name */}
+                    <div className={`min-w-0 ${isScrolled ? 'flex-1' : 'w-full'}`}>
+                      <button
+                        onClick={() => {
+                          if (blueprint.class_id) {
+                            navigate(`/class/${blueprint.class_id}?tab=blueprints`);
+                          } else {
+                            navigate('/dashboard');
+                          }
+                        }}
+                        className={`flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-all duration-300 text-sm font-medium dark:text-stone-400 ${isScrolled ? 'mb-0.5' : 'mb-3'}`}
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        {isScrolled ? 'Back' : (blueprint.class?.name || 'Class')}
+                      </button>
 
-                    <h1 className={`font-bold text-[#2A2B2A] dark:text-stone-100 transition-all duration-300 ease-in-out truncate origin-left ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>
-                      {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
-                    </h1>
+                      <h1 className={`font-bold text-[#2A2B2A] dark:text-stone-100 transition-all duration-300 ease-in-out truncate origin-left ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>
+                        {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
+                      </h1>
 
-                    {/* Class name subtitle - always rendered but hidden when scrolled */}
-                    <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isScrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-10 opacity-100 mt-2'}`}>
-                      {blueprint.class?.name && (
-                        <p className="text-stone-500 text-lg dark:text-stone-400">
-                          {blueprint.class.name}
-                        </p>
+                      {/* Class name subtitle - always rendered but hidden when scrolled */}
+                      <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isScrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-10 opacity-100 mt-2'}`}>
+                        {blueprint.class?.name && (
+                          <p className="text-stone-500 text-lg dark:text-stone-400">
+                            {blueprint.class.name}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Tabs (non-scrolled) - Moved here to prevent layout shift */}
+                      {structure && !isScrolled && (
+                        <div className="transition-all duration-300 ease-in-out mt-5">
+                          <div className="flex justify-center mb-0 overflow-x-auto no-scrollbar pb-2">
+                            <div className="inline-flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
+                              {tabs.map(tab => (
+                                <button
+                                  key={tab.id}
+                                  onClick={() => setActiveTab(tab.id)}
+                                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ease-in-out whitespace-nowrap snap-center ${activeTab === tab.id
+                                    ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
+                                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
+                                    }`}
+                                >
+                                  {tab.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </div>
 
-                    {/* Tabs (non-scrolled) - Moved here to prevent layout shift */}
-                    {structure && !isScrolled && (
-                      <div className="transition-all duration-300 ease-in-out mt-5">
-                        <div className="flex justify-center mb-0 overflow-x-auto no-scrollbar pb-2">
-                          <div className="inline-flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
-                            {tabs.map(tab => (
-                              <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ease-in-out whitespace-nowrap snap-center ${activeTab === tab.id
-                                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
-                                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
-                                  }`}
-                              >
-                                {tab.label}
-                              </button>
-                            ))}
-                          </div>
+                    {/* Center: Tabs (only when scrolled) - absolutely positioned to stay centered */}
+                    {structure && isScrolled && (
+                      <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-auto">
+                        <div className="inline-flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
+                          {tabs.map(tab => (
+                            <button
+                              key={tab.id}
+                              onClick={() => setActiveTab(tab.id)}
+                              className={`px-3 py-1 rounded-md text-xs font-medium transition-all duration-200 ease-in-out whitespace-nowrap ${activeTab === tab.id
+                                ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
+                                : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
+                                }`}
+                            >
+                              {tab.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Right side: Input/Document Card */}
+                    {(doc || (blueprint.description || blueprint.content?.textInput)) && (
+                      <div className={`transition-all duration-300 ease-in-out z-50 ${isScrolled ? 'w-auto relative' : 'absolute right-0 top-0 w-auto flex justify-end'}`}>
+                        <div className="flex items-center gap-2 relative">
+                          {(() => {
+                            const inputText = blueprint.description || blueprint.content?.textInput;
+                            const hasText = !!inputText && inputText.trim().length > 0;
+                            const hasDoc = !!doc;
+
+                            return (
+                              <>
+                                {hasText && (
+                                  <div className="relative">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowInputPopover(!showInputPopover);
+                                      }}
+                                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm
+                                        ${showInputPopover
+                                          ? 'bg-stone-200 dark:bg-stone-700 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-500'
+                                          : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-300 dark:border-stone-600 hover:bg-stone-50 dark:hover:bg-stone-700'
+                                        }`}
+                                    >
+                                      <AlignLeft className="w-3 h-3" />
+                                      <span className="truncate max-w-[100px]">Text Input</span>
+                                    </button>
+
+                                    {/* Popover */}
+                                    {showInputPopover && (
+                                      <div className="absolute top-full right-0 mt-2 w-96 p-4 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 z-50 animate-in fade-in slide-in-from-top-2">
+                                        <div className="flex justify-between items-start mb-3">
+                                          <h4 className="font-semibold text-stone-900 dark:text-stone-100 text-sm flex items-center gap-2">
+                                            <AlignLeft className="w-4 h-4 text-stone-500 dark:text-stone-400" />
+                                            Text Input
+                                          </h4>
+                                        </div>
+                                        <div className="text-sm text-stone-600 dark:text-stone-300 max-h-[300px] overflow-y-auto custom-scrollbar whitespace-pre-wrap leading-relaxed">
+                                          {inputText}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {hasDoc && (
+                                  <button
+                                    onClick={handleViewDocument}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-xs font-medium transition-colors shadow-sm"
+                                    title={doc.name}
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    View Document
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     )}
                   </div>
-
-                  {/* Center: Tabs (only when scrolled) - absolutely positioned to stay centered */}
-                  {structure && isScrolled && (
-                    <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-auto">
-                      <div className="inline-flex bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg border border-stone-200 dark:border-stone-700">
-                        {tabs.map(tab => (
-                          <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`px-3 py-1 rounded-md text-xs font-medium transition-all duration-200 ease-in-out whitespace-nowrap ${activeTab === tab.id
-                              ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
-                              : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
-                              }`}
-                          >
-                            {tab.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Right side: Input/Document Card */}
-                  {(doc || (blueprint.description || blueprint.content?.textInput)) && (
-                    <div className={`transition-all duration-300 ease-in-out z-50 ${isScrolled ? 'w-auto relative' : 'absolute right-0 top-0 w-auto flex justify-end'}`}>
-                      <div className="flex items-center gap-2 relative">
-                        {(() => {
-                          const inputText = blueprint.description || blueprint.content?.textInput;
-                          const hasText = !!inputText && inputText.trim().length > 0;
-                          const hasDoc = !!doc;
-
-                          return (
-                            <>
-                              {hasText && (
-                                <div className="relative">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setShowInputPopover(!showInputPopover);
-                                    }}
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm
-                                      ${showInputPopover
-                                        ? 'bg-stone-200 dark:bg-stone-700 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-500'
-                                        : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-300 dark:border-stone-600 hover:bg-stone-50 dark:hover:bg-stone-700'
-                                      }`}
-                                  >
-                                    <AlignLeft className="w-3 h-3" />
-                                    <span className="truncate max-w-[100px]">Text Input</span>
-                                  </button>
-
-                                  {/* Popover */}
-                                  {showInputPopover && (
-                                    <div className="absolute top-full right-0 mt-2 w-96 p-4 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 z-50 animate-in fade-in slide-in-from-top-2">
-                                      <div className="flex justify-between items-start mb-3">
-                                        <h4 className="font-semibold text-stone-900 dark:text-stone-100 text-sm flex items-center gap-2">
-                                          <AlignLeft className="w-4 h-4 text-stone-500 dark:text-stone-400" />
-                                          Text Input
-                                        </h4>
-                                      </div>
-                                      <div className="text-sm text-stone-600 dark:text-stone-300 max-h-[300px] overflow-y-auto custom-scrollbar whitespace-pre-wrap leading-relaxed">
-                                        {inputText}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {hasDoc && (
-                                <button
-                                  onClick={handleViewDocument}
-                                  className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-xs font-medium transition-colors shadow-sm"
-                                  title={doc.name}
-                                >
-                                  <Eye className="w-3 h-3" />
-                                  View Document
-                                </button>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
-
-
             </div>
           </div>
         </div>
@@ -3305,31 +3379,111 @@ const Blueprint = () => {
               {/* Topic List */}
               <div className="space-y-4">
                 {currentUnits.length > 0 ? (
-                  currentUnits.map((unit, idx) => (
-                    <div key={unit.unit_id || idx} className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
-                      <TopicListItem
-                        unit={unit}
-                        blueprintId={id}
-                        classId={blueprint.class_id}
-                        currentDocumentId={blueprint.document_id}
-                        topicResponse={topicResponses[unit.unit_id]}
-                        topicResources={topicResources[unit.unit_id]}
-                        topicEquations={topicEquations[unit.unit_id]}
-                        topicFigures={topicFigures[unit.unit_id]}
-                        onComfortSelect={handleComfortSelect}
-                        onGenerateBlueprint={handleGenerateBlueprint}
-                        onTriggerWebhook={handleTriggerWebhook}
-                        onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
-                        onGeneratePracticeProblem={handleGeneratePracticeProblem}
-                        practiceProblem={practiceProblems[unit.unit_id]}
-                        isGeneratingPractice={generatingPractice.has(unit.unit_id)}
-                        isSearching={searchingTopics.has(unit.unit_id)}
-                        isExpanded={expandedTopics[unit.unit_id]}
-                        onToggle={() => toggleTopic(unit.unit_id)}
-                        session={session}
-                      />
-                    </div>
-                  ))
+                  currentUnits.map((unit, idx) => {
+                    // Find matching section in document analysis to extract solution_approach
+                    // We assume currentUnits all belong to activeSection (found in parent scope)
+                    // But we can also look it up robustly here or rely on the parent computation
+
+                    let solutionApproach = null;
+                    if (documentAnalysis?.raw_analysis?.sections) {
+                      // Try to find the section this unit belongs to.
+                      // Since we are iterating currentUnits which are children of `activeSection`, 
+                      // we can rely on `activeSection` identifier found earlier in the rendering logic.
+                      // However, `activeSection` variable is defined above line 2794. 
+                      // We need to ensure we can access the matching analysis section.
+
+                      // Helper to normalize IDs for comparison (handle _walkthroughs suffix etc)
+                      const normalizeId = (id) => id?.replace('_walkthroughs', '') || '';
+
+                      // 1. Find the section this unit belongs to using the structure
+                      // We can assume the activeTab is the section ID for content sections
+                      // We need to re-find it here because activeSection variable is block-scoped above
+
+                      let currentSectionId = null;
+                      if (activeTab && structure?.content_sections) {
+                        // Try to find the section that matches the activeTab
+                        const section = structure.content_sections.find(
+                          (s, index) => (s.section_id || `section-${index}`) === activeTab
+                        );
+                        if (section) currentSectionId = section.section_id;
+                      }
+
+                      // DEBUG: Log the matching process
+                      if (idx === 0) { // Only log once per section to reduce noise
+                        console.log('[Blueprint] solutionApproach DEBUG:', {
+                          activeTab,
+                          currentSectionId,
+                          hasStructure: !!structure,
+                          structureSections: structure?.content_sections?.map(s => s.section_id),
+                          analysisSections: documentAnalysis.raw_analysis.sections.map(s => ({
+                            section_id: s.section_id,
+                            has_solution_approach: !!s.solution_approach
+                          })),
+                          unitType: unit.unit_type,
+                          unitTopic: unit.topic
+                        });
+                      }
+
+                      if (currentSectionId) {
+                        const analysisSection = documentAnalysis.raw_analysis.sections.find(s =>
+                          normalizeId(s.section_id) === normalizeId(currentSectionId)
+                        );
+
+                        if (analysisSection) {
+                          solutionApproach = analysisSection.solution_approach;
+                          if (idx === 0 && solutionApproach) {
+                            console.log('[Blueprint] Found solutionApproach for section:', currentSectionId, solutionApproach);
+                          }
+                        }
+                      }
+                    } else {
+                      // DEBUG: Log when documentAnalysis is missing
+                      if (idx === 0) {
+                        console.log('[Blueprint] solutionApproach DEBUG: No documentAnalysis or raw_analysis.sections', {
+                          hasDocumentAnalysis: !!documentAnalysis,
+                          hasRawAnalysis: !!documentAnalysis?.raw_analysis,
+                          hasSections: !!documentAnalysis?.raw_analysis?.sections
+                        });
+                      }
+                    }
+
+                    // Render Step by Step Solution as its own card BEFORE Similar Examples
+                    const isSimilarExamples = unit.topic === 'Similar Worked Example Walkthrough' ||
+                      (unit.unit_type === 'walkthrough' && unit.topic?.includes('Similar'));
+
+                    return (
+                      <React.Fragment key={unit.unit_id || idx}>
+                        {/* Render Step by Step Solution Card before Similar Examples */}
+                        {isSimilarExamples && solutionApproach && (
+                          <StepByStepSolutionCard solutionApproach={solutionApproach} />
+                        )}
+
+                        <div className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
+                          <TopicListItem
+                            unit={unit}
+                            blueprintId={id}
+                            classId={blueprint.class_id}
+                            currentDocumentId={blueprint.document_id}
+                            topicResponse={topicResponses[unit.unit_id]}
+                            topicResources={topicResources[unit.unit_id]}
+                            topicEquations={topicEquations[unit.unit_id]}
+                            topicFigures={topicFigures[unit.unit_id]}
+                            onComfortSelect={handleComfortSelect}
+                            onGenerateBlueprint={handleGenerateBlueprint}
+                            onTriggerWebhook={handleTriggerWebhook}
+                            onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
+                            onGeneratePracticeProblem={handleGeneratePracticeProblem}
+                            practiceProblem={practiceProblems[unit.unit_id]}
+                            isGeneratingPractice={generatingPractice.has(unit.unit_id)}
+                            isSearching={searchingTopics.has(unit.unit_id)}
+                            isExpanded={expandedTopics[unit.unit_id]}
+                            onToggle={() => toggleTopic(unit.unit_id)}
+                            session={session}
+                          />
+                        </div>
+                      </React.Fragment>
+                    );
+                  })
                 ) : (
                   <div className="p-8 text-center text-stone-500 dark:text-stone-400 bg-white dark:bg-stone-800 rounded-xl border border-stone-200 dark:border-stone-700">
                     No topics found in this section.
