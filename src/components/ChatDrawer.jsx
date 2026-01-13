@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-    ChevronRight, FileText, Minimize2, Plus, ArrowLeft, Trash2, Clock, Folder, Library
+    ChevronRight, FileText, Minimize2, Plus, ArrowLeft, Trash2, Clock, Folder, Library, Send, Loader2
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
@@ -462,8 +462,8 @@ const ChatDrawer = ({
                         <button
                             onClick={() => setUseClassContext(!useClassContext)}
                             className={`p-2 border rounded-lg transition-all shadow-sm ${useClassContext
-                                    ? 'bg-[#FF4A1C]/10 border-[#FF4A1C] text-[#FF4A1C]'
-                                    : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-400 hover:text-stone-600'
+                                ? 'bg-[#FF4A1C]/10 border-[#FF4A1C] text-[#FF4A1C]'
+                                : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-400 hover:text-stone-600'
                                 }`}
                             title={useClassContext ? "Searching all class documents" : "Search specific document only"}
                         >

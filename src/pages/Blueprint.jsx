@@ -16,6 +16,7 @@ import Sidebar from '../components/Sidebar';
 import ClassSidebar from '../components/ClassSidebar';
 import StructureGenerationProgress from '../components/StructureGenerationProgress';
 import ChatDrawer from '../components/ChatDrawer';
+import RelatedMaterialModule from '../components/RelatedMaterialModule';
 
 // Generation status display configuration
 const STATUS_CONFIG = {
@@ -303,6 +304,8 @@ const ResourceTable = ({ resources, session }) => {
 const TopicListItem = ({
   unit,
   blueprintId,
+  classId, // Add classId prop
+  currentDocumentId, // Add currentDocumentId prop
   topicResponse,
   topicResources,
   topicEquations,
@@ -322,6 +325,9 @@ const TopicListItem = ({
   // Track expanded state for each problem's sections
   // Format: { [`${problemIndex}-hints`]: boolean, [`${problemIndex}-solution`]: boolean }
   const [expandedSections, setExpandedSections] = useState({});
+
+  // Construct query for related material
+  const relatedMaterialQuery = `${unit.topic}: ${unit.description}`;
 
   // Track revealed count for each problem's hints and solution steps
   // Format: { [`${problemIndex}-hints`]: number, [`${problemIndex}-solution`]: number }
@@ -405,6 +411,16 @@ const TopicListItem = ({
             <div className="mb-6">
               <FigureDisplay figures={topicFigures} />
             </div>
+          )}
+
+
+          {/* Related Course Material Module - Only show for topic sections, not walkthroughs */}
+          {!isWalkthrough && (
+            <RelatedMaterialModule
+              query={relatedMaterialQuery}
+              classId={classId}
+              currentDocumentId={currentDocumentId}
+            />
           )}
 
           {/* Action Buttons */}
@@ -3294,6 +3310,8 @@ const Blueprint = () => {
                       <TopicListItem
                         unit={unit}
                         blueprintId={id}
+                        classId={blueprint.class_id}
+                        currentDocumentId={blueprint.document_id}
                         topicResponse={topicResponses[unit.unit_id]}
                         topicResources={topicResources[unit.unit_id]}
                         topicEquations={topicEquations[unit.unit_id]}

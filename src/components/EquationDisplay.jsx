@@ -78,9 +78,11 @@ const EquationCard = ({ equation, index }) => {
       </div>
 
       {/* LaTeX Equation Display */}
-      <div className="px-4 py-4 bg-white/60 dark:bg-stone-950/30">
+      <div className="px-4 py-4 bg-white/60 dark:bg-stone-950/30 overflow-hidden">
         <div className="flex justify-center items-center min-h-[3rem] text-xl text-stone-800 dark:text-stone-100">
-          {renderLatex(latex)}
+          <ScalableEquation>
+            {renderLatex(latex)}
+          </ScalableEquation>
         </div>
       </div>
 
@@ -119,6 +121,78 @@ const EquationCard = ({ equation, index }) => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+/**
+ * ScalableEquation Component
+ * 
+ * Dynamically scales content to fit within its container.
+ * Uses separate refs for measurement and transformation to prevent feedback loops.
+ */
+const ScalableEquation = ({ children }) => {
+  const containerRef = React.useRef(null);
+  const wrapperRef = React.useRef(null);
+  const innerRef = React.useRef(null);
+  const [scale, setScale] = React.useState(1);
+
+  React.useLayoutEffect(() => {
+    const checkSize = () => {
+      // 1. Measure the available space (container) and the true content size (inner)
+      if (containerRef.current && innerRef.current) {
+        const containerWidth = containerRef.current.clientWidth;
+        const contentWidth = innerRef.current.scrollWidth;
+
+        // 2. Calculate scale only if content is wider than container
+        // innerRef is never transformed, so its scrollWidth should be stable (the full size)
+        if (contentWidth > containerWidth && contentWidth > 0) {
+          setScale(containerWidth / contentWidth);
+        } else {
+          setScale(1);
+        }
+      }
+    };
+
+    checkSize();
+
+    // Observe BOTH the container resizing and the content changing (e.g. fonts loading)
+    const observer = new ResizeObserver(() => checkSize());
+
+    if (containerRef.current) observer.observe(containerRef.current);
+    if (innerRef.current) observer.observe(innerRef.current);
+
+    return () => observer.disconnect();
+  }, [children]);
+
+  return (
+    <div ref={containerRef} className="w-full flex justify-center overflow-hidden">
+      <div
+        ref={wrapperRef}
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center',
+          width: 'max-content'
+        }}
+        className="shrink-0"
+      >
+        {/* Helper to force internal KaTeX to be expansive so we can measure true width.
+            This inner element is NOT transformed directly, preserving its layout metrics for measurement. */}
+        <div ref={innerRef} className="scalable-katex-wrapper w-max">
+          {children}
+        </div>
+        <style>{`
+          .scalable-katex-wrapper .katex-display {
+             margin: 0 !important;
+             overflow: visible !important;
+             width: max-content !important;
+             max-width: none !important;
+          }
+           .scalable-katex-wrapper .katex-html {
+             overflow: visible !important;
+           }
+        `}</style>
+      </div>
     </div>
   );
 };

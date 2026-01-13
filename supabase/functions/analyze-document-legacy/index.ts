@@ -796,6 +796,15 @@ serve(async (req) => {
       .eq('id', blueprint_id);
 
     console.log('[analyze-document] Blueprint updated status to analyzed');
+
+    // Also update class_documents with the document_type for filtering
+    if (documentId && analysis.document_type) {
+      await supabase
+        .from('class_documents')
+        .update({ document_type: analysis.document_type })
+        .eq('id', documentId);
+      console.log(`[analyze-document] Updated class_documents.document_type: ${analysis.document_type}`);
+    }
     // =========================================================================
     // STEP 5: Trigger RAG Embeddings (Background)
     // =========================================================================
