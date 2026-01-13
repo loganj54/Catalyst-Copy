@@ -301,7 +301,7 @@ const ResourceTable = ({ resources, session }) => {
 // ============================================================================
 // STEP BY STEP SOLUTION CARD COMPONENT
 // ============================================================================
-const StepByStepSolutionCard = ({ solutionApproach }) => {
+const StepByStepSolutionCard = ({ solutionApproach, commonMistakes }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (!solutionApproach) return null;
@@ -333,24 +333,44 @@ const StepByStepSolutionCard = ({ solutionApproach }) => {
 
       {isExpanded && (
         <div className="pl-12 pr-6 pb-8 animate-fade-in">
-          {/* Solution Steps */}
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border border-green-200 dark:border-green-800/50">
-            <div className="space-y-4">
-              {Array.isArray(solutionApproach) ? (
-                solutionApproach.map((step, i) => (
-                  <div key={i} className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 dark:bg-green-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
-                      {i + 1}
+          <div className={`grid gap-8 ${commonMistakes?.length > 0 ? 'lg:grid-cols-2' : ''}`}>
+            {/* Left Column: Solution Steps */}
+            <div className="pl-1">
+              <h5 className="text-sm font-semibold text-stone-900 dark:text-stone-100 mb-4 opacity-50 uppercase tracking-wider">
+                Guide
+              </h5>
+              <div className="space-y-4">
+                {Array.isArray(solutionApproach) ? (
+                  solutionApproach.map((step, i) => (
+                    <div key={i} className="flex items-start">
+                      <div className="flex-1">
+                        <p className="text-stone-700 dark:text-stone-200 leading-relaxed">{step}</p>
+                      </div>
                     </div>
-                    <div className="flex-1 pt-1">
-                      <p className="text-stone-700 dark:text-stone-200 leading-relaxed">{step}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="whitespace-pre-wrap text-stone-700 dark:text-stone-200 leading-relaxed">{solutionApproach}</div>
-              )}
+                  ))
+                ) : (
+                  <div className="whitespace-pre-wrap text-stone-700 dark:text-stone-200 leading-relaxed">{solutionApproach}</div>
+                )}
+              </div>
             </div>
+
+            {/* Right Column: Common Mistakes */}
+            {commonMistakes?.length > 0 && (
+              <div className="pl-1 border-l-0 lg:border-l border-stone-200 dark:border-stone-700 lg:pl-8 mt-6 lg:mt-0">
+                <h5 className="text-sm font-semibold text-stone-900 dark:text-stone-100 mb-4 opacity-50 uppercase tracking-wider flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-orange-500" />
+                  Common Mistakes
+                </h5>
+                <div className="space-y-3">
+                  {commonMistakes.map((mistake, i) => (
+                    <div key={i} className="flex gap-3 text-sm text-stone-600 dark:text-stone-300 bg-stone-50 dark:bg-stone-800/50 p-3 rounded-lg border border-stone-100 dark:border-stone-700/50">
+                      <span className="text-red-500 font-bold shrink-0">•</span>
+                      <span>{mistake}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -3385,6 +3405,7 @@ const Blueprint = () => {
                     // But we can also look it up robustly here or rely on the parent computation
 
                     let solutionApproach = null;
+                    let commonMistakes = [];
                     if (documentAnalysis?.raw_analysis?.sections) {
                       // Try to find the section this unit belongs to.
                       // Since we are iterating currentUnits which are children of `activeSection`, 
@@ -3431,6 +3452,7 @@ const Blueprint = () => {
 
                         if (analysisSection) {
                           solutionApproach = analysisSection.solution_approach;
+                          commonMistakes = analysisSection.common_mistakes || [];
                           if (idx === 0 && solutionApproach) {
                             console.log('[Blueprint] Found solutionApproach for section:', currentSectionId, solutionApproach);
                           }
@@ -3455,7 +3477,10 @@ const Blueprint = () => {
                       <React.Fragment key={unit.unit_id || idx}>
                         {/* Render Step by Step Solution Card before Similar Examples */}
                         {isSimilarExamples && solutionApproach && (
-                          <StepByStepSolutionCard solutionApproach={solutionApproach} />
+                          <StepByStepSolutionCard
+                            solutionApproach={solutionApproach}
+                            commonMistakes={commonMistakes}
+                          />
                         )}
 
                         <div className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
