@@ -144,7 +144,7 @@ const RelatedMaterialModule = ({ query, classId, excludeDocumentId, currentDocum
 
     return (
         <>
-            <div className="mt-8 mb-4 animate-fade-in">
+            <div className="mt-2 mb-4 animate-fade-in">
                 <div className="flex items-center gap-2 mb-3">
                     <BookOpen className={`w-5 h-5 ${unitColor}`} />
                     <h4 className="font-semibold text-stone-800 dark:text-stone-200">
@@ -152,7 +152,7 @@ const RelatedMaterialModule = ({ query, classId, excludeDocumentId, currentDocum
                     </h4>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-4">
                     {matches.slice(0, 4).map((match, idx) => (
                         <div
                             key={idx}

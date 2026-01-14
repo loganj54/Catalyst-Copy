@@ -29,7 +29,7 @@ const EquationDisplay = ({ equations }) => {
         Key Equations
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {equations.map((equation, idx) => (
           <EquationCard
             key={equation.name || idx}
@@ -66,7 +66,7 @@ const EquationCard = ({ equation, index }) => {
   };
 
   return (
-    <div className="bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden h-full flex flex-col transition-colors duration-200">
+    <div className="aspect-square bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden h-full flex flex-col transition-colors duration-200 relative">
       {/* Equation Header */}
       <div className="px-4 py-3 bg-stone-100/50 dark:bg-stone-800/50 border-b border-stone-200 dark:border-stone-700">
         <div className="flex items-center gap-2">
@@ -79,48 +79,51 @@ const EquationCard = ({ equation, index }) => {
 
       {/* LaTeX Equation Display */}
       <div className="px-4 py-4 bg-white/60 dark:bg-stone-950/30 overflow-hidden">
-        <div className="flex justify-center items-center min-h-[3rem] text-xl text-stone-800 dark:text-stone-100">
+        <div className="flex justify-center items-center min-h-[3rem] text-xl text-stone-800 dark:text-stone-100 h-full">
           <ScalableEquation>
             {renderLatex(latex)}
           </ScalableEquation>
         </div>
       </div>
 
-      {/* Variable Definitions */}
-      {variables && Object.keys(variables).length > 0 && (
-        <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-900/50 border-t border-stone-200 dark:border-stone-700">
-          <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide mb-2">
-            Variables
-          </p>
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
-            {Object.entries(variables).map(([symbol, description]) => (
-              <div key={symbol} className="flex items-baseline gap-1.5 text-sm max-w-full">
-                <span className="font-mono font-semibold text-stone-600 dark:text-stone-300 shrink-0">
-                  <InlineMath math={symbol} />
-                </span>
-                <span className="text-stone-600 dark:text-stone-400 break-words min-w-0">= {description}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* When to Use */}
-      {when_to_use && (
-        <div className="px-4 py-3 bg-stone-50 dark:bg-stone-900 border-t border-stone-200 dark:border-stone-700">
-          <div className="flex items-start gap-2">
-            <Info className="w-4 h-4 text-stone-500 dark:text-stone-400 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-semibold text-stone-600 dark:text-stone-400 uppercase tracking-wide mb-0.5">
-                When to Use
-              </p>
-              <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed">
-                {when_to_use}
-              </p>
+      {/* Scrollable Content Container for Variables/Context */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        {/* Variable Definitions */}
+        {variables && Object.keys(variables).length > 0 && (
+          <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-900/50 border-t border-stone-200 dark:border-stone-700">
+            <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide mb-2">
+              Variables
+            </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {Object.entries(variables).map(([symbol, description]) => (
+                <div key={symbol} className="flex items-baseline gap-1.5 text-sm max-w-full">
+                  <span className="font-mono font-semibold text-stone-600 dark:text-stone-300 shrink-0">
+                    <InlineMath math={symbol} />
+                  </span>
+                  <span className="text-stone-600 dark:text-stone-400 break-words min-w-0">= {description}</span>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* When to Use */}
+        {when_to_use && (
+          <div className="px-4 py-3 bg-stone-50 dark:bg-stone-900 border-t border-stone-200 dark:border-stone-700">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-stone-500 dark:text-stone-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-stone-600 dark:text-stone-400 uppercase tracking-wide mb-0.5">
+                  When to Use
+                </p>
+                <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed">
+                  {when_to_use}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
