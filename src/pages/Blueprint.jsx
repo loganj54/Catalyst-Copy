@@ -409,6 +409,51 @@ const TopicListItem = ({
   // Format: { [`${problemIndex}-hints`]: boolean, [`${problemIndex}-solution`]: boolean }
   const [expandedSections, setExpandedSections] = useState({});
 
+  // Rating State
+  const [userRatings, setUserRatings] = useState({});
+  const [ratingInProgress, setRatingInProgress] = useState(null);
+  const [localAverages, setLocalAverages] = useState({});
+
+  // Submit rating to API
+  const handleRating = async (resourceId, rating) => {
+    if (!session?.access_token) {
+      console.log('User not authenticated');
+      return;
+    }
+
+    setRatingInProgress(resourceId);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/rate-resource`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ resource_id: resourceId, rating })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setUserRatings(prev => ({ ...prev, [resourceId]: rating }));
+        setLocalAverages(prev => ({
+          ...prev,
+          [resourceId]: {
+            average_rating: result.average_rating,
+            rating_count: result.rating_count
+          }
+        }));
+        console.log(`Rated resource ${resourceId}: ${rating} stars. New average: ${result.average_rating}`);
+      } else {
+        console.error('Failed to submit rating:', result.error);
+      }
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+    } finally {
+      setRatingInProgress(null);
+    }
+  };
+
   // Helper to format duration for video display
   const formatDuration = (input) => {
     if (!input) return null;
@@ -430,8 +475,109 @@ const TopicListItem = ({
   // Format: { [`${problemIndex}-hints`]: number, [`${problemIndex}-solution`]: number }
   const [revealedCounts, setRevealedCounts] = useState({});
 
+  // ============================================================================================
+  // RESOURCE SORTING & SWAPPING STATE
+  // ============================================================================================
+  const [activeResources, setActiveResources] = useState([]);
+  const [resourceQueue, setResourceQueue] = useState([]);
+
+  // Process resources when they change (or on mount)
+  useEffect(() => {
+    if (!topicResources || topicResources.length === 0) {
+      setActiveResources([]);
+      setResourceQueue([]);
+      return;
+    }
+
+    // 1. Find Top 10 by Vector Similarity (relevance_score)
+    //    (Assume desc order. If not present, default to 0)
+    const sortedBySimilarity = [...topicResources].sort((a, b) => {
+      const scoreA = typeof a.relevance_score === 'number' ? a.relevance_score : 0;
+      const scoreB = typeof b.relevance_score === 'number' ? b.relevance_score : 0;
+      return scoreB - scoreA;
+    });
+
+    // Deduplicate by URL (keep the one with highest relevance score as we just sorted)
+    const uniqueResources = [];
+    const seenUrls = new Set();
+
+    sortedBySimilarity.forEach(res => {
+      // Check for hidden status (from DB)
+      if (res.is_hidden) return;
+
+      if (res.url && !seenUrls.has(res.url)) {
+        seenUrls.add(res.url);
+        uniqueResources.push(res);
+      }
+    });
+
+    const top10 = uniqueResources.slice(0, 10);
+
+    // 2. Order the Top 10 by User Rating (average_rating) -> then Similarity
+    //    "The user average rating in TIES will just prioritize in the order of the highest vector search"
+    const sortedByRating = top10.sort((a, b) => {
+      const ratingA = typeof a.average_rating === 'number' ? a.average_rating : 0;
+      const ratingB = typeof b.average_rating === 'number' ? b.average_rating : 0;
+
+      // Primary: Rating
+      if (ratingB !== ratingA) {
+        return ratingB - ratingA;
+      }
+
+      // Secondary: Similarity
+      const scoreA = typeof a.relevance_score === 'number' ? a.relevance_score : 0;
+      const scoreB = typeof b.relevance_score === 'number' ? b.relevance_score : 0;
+      return scoreB - scoreA;
+    });
+
+    // 3. Take Top 2 for display, keep rest in queue
+    setActiveResources(sortedByRating.slice(0, 2));
+    setResourceQueue(sortedByRating.slice(2));
+
+  }, [topicResources]);
+
+  // Handle Swapping a Resource
+  const handleSwapResource = async (indexToSwap) => {
+    // 1. Get the resource to hide (the one currently being swapped out)
+    const resourceToHide = activeResources[indexToSwap];
+
+    if (!resourceToHide) return;
+
+    // 2. Optimistic Update: Update UI immediately
+    if (resourceQueue.length > 0) {
+      const nextResource = resourceQueue[0];
+      const newActive = [...activeResources];
+      newActive[indexToSwap] = nextResource;
+      setActiveResources(newActive);
+      setResourceQueue(resourceQueue.slice(1));
+    } else {
+      // If no queue, remove it from view
+      const newActive = activeResources.filter((_, i) => i !== indexToSwap);
+      setActiveResources(newActive);
+    }
+
+    // 3. Persist to Database (mark as is_hidden)
+    // We check for session and valid ID. `link_id` is the junction ID.
+    if (session?.access_token && resourceToHide.link_id) {
+      try {
+        console.log(`[Blueprint] Hiding resource link ${resourceToHide.link_id}`);
+        const { error } = await supabase
+          .from('blueprint_topic_resources')
+          .update({ is_hidden: true })
+          .eq('id', resourceToHide.link_id);
+
+        if (error) {
+          console.error('Failed to hide resource from DB:', error);
+        }
+      } catch (err) {
+        console.error('Error hiding resource:', err);
+      }
+    }
+  };
+
+
   const [showSearchContext, setShowSearchContext] = useState(false);
-  const hasResources = topicResources && topicResources.length > 0;
+  const hasResources = activeResources && activeResources.length > 0;
   const isComfortable = topicResponse?.response === 'comfortable';
   const isWalkthrough = unit.unit_type === 'walkthrough' || unit.unit_type === 'problem';
 
@@ -542,60 +688,129 @@ const TopicListItem = ({
 
               {hasResources ? (
                 <div className="space-y-6">
-                  {topicResources.map((resource, idx) => (
-                    <div key={idx} className="group">
-                      <h4 className="font-bold text-base text-stone-900 dark:text-stone-100 mb-2 leading-tight group-hover:text-[#FF4A1C] transition-colors">
-                        {resource.title}
-                      </h4>
-                      <a
-                        href={resource.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 p-0 overflow-hidden shadow-sm hover:shadow-md transition-all"
-                      >
-                        <div className="flex flex-col sm:flex-row h-full">
-                          {/* Thumbnail Section */}
-                          <div className="sm:w-48 shrink-0 bg-stone-100 dark:bg-stone-800 border-b sm:border-b-0 sm:border-r border-stone-200 dark:border-stone-700 p-3 flex flex-col items-center justify-center gap-2">
-                            <div className="aspect-video w-full rounded-lg overflow-hidden bg-stone-200 dark:bg-stone-900 relative">
-                              {getYouTubeThumbnail(resource.url) ? (
-                                <img src={getYouTubeThumbnail(resource.url)} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-stone-400">
-                                  <Youtube className="w-8 h-8 opacity-50" />
-                                </div>
-                              )}
-                              <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1 rounded">
-                                {formatDuration(resource.duration) || formatDuration(resource.duration_seconds) || 'Video'}
-                              </div>
-                            </div>
-                            {/* Rating Display */}
-                            {resource.average_rating && (
-                              <div className="flex items-center gap-1 mt-1 text-xs text-stone-500">
-                                <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                                <span>{parseFloat(resource.average_rating).toFixed(1)}</span>
-                                {resource.rating_count && <span>({resource.rating_count})</span>}
-                              </div>
-                            )}
-                          </div>
+                  {activeResources.map((resource, idx) => {
+                    // Rating Logic
+                    const resourceId = resource.id;
+                    const displayData = localAverages[resourceId] || {
+                      average_rating: resource.average_rating,
+                      rating_count: resource.rating_count
+                    };
+                    const averageRating = displayData.average_rating;
+                    const ratingCount = displayData.rating_count;
+                    const userRating = userRatings[resourceId];
+                    const isRating = ratingInProgress === resourceId;
+                    // Temporary hover state handled via CSS or we need a local state per item? 
+                    // To do per-item hover properly without a component, we need a separate component.
+                    // I will use a simple inline component pattern here for the Star functionality to handle hover state.
 
-                          {/* Content Section */}
-                          <div className="flex-1 p-4 relative">
-                            <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-4">
-                              {resource.resource_explanation || resource.description || "No specific validation details available for this resource."}
-                            </p>
-                            <div className="mt-4 flex items-center justify-between">
-                              <span className="text-xs font-medium text-stone-400 px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-800 uppercase tracking-wide">
-                                {resource.platform || 'Web'}
-                              </span>
-                              <span className="text-xs text-[#FF4A1C] font-medium flex items-center gap-1">
-                                Open Resource <ArrowUpRight className="w-3 h-3" />
-                              </span>
-                            </div>
+                    const StarRatingWidget = () => {
+                      const [hoverRating, setHoverRating] = useState(0);
+                      return (
+                        <div className="flex items-center gap-1 mt-1" onClick={(e) => e.preventDefault()}>
+                          <div className="flex items-center">
+                            {[1, 2, 3, 4, 5].map((star) => {
+                              const isFilled = hoverRating ? star <= hoverRating : (userRating ? star <= userRating : star <= Math.round(averageRating || 0));
+                              return (
+                                <button
+                                  key={star}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleRating(resourceId, star);
+                                  }}
+                                  onMouseEnter={() => setHoverRating(star)}
+                                  onMouseLeave={() => setHoverRating(0)}
+                                  disabled={isRating || !session}
+                                  className={`p-0.5 transition-all disabled:cursor-not-allowed ${isRating ? 'opacity-50' : 'hover:scale-110'}`}
+                                  title={session ? `Rate ${star} star${star > 1 ? 's' : ''}` : 'Sign in to rate'}
+                                >
+                                  <Star
+                                    className={`w-3 h-3 transition-colors ${isFilled
+                                      ? 'fill-yellow-400 text-yellow-400'
+                                      : 'fill-transparent text-stone-300 dark:text-stone-600'
+                                      }`}
+                                  />
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-stone-500 ml-1">
+                            <span>{parseFloat(averageRating || 0).toFixed(1)}</span>
+                            {ratingCount > 0 && <span>({ratingCount})</span>}
                           </div>
                         </div>
-                      </a>
-                    </div>
-                  ))}
+                      );
+                    };
+
+                    return (
+                      <div key={resource.id || idx} className="group relative">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-bold text-base text-stone-900 dark:text-stone-100 leading-tight transition-colors pr-8">
+                            {resource.title}
+                          </h4>
+
+                          {/* SWAP BUTTON */}
+                          {resourceQueue.length > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleSwapResource(idx);
+                              }}
+                              className="absolute top-0 right-0 p-1.5 text-stone-400 hover:text-[#FF4A1C] hover:bg-[#FF4A1C]/10 rounded-full transition-all"
+                              title="Swap with next best resource"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+
+                        <a
+                          href={resource.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 p-0 overflow-hidden shadow-sm hover:border-[#FF4A1C] hover:shadow-[0_0_12px_rgba(255,74,28,0.25)] transition-all duration-300"
+                        >
+                          <div className="flex flex-col sm:flex-row h-full">
+                            {/* Thumbnail Section */}
+                            <div className="sm:w-48 shrink-0 bg-stone-100 dark:bg-stone-800 border-b sm:border-b-0 sm:border-r border-stone-200 dark:border-stone-700 p-3 flex flex-col items-center justify-center gap-2">
+                              <div className="aspect-video w-full rounded-lg overflow-hidden bg-stone-200 dark:bg-stone-900 relative">
+                                {getYouTubeThumbnail(resource.url) ? (
+                                  <img src={getYouTubeThumbnail(resource.url)} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-stone-400">
+                                    <Youtube className="w-8 h-8 opacity-50" />
+                                  </div>
+                                )}
+                                <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1 rounded">
+                                  {formatDuration(resource.duration) || formatDuration(resource.duration_seconds) || 'Video'}
+                                </div>
+                              </div>
+
+                              {/* Interactive Rating */}
+                              <StarRatingWidget />
+
+                            </div>
+
+                            {/* Content Section */}
+                            <div className="flex-1 p-4 relative">
+                              <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-4">
+                                {resource.resource_explanation || resource.description || "No specific validation details available for this resource."}
+                              </p>
+                              <div className="mt-4 flex items-center justify-between">
+                                <span className="text-xs font-medium text-stone-400 px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-800 uppercase tracking-wide">
+                                  {resource.platform || 'Web'}
+                                </span>
+                                <span className="text-xs text-[#FF4A1C] font-medium flex items-center gap-1">
+                                  Open Resource <ArrowUpRight className="w-3 h-3" />
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </a>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -786,8 +1001,9 @@ const TopicListItem = ({
             </div>
           )}
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 };
 
@@ -1278,6 +1494,8 @@ const Blueprint = () => {
                 relevance_score: r.relevance_score,
                 from_cache: r.from_cache,
                 resource_explanation: r.resource_explanation,
+                is_hidden: r.is_hidden,
+                link_id: r.id // Link ID for updates
               });
               count++;
             }
