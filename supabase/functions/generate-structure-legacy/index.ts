@@ -1116,20 +1116,37 @@ serve(async (req) => {
                 console.log(`[generate-structure]   - Single unit with topic: "${cachedData.cached_unit.topic}"`);
                 console.log(`[generate-structure]   - Has tutor_guidance: ${!!cachedData.cached_unit.tutor_guidance}`);
               }
+
+              // CRITICAL CHECK: Invalidate cache if suggested_figures are missing
+              // This forces regeneration for older units that were created before the figure system
+              const hasSuggestedFigures = (
+                (cachedData.cached_unit.units && cachedData.cached_unit.units.every((u: any) => u.suggested_figures)) ||
+                (cachedData.cached_unit.suggested_figures !== undefined)
+              );
+
+              if (!hasSuggestedFigures) {
+                console.log(`[generate-structure] ⚠️ Cache hit BUT missing suggested_figures - Treating as MISS to force regeneration`);
+                // Do NOT mark as valid cache
+              } else {
+                // Valid cache
+                cacheResults.push({
+                  section_id: sectionWithEmbedding.section_id,
+                  cache_hit: true,
+                  cached_unit: cachedData.cached_unit,
+                  similarity: cachedData.similarity,
+                  source: cachedData.source || 'supabase'
+                });
+                cachedSectionsCount++;
+              }
             } else {
               console.warn(`[generate-structure] ⚠️ cached_unit is NULL/undefined for ${sectionWithEmbedding.section_id}!`);
+              // Treat as miss (fall through to implicit else below)
             }
+          }
 
-            cacheResults.push({
-              section_id: sectionWithEmbedding.section_id,
-              cache_hit: true,
-              cached_unit: cachedData.cached_unit,
-              similarity: cachedData.similarity,
-              source: cachedData.source || 'supabase'
-            });
-            cachedSectionsCount++;
-          } else {
-            console.log(`[generate-structure] ❌ CACHE MISS for ${sectionWithEmbedding.section_id}`);
+          // Note: If we fell through (invalid cache or no cache data), we treat as miss
+          if (cacheResults.length === 0 || cacheResults[cacheResults.length - 1].section_id !== sectionWithEmbedding.section_id) {
+            console.log(`[generate-structure] ❌ CACHE MISS (or Invalid) for ${sectionWithEmbedding.section_id}`);
             cacheResults.push({
               section_id: sectionWithEmbedding.section_id,
               cache_hit: false

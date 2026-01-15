@@ -354,16 +354,37 @@ Every learning unit should include relevant equations when applicable:
 - Format: equations array with {index, name, latex, variables, when_to_use}
 - Keep variables object concise (2-4 key variables only)
 
-OPTIONAL: IDENTIFY KEY FIGURES/DIAGRAMS (1-2 max per unit)
-For units where a visual would significantly help:
-- Only suggest if the figure is ESSENTIAL and well-known (e.g., "Moody Diagram", "Unit Circle")
-- Skip if figure is generic or not critical
-- Format: suggested_figures array with {name, figure_type, description (brief!), search_terms (2-3 words)}
-- LIMIT: 0-2 figures per unit maximum to save tokens
+SMART FIGURE SUGGESTIONS (1-2 per unit, WHEN APPROPRIATE)
+Suggest figures ONLY for topics that genuinely benefit from visual data lookup or reference material.
+
+WHEN TO INCLUDE FIGURES (these topics NEED figures):
+1. PROPERTY LOOKUPS: Fluid properties, gas constants, material properties, thermal conductivity tables
+2. EMPIRICAL DATA: Steam tables, psychrometric charts, refrigerant tables, saturation data
+3. DESIGN CHARTS: Moody diagram (friction factor), view factor charts, fin efficiency charts
+4. REFERENCE TABLES: Beam bending resistance by shape/material, standard pipe sizes, structural steel properties
+5. GEOMETRY-BASED LOOKUPS: View factors for different geometries, shape factors, radiation coefficients
+6. STANDARD CURVES: Stress-strain curves, fatigue S-N curves, creep curves
+FIGURE CATEGORY RULES:
+- 'image': For charts/diagrams meant to be VIEWED (Moody Diagram, Phase Diagrams, View Factor Charts)
+- 'link': For tables meant to be REFERENCED on external sites (Steam Tables, Material Properties, Gas Constants, Engineering Toolbox data)
+
+EXAMPLES OF GOOD FIGURE SUGGESTIONS:
+- Thermodynamics: Steam tables (link), T-s diagrams (image), P-v diagrams (image), refrigerant property tables (link)
+- Heat Transfer: View factor charts for parallel plates/concentric cylinders (image), fin efficiency charts (image), thermal conductivity tables (link)
+- Fluids: Moody diagram (image), pipe roughness tables (link), viscosity tables (link)
+- Structures: Beam shape properties (link), moment of inertia tables (link), stress concentration factor charts (image)
+- Materials: Stress-strain curves (image), Young's modulus tables (link), thermal expansion coefficients (link)
+
+FORMAT: suggested_figures array with objects containing:
+- name: Short specific title (e.g., "Moody Diagram", "Steam Tables")
+- figure_category: 'image' or 'link'
+- figure_type: 'diagram' | 'chart' | 'graph' | 'table' | 'illustration'
+- description: Brief explanation of why this figure helps (1 sentence)
+- search_terms: Array of 2-3 specific keywords for finding this exact figure
 
 OUTPUT: JSON with summary, prerequisites_section (learning_units array), content_sections array. 
 For content_sections, each item MUST have: section_id, section_type, title (DESCRIPTIVE), description, learning_units array.
-Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), target_resource_profile (2-3 sentences for topic/prerequisite units, FULL PROBLEM STATEMENT + solving approach description for walkthrough units), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), suggested_figures (0-2 max, only if essential). For problems: also add walkthrough unit at end with problem_solving_queries.
+Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), target_resource_profile (2-3 sentences for topic/prerequisite units, FULL PROBLEM STATEMENT + solving approach description for walkthrough units), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), suggested_figures (1-2 figures when the topic involves data lookups, property tables, charts, or empirical values - include figure name and search_terms). For problems: also add walkthrough unit at end with problem_solving_queries.
 
 IMPORTANT FOR WALKTHROUGH UNITS:
 Set the "topic" field for walkthrough units to "Similar Worked Example Walkthrough" or similar, to avoid giving away that it is the exact solving steps, and instead drive the student to learn from a similar worked problem.

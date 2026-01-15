@@ -5,7 +5,7 @@ import {
   ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp,
   ChevronRight, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
   Layout, Grid, Circle, Eye, Info, Database, ToggleLeft, ToggleRight, Timer,
-  AlignLeft, X, MessageSquare, ArrowUpRight
+  AlignLeft, X, MessageSquare, ArrowUpRight, Search
 } from 'lucide-react';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
@@ -303,7 +303,7 @@ const ResourceTable = ({ resources, session }) => {
 // ============================================================================
 // STEP BY STEP SOLUTION CARD COMPONENT
 // ============================================================================
-const StepByStepSolutionCard = ({ solutionApproach, commonMistakes }) => {
+const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (!solutionApproach) return null;
@@ -344,14 +344,31 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes }) => {
               <div className="space-y-4">
                 {Array.isArray(solutionApproach) ? (
                   solutionApproach.map((step, i) => (
-                    <div key={i} className="flex items-start">
+                    <div key={i} className="flex items-start gap-3">
+                      <span className="font-bold text-stone-400 shrink-0 mt-0.5">{i + 1}.</span>
                       <div className="flex-1">
-                        <p className="text-stone-700 dark:text-stone-200 leading-relaxed">{step}</p>
+                        <p className="text-stone-700 dark:text-stone-200 leading-relaxed">
+                          <LatexText text={step} />
+                        </p>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="whitespace-pre-wrap text-stone-700 dark:text-stone-200 leading-relaxed">{solutionApproach}</div>
+                  <div className="whitespace-pre-wrap text-stone-700 dark:text-stone-200 leading-relaxed">
+                    <LatexText text={solutionApproach} />
+                  </div>
+                )}
+
+                {/* Final Answer inside the Guide column */}
+                {finalAnswer && (
+                  <div className="mt-6 pt-6 border-t border-stone-100 dark:border-stone-700/50">
+                    <div className="bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border border-stone-200 dark:border-stone-700">
+                      <span className="text-stone-500 uppercase text-xs font-bold tracking-wider block mb-2">Final Answer</span>
+                      <div className="text-lg font-medium text-stone-900 dark:text-stone-50">
+                        <LatexText text={finalAnswer} />
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -500,6 +517,11 @@ const TopicListItem = ({
   // Format: { [`${problemIndex}-hints`]: number, [`${problemIndex}-solution`]: number }
   const [revealedCounts, setRevealedCounts] = useState({});
 
+  // Figure search/load state
+  const [figureSearching, setFigureSearching] = useState(false);
+  const [figureLoading, setFigureLoading] = useState(false);
+  const [figureResults, setFigureResults] = useState(null);
+
   // ============================================================================================
   // RESOURCE SORTING & SWAPPING STATE
   // ============================================================================================
@@ -618,6 +640,66 @@ const TopicListItem = ({
   const figures = isWalkthrough
     ? (sectionLearnFigures && sectionLearnFigures.length > 0 ? sectionLearnFigures : [])
     : (topicFigures && topicFigures.length > 0 ? topicFigures : unit.figures);
+
+  // Handler: Find Figures from Internet
+  const handleFindFigures = async () => {
+    if (!session?.access_token || !blueprintId) return;
+    setFigureSearching(true);
+    setFigureResults(null);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/search-figures`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          blueprint_id: blueprintId,
+          figure_suggestions: unit.suggested_figure,
+          subject_area: 'general'
+        })
+      });
+      const result = await response.json();
+      console.log('[TopicListItem] Find Figures result:', result);
+      setFigureResults(result);
+    } catch (error) {
+      console.error('[TopicListItem] Find Figures error:', error);
+    } finally {
+      setFigureSearching(false);
+    }
+  };
+
+  // Handler: Load Figures from Database
+  const handleLoadFigures = async () => {
+    if (!session?.access_token || !blueprintId) return;
+    setFigureLoading(true);
+    setFigureResults(null);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/load-figures-database`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          blueprint_id: blueprintId,
+          unit_id: unit.unit_id,
+          topic: unit.topic,
+          description: unit.description,
+          subject_area: 'general'
+        })
+      });
+      const result = await response.json();
+      console.log('[TopicListItem] Load Figures result:', result);
+      setFigureResults(result);
+    } catch (error) {
+      console.error('[TopicListItem] Load Figures error:', error);
+    } finally {
+      setFigureLoading(false);
+    }
+  };
 
   // Helper to extract YouTube thumbnail
   const getYouTubeThumbnail = (url) => {
@@ -768,41 +850,14 @@ const TopicListItem = ({
                             </div>
                           )}
 
-                          {/* Solution */}
-                          {problem.solution_steps && (
-                            <div className="border border-stone-200 dark:border-stone-700 rounded-lg overflow-hidden">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const key = `${idx}-solution`;
-                                  setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
-                                }}
-                                disabled={problem.solving}
-                                className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors text-left"
-                              >
-                                <span className="text-sm font-semibold text-[#FF4A1C]">View Solution</span>
-                                {expandedSections[`${idx}-solution`] ? <ChevronUp className="w-4 h-4 text-[#FF4A1C]" /> : <ChevronDown className="w-4 h-4 text-[#FF4A1C]" />}
-                              </button>
-                              {expandedSections[`${idx}-solution`] && (
-                                <div className="px-4 pb-4 pt-0 bg-white dark:bg-stone-800 animate-fade-in">
-                                  <div className="space-y-3 mt-3">
-                                    {problem.solution_steps.map((s, i) => (
-                                      <div key={i} className="flex gap-3 text-sm text-stone-700 dark:text-stone-300">
-                                        <span className="font-bold text-stone-400 shrink-0">{i + 1}.</span>
-                                        <div className="leading-relaxed"><LatexText text={s} /></div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                  {problem.final_answer && (
-                                    <div className="mt-4 pt-4 border-t border-stone-100 dark:border-stone-700/50">
-                                      <div className="bg-stone-100 dark:bg-stone-900 p-3 rounded-lg text-stone-800 dark:text-stone-200 text-sm font-medium">
-                                        <span className="text-stone-500 uppercase text-xs font-bold tracking-wider block mb-1">Final Answer</span>
-                                        <LatexText text={problem.final_answer} />
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                          {/* Solution Card */}
+                          {(problem.solution_steps || problem.solution_approach) && (
+                            <div className="mt-4">
+                              <StepByStepSolutionCard
+                                solutionApproach={problem.solution_steps || problem.solution_approach}
+                                commonMistakes={problem.common_mistakes}
+                                finalAnswer={problem.final_answer}
+                              />
                             </div>
                           )}
                         </div>
@@ -1035,12 +1090,93 @@ const TopicListItem = ({
                 </div>
               )}
 
-              {figures && figures.length > 0 && (
-                <div className="mt-6">
-                  <h6 className="text-xs font-bold text-stone-500 mb-2">Figures</h6>
-                  <FigureDisplay figures={figures} />
+              {/* Figure Buttons */}
+              <div className="mt-6 space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleFindFigures();
+                    }}
+                    disabled={figureSearching || !unit.suggested_figure?.length}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-xs disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-emerald-600 dark:text-emerald-400 border border-emerald-600 dark:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
+                  >
+                    {figureSearching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                    Find Figures
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLoadFigures();
+                    }}
+                    disabled={figureLoading}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-xs disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-purple-600 dark:text-purple-400 border border-purple-600 dark:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10"
+                  >
+                    {figureLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Database className="w-3 h-3" />}
+                    Load Figures
+                  </button>
                 </div>
-              )}
+
+                {/* Suggested Figures from AI */}
+                {(() => {
+                  // Debug: Log suggested figures to see what data is available
+                  console.log('[TopicListItem] unit.suggested_figure:', unit.suggested_figure);
+                  return null;
+                })()}
+                {unit.suggested_figure ? (
+                  <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700">
+                    <h6 className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-2">Suggested Figures</h6>
+                    {/* Handle both string and array formats */}
+                    {typeof unit.suggested_figure === 'string' ? (
+                      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                        {unit.suggested_figure}
+                      </p>
+                    ) : Array.isArray(unit.suggested_figure) ? (
+                      <ul className="space-y-2">
+                        {unit.suggested_figure.map((fig, idx) => (
+                          <li key={idx} className="text-sm text-stone-700 dark:text-stone-300">
+                            <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                              {typeof fig === 'string' ? fig : fig.name}
+                            </span>
+                            {fig.search_terms && fig.search_terms.length > 0 && (
+                              <div className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                                Search: {fig.search_terms.join(', ')}
+                              </div>
+                            )}
+                            {fig.description && (
+                              <div className="text-xs text-stone-400 dark:text-stone-500 italic">{fig.description}</div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-stone-600 dark:text-stone-300">{JSON.stringify(unit.suggested_figure)}</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-lg bg-stone-50 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-700">
+                    <p className="text-xs text-stone-400 dark:text-stone-500 italic">
+                      No figure suggestions for this topic
+                    </p>
+                  </div>
+                )}
+
+                {/* Figure Results */}
+                {figureResults && figureResults.success && figureResults.figures && figureResults.figures.length > 0 && (
+                  <div className="mt-4">
+                    <h6 className="text-xs font-bold text-stone-500 mb-2">Loaded Figures ({figureResults.figures.length})</h6>
+                    <FigureDisplay figures={figureResults.figures} />
+                  </div>
+                )}
+
+                {/* Existing Figures */}
+                {figures && figures.length > 0 && (
+                  <div>
+                    <h6 className="text-xs font-bold text-stone-500 mb-2">Figures</h6>
+                    <FigureDisplay figures={figures} />
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>
@@ -1473,6 +1609,14 @@ const Blueprint = () => {
       // Process Structure
       structureData = getResult('structure');
       if (structureData) {
+        // DEBUG: Log the raw structure data to see if suggested_figures exists
+        console.log('[Blueprint] RAW structureData from DB:', structureData);
+        const struct = structureData.structure_data || structureData.structure;
+        if (struct?.content_sections?.[0]?.learning_units?.[0]) {
+          console.log('[Blueprint] RAW first unit from DB:', struct.content_sections[0].learning_units[0]);
+          console.log('[Blueprint] RAW first unit keys:', Object.keys(struct.content_sections[0].learning_units[0]));
+        }
+
         setLearningStructure(structureData);
         setStructureGenerationResult({
           success: true,
@@ -2991,6 +3135,11 @@ const Blueprint = () => {
   }
 
   console.log('[Blueprint] Final currentUnits count:', currentUnits.length);
+  // Debug: Check if units have suggested_figures
+  if (currentUnits.length > 0) {
+    console.log('[Blueprint] First unit keys:', Object.keys(currentUnits[0]));
+    console.log('[Blueprint] First unit suggested_figure:', currentUnits[0].suggested_figure);
+  }
 
   /* Calculate Section Equations & Figures - Aggregated from "Learn" concepts only */
   const sectionLearnEquations = React.useMemo(() => {
@@ -3504,83 +3653,82 @@ const Blueprint = () => {
                   {/* Calculate Section Equations - Unique across all units in this section */
                     /* Note: currentUnits is already available in scope */
                   }
-                  {currentUnits.length > 0 ? (
-                    currentUnits.map((unit, idx) => {
-                      // Find matching section in document analysis to extract solution_approach
-
-                      let solutionApproach = null;
-                      let commonMistakes = [];
-                      if (documentAnalysis?.raw_analysis?.sections) {
-                        // Helper to normalize IDs
-                        const normalizeId = (id) => id?.replace('_walkthroughs', '') || '';
-                        let currentSectionId = null;
-                        if (activeTab && structure?.content_sections) {
-                          const section = structure.content_sections.find(
-                            (s, index) => (s.section_id || `section-${index}`) === activeTab
-                          );
-                          if (section) currentSectionId = section.section_id;
-                        }
-
-                        if (currentSectionId) {
-                          const analysisSection = documentAnalysis.raw_analysis.sections.find(s =>
-                            normalizeId(s.section_id) === normalizeId(currentSectionId)
-                          );
-
-                          if (analysisSection) {
-                            solutionApproach = analysisSection.solution_approach;
-                            commonMistakes = analysisSection.common_mistakes || [];
-                          }
+                  {/* Extract solution data once per section for the Step-by-Step Solution card */}
+                  {(() => {
+                    // Pre-compute solution data for the section
+                    let sectionSolutionApproach = null;
+                    let sectionCommonMistakes = [];
+                    if (documentAnalysis?.raw_analysis?.sections && activeTab && structure?.content_sections) {
+                      const normalizeId = (id) => id?.replace('_walkthroughs', '') || '';
+                      const section = structure.content_sections.find(
+                        (s, index) => (s.section_id || `section-${index}`) === activeTab
+                      );
+                      if (section?.section_id) {
+                        const analysisSection = documentAnalysis.raw_analysis.sections.find(s =>
+                          normalizeId(s.section_id) === normalizeId(section.section_id)
+                        );
+                        if (analysisSection) {
+                          sectionSolutionApproach = analysisSection.solution_approach;
+                          sectionCommonMistakes = analysisSection.common_mistakes || [];
                         }
                       }
+                    }
 
-                      // Render Step by Step Solution as its own card BEFORE Similar Examples
-                      const isSimilarExamples = unit.topic === 'Similar Worked Example Walkthrough' ||
-                        (unit.unit_type === 'walkthrough' && unit.topic?.includes('Similar'));
+                    // Render units with StepByStepSolutionCard appearing right before the last unit (practice dropdown)
+                    if (currentUnits.length > 0) {
+                      return currentUnits.map((unit, idx) => {
+                        const isLastUnit = idx === currentUnits.length - 1;
+                        const isSecondToLast = idx === currentUnits.length - 2;
+                        // Show the solution card right before the last unit (practice dropdown)
+                        const showSolutionCardHere = isLastUnit && sectionSolutionApproach;
 
-                      return (
-                        <React.Fragment key={unit.unit_id || idx}>
-                          {/* Render Step by Step Solution Card before Similar Examples */}
-                          {isSimilarExamples && solutionApproach && (
-                            <StepByStepSolutionCard
-                              solutionApproach={solutionApproach}
-                              commonMistakes={commonMistakes}
-                            />
-                          )}
+                        return (
+                          <React.Fragment key={unit.unit_id || idx}>
+                            {/* Render Step by Step Solution Card right before the last unit (practice dropdown) */}
+                            {showSolutionCardHere && (
+                              <StepByStepSolutionCard
+                                solutionApproach={sectionSolutionApproach}
+                                commonMistakes={sectionCommonMistakes}
+                              />
+                            )}
 
-                          <div className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
-                            <TopicListItem
-                              unit={unit}
-                              blueprintId={id}
-                              classId={blueprint.class_id}
-                              currentDocumentId={blueprint.document_id}
-                              topicResponse={topicResponses[unit.unit_id]}
-                              topicResources={topicResources[unit.unit_id]}
-                              topicEquations={topicEquations[unit.unit_id]}
-                              sectionLearnEquations={sectionLearnEquations}
-                              sectionLearnFigures={sectionLearnFigures}
-                              topicFigures={topicFigures[unit.unit_id]}
-                              onComfortSelect={handleComfortSelect}
-                              onGenerateBlueprint={handleGenerateBlueprint}
-                              onTriggerWebhook={handleTriggerWebhook}
-                              onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
-                              onGeneratePracticeProblem={handleGeneratePracticeProblem}
-                              practiceProblem={practiceProblems[unit.unit_id]}
-                              isGeneratingPractice={generatingPractice.has(unit.unit_id)}
-                              isSearching={searchingTopics.has(unit.unit_id)}
-                              isExpanded={expandedTopics[unit.unit_id]}
-                              onToggle={() => toggleTopic(unit.unit_id)}
-                              session={session}
-                            />
-                          </div>
-                        </React.Fragment>
-                      );
-                    })
-                  ) : (
-                    <div className="p-12 text-center text-stone-500 dark:text-stone-400 bg-white dark:bg-stone-800 rounded-xl border border-dashed border-stone-300 dark:border-stone-700">
-                      <Target className="w-8 h-8 mx-auto mb-3 opacity-50" />
-                      <p>No topics found in this section.</p>
-                    </div>
-                  )}
+                            <div className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
+                              <TopicListItem
+                                unit={unit}
+                                blueprintId={id}
+                                classId={blueprint.class_id}
+                                currentDocumentId={blueprint.document_id}
+                                topicResponse={topicResponses[unit.unit_id]}
+                                topicResources={topicResources[unit.unit_id]}
+                                topicEquations={topicEquations[unit.unit_id]}
+                                sectionLearnEquations={sectionLearnEquations}
+                                sectionLearnFigures={sectionLearnFigures}
+                                topicFigures={topicFigures[unit.unit_id]}
+                                onComfortSelect={handleComfortSelect}
+                                onGenerateBlueprint={handleGenerateBlueprint}
+                                onTriggerWebhook={handleTriggerWebhook}
+                                onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
+                                onGeneratePracticeProblem={handleGeneratePracticeProblem}
+                                practiceProblem={practiceProblems[unit.unit_id]}
+                                isGeneratingPractice={generatingPractice.has(unit.unit_id)}
+                                isSearching={searchingTopics.has(unit.unit_id)}
+                                isExpanded={expandedTopics[unit.unit_id]}
+                                onToggle={() => toggleTopic(unit.unit_id)}
+                                session={session}
+                              />
+                            </div>
+                          </React.Fragment>
+                        );
+                      });
+                    }
+                    // Empty state when no units
+                    return (
+                      <div className="p-12 text-center text-stone-500 dark:text-stone-400 bg-white dark:bg-stone-800 rounded-xl border border-dashed border-stone-300 dark:border-stone-700">
+                        <Target className="w-8 h-8 mx-auto mb-3 opacity-50" />
+                        <p>No topics found in this section.</p>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
