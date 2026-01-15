@@ -7,6 +7,8 @@ import {
   Layout, Grid, Circle, Eye, Info, Database, ToggleLeft, ToggleRight, Timer,
   AlignLeft, X, MessageSquare, ArrowUpRight
 } from 'lucide-react';
+import { InlineMath, BlockMath } from 'react-katex';
+import 'katex/dist/katex.min.css';
 import { useAuth } from '../context/AuthContext';
 import { useUiState } from '../context/UiStateContext';
 import { supabase } from '../lib/supabase';
@@ -379,6 +381,27 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes }) => {
 };
 
 // ============================================================================
+// LATEX TEXT COMPONENT
+// ============================================================================
+const LatexText = ({ text }) => {
+  if (!text) return null;
+  // Split by $...$ (inline) or $$...$$ (block) could be added if needed
+  // For now handling $...$ inline math
+  const parts = text.split(/(\$[^$]+\$)/g);
+  return (
+    <span>
+      {parts.map((part, i) => {
+        if (part.startsWith('$') && part.endsWith('$')) {
+          const content = part.slice(1, -1);
+          return <span key={i} className="inline-block"><InlineMath math={content} /></span>;
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </span>
+  );
+};
+
+// ============================================================================
 // TOPIC LIST ITEM COMPONENT
 // ============================================================================
 // ============================================================================
@@ -392,6 +415,8 @@ const TopicListItem = ({
   topicResponse,
   topicResources,
   topicEquations,
+  sectionLearnEquations,
+  sectionLearnFigures,
   topicFigures,
   onComfortSelect,
   onGenerateBlueprint,
@@ -582,9 +607,17 @@ const TopicListItem = ({
   const isWalkthrough = unit.unit_type === 'walkthrough' || unit.unit_type === 'problem';
 
   // Use equations from database if available, fallback to structure data
-  const equations = topicEquations && topicEquations.length > 0
-    ? topicEquations
-    : unit.equations;
+  // Prioritize sectionEquations as requested ("pull all equations from the whole section")
+  // Determine content source based on unit type
+  // PRACTICE/WALKTHROUGH: Use aggregated content from "Learn" units in this section
+  // LEARN: Use local topic content
+  const equations = isWalkthrough
+    ? (sectionLearnEquations && sectionLearnEquations.length > 0 ? sectionLearnEquations : [])
+    : (topicEquations && topicEquations.length > 0 ? topicEquations : unit.equations);
+
+  const figures = isWalkthrough
+    ? (sectionLearnFigures && sectionLearnFigures.length > 0 ? sectionLearnFigures : [])
+    : (topicFigures && topicFigures.length > 0 ? topicFigures : unit.figures);
 
   // Helper to extract YouTube thumbnail
   const getYouTubeThumbnail = (url) => {
@@ -637,50 +670,191 @@ const TopicListItem = ({
       {isExpanded && (
         <div className="px-4 pb-8 animate-fade-in">
           {/* Main 3-Column Layout */}
-          {/* Main 3-Column Layout */}
-          <div className="flex flex-col xl:flex-row gap-8">
+          {/* Main 2-Column Layout */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
 
-            {/* COLUMN 1: Overview (Fixed 25%) */}
-            <div className="w-full xl:w-1/4 space-y-6 shrink-0">
-              <div>
-                <h5 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
-                  Overview
-                </h5>
-                <p className="text-stone-700 dark:text-stone-300 text-sm leading-relaxed">
-                  {unit.description}
-                </p>
-              </div>
+            {/* COLUMN 1: Content (Overview or Practice) */}
+            <div className="space-y-8 xl:border-r border-stone-200 dark:border-stone-700 xl:pr-8">
+              {isWalkthrough ? (
+                /* PRACTICE LAYOUT - LEFT COLUMN */
+                <div className="space-y-6">
+                  {/* Unit Description Context */}
+                  <div>
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
+                      Context
+                    </h5>
+                    <p className="text-stone-700 dark:text-stone-300 text-sm leading-relaxed">
+                      {unit.description}
+                    </p>
+                  </div>
 
-              {unit.tutor_guidance && (
-                <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 shadow-sm">
-                  <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${isWalkthrough ? 'text-[#FF4A1C] dark:text-[#FF4A1C]' : 'text-stone-900 dark:text-stone-100'}`}>
-                    {isWalkthrough ? 'Walkthrough Strategy' : 'Core Concept'}
-                  </p>
-                  <p className="text-stone-600 dark:text-stone-400 text-sm leading-relaxed">
-                    {unit.tutor_guidance}
-                  </p>
+                  {/* Practice Problem Generator */}
+                  <div className="border-t border-stone-200 dark:border-stone-700 pt-6">
+                    <h5 className="text-lg font-bold text-[#FF4A1C] mb-4">
+                      Practice Problem
+                    </h5>
+
+                    {/* Generate Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onGeneratePracticeProblem(unit);
+                      }}
+                      disabled={isGeneratingPractice}
+                      className="w-full py-4 bg-stone-900 dark:bg-black text-white rounded-xl text-sm font-bold uppercase tracking-widest shadow-lg hover:shadow-xl hover:bg-stone-800 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none disabled:shadow-none mb-4 flex items-center justify-center gap-2"
+                    >
+                      {isGeneratingPractice ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          {practiceProblem ? 'New Problem' : 'Generate'}
+                        </>
+                      )}
+                    </button>
+
+                    {practiceProblem ? (
+                      (Array.isArray(practiceProblem) ? practiceProblem : [practiceProblem]).map((problem, idx) => (
+                        <div key={idx} className="space-y-4">
+                          <div className="p-4 bg-stone-50 dark:bg-stone-900/50 rounded-xl border border-stone-200 dark:border-stone-700">
+                            <p className="text-base font-medium text-stone-900 dark:text-stone-100 leading-relaxed">
+                              <LatexText text={problem.practice_problem} />
+                            </p>
+                          </div>
+
+                          {/* Hints */}
+                          {problem.hints && problem.hints.length > 0 && (
+                            <div className="border border-stone-200 dark:border-stone-700 rounded-lg overflow-hidden">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const key = `${idx}-hints`;
+                                  setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
+                                }}
+                                className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors text-left"
+                              >
+                                <span className="text-sm font-semibold text-stone-600 dark:text-stone-400">Hints</span>
+                                {expandedSections[`${idx}-hints`] ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
+                              </button>
+                              {expandedSections[`${idx}-hints`] && (
+                                <div className="px-4 pb-4 pt-0 bg-white dark:bg-stone-800">
+                                  <ul className="space-y-4 pl-4 border-l-2 border-stone-100 dark:border-stone-700 ml-1 mt-2">
+                                    {(problem.hints.slice(0, revealedCounts[`${idx}-hints`] || 1)).map((h, i) => (
+                                      <li key={i} className="text-lg font-medium text-stone-700 dark:text-stone-200 animate-fade-in mb-2">
+                                        <LatexText text={h} />
+                                      </li>
+                                    ))}
+                                  </ul>
+
+                                  {/* Reveal Next Hint Button */}
+                                  {(revealedCounts[`${idx}-hints`] || 1) < problem.hints.length && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const key = `${idx}-hints`;
+                                        setRevealedCounts(prev => ({ ...prev, [key]: (prev[key] || 1) + 1 }));
+                                      }}
+                                      className="mt-4 ml-5 text-sm font-semibold text-[#FF4A1C] hover:text-[#d43b15] flex items-center gap-1 transition-colors"
+                                    >
+                                      <span>Reveal next hint</span>
+                                      <ChevronDown className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Solution */}
+                          {problem.solution_steps && (
+                            <div className="border border-stone-200 dark:border-stone-700 rounded-lg overflow-hidden">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const key = `${idx}-solution`;
+                                  setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
+                                }}
+                                disabled={problem.solving}
+                                className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors text-left"
+                              >
+                                <span className="text-sm font-semibold text-[#FF4A1C]">View Solution</span>
+                                {expandedSections[`${idx}-solution`] ? <ChevronUp className="w-4 h-4 text-[#FF4A1C]" /> : <ChevronDown className="w-4 h-4 text-[#FF4A1C]" />}
+                              </button>
+                              {expandedSections[`${idx}-solution`] && (
+                                <div className="px-4 pb-4 pt-0 bg-white dark:bg-stone-800 animate-fade-in">
+                                  <div className="space-y-3 mt-3">
+                                    {problem.solution_steps.map((s, i) => (
+                                      <div key={i} className="flex gap-3 text-sm text-stone-700 dark:text-stone-300">
+                                        <span className="font-bold text-stone-400 shrink-0">{i + 1}.</span>
+                                        <div className="leading-relaxed"><LatexText text={s} /></div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {problem.final_answer && (
+                                    <div className="mt-4 pt-4 border-t border-stone-100 dark:border-stone-700/50">
+                                      <div className="bg-stone-100 dark:bg-stone-900 p-3 rounded-lg text-stone-800 dark:text-stone-200 text-sm font-medium">
+                                        <span className="text-stone-500 uppercase text-xs font-bold tracking-wider block mb-1">Final Answer</span>
+                                        <LatexText text={problem.final_answer} />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      /* Empty state for practice problem */
+                      <div className="text-stone-400 text-sm text-center italic mt-4 bg-stone-50 dark:bg-stone-900/30 p-6 rounded-xl border border-dashed border-stone-200 dark:border-stone-800">
+                        <Target className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                        <p>Generate a verified problem to practice.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
+              ) : (
+                /* LEARN LAYOUT - LEFT COLUMN */
+                <div className="space-y-6">
+                  <div>
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
+                      Overview
+                    </h5>
+                    <p className="text-stone-700 dark:text-stone-300 text-sm leading-relaxed">
+                      {unit.description}
+                    </p>
+                  </div>
 
+                  {unit.tutor_guidance && (
+                    <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 shadow-sm">
+                      <p className="text-xs font-semibold uppercase tracking-wide mb-2 text-stone-900 dark:text-stone-100">
+                        Core Concept
+                      </p>
+                      <p className="text-stone-600 dark:text-stone-400 text-sm leading-relaxed">
+                        {unit.tutor_guidance}
+                      </p>
+                    </div>
+                  )}
 
-
-              {/* Related Material (Moved to Overview Column) */}
-              {!isWalkthrough && (
-                <div className="pt-4 border-t border-stone-200 dark:border-stone-700">
-                  <p className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
-                    Related
-                  </p>
-                  <RelatedMaterialModule
-                    query={relatedMaterialQuery}
-                    classId={classId}
-                    currentDocumentId={currentDocumentId}
-                  />
+                  <div className="pt-4 border-t border-stone-200 dark:border-stone-700">
+                    <p className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
+                      Related
+                    </p>
+                    <RelatedMaterialModule
+                      query={relatedMaterialQuery}
+                      classId={classId}
+                      currentDocumentId={currentDocumentId}
+                    />
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* COLUMN 2: Resources (Equal Width) */}
-            <div className="flex-1 border-l-2 border-r-2 border-stone-200 dark:border-stone-700 px-0 xl:px-6 min-w-0">
+            {/* COLUMN 2: Resources (Center) */}
+            <div className="space-y-8 xl:border-r border-stone-200 dark:border-stone-700 xl:pr-8">
               <h5 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4 flex items-center gap-2">
                 <Play className="w-3 h-3" />
                 {isWalkthrough ? 'Similar Examples' : 'Resources'}
@@ -689,7 +863,6 @@ const TopicListItem = ({
               {hasResources ? (
                 <div className="space-y-6">
                   {activeResources.map((resource, idx) => {
-                    // Rating Logic
                     const resourceId = resource.id;
                     const displayData = localAverages[resourceId] || {
                       average_rating: resource.average_rating,
@@ -699,9 +872,6 @@ const TopicListItem = ({
                     const ratingCount = displayData.rating_count;
                     const userRating = userRatings[resourceId];
                     const isRating = ratingInProgress === resourceId;
-                    // Temporary hover state handled via CSS or we need a local state per item? 
-                    // To do per-item hover properly without a component, we need a separate component.
-                    // I will use a simple inline component pattern here for the Star functionality to handle hover state.
 
                     const StarRatingWidget = () => {
                       const [hoverRating, setHoverRating] = useState(0);
@@ -749,7 +919,6 @@ const TopicListItem = ({
                             {resource.title}
                           </h4>
 
-                          {/* SWAP BUTTON */}
                           {resourceQueue.length > 0 && (
                             <button
                               onClick={(e) => {
@@ -772,7 +941,6 @@ const TopicListItem = ({
                           className="block bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 p-0 overflow-hidden shadow-sm hover:border-[#FF4A1C] hover:shadow-[0_0_12px_rgba(255,74,28,0.25)] transition-all duration-300"
                         >
                           <div className="flex flex-col sm:flex-row h-full">
-                            {/* Thumbnail Section */}
                             <div className="sm:w-48 shrink-0 bg-stone-100 dark:bg-stone-800 border-b sm:border-b-0 sm:border-r border-stone-200 dark:border-stone-700 p-3 flex flex-col items-center justify-center gap-2">
                               <div className="aspect-video w-full rounded-lg overflow-hidden bg-stone-200 dark:bg-stone-900 relative">
                                 {getYouTubeThumbnail(resource.url) ? (
@@ -786,13 +954,8 @@ const TopicListItem = ({
                                   {formatDuration(resource.duration) || formatDuration(resource.duration_seconds) || 'Video'}
                                 </div>
                               </div>
-
-                              {/* Interactive Rating */}
                               <StarRatingWidget />
-
                             </div>
-
-                            {/* Content Section */}
                             <div className="flex-1 p-4 relative">
                               <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-4">
                                 {resource.resource_explanation || resource.description || "No specific validation details available for this resource."}
@@ -816,8 +979,6 @@ const TopicListItem = ({
                 <div className="space-y-6">
                   <div className="p-6 text-center border-2 border-dashed border-stone-200 dark:border-stone-700 rounded-xl">
                     <p className="text-stone-500 dark:text-stone-400 text-sm mb-4">No resources gathered yet.</p>
-
-                    {/* Search/Generation Buttons */}
                     {!isComfortable && (
                       <div className="flex flex-wrap justify-center gap-3">
                         <button
@@ -845,12 +1006,7 @@ const TopicListItem = ({
                       </div>
                     )}
                   </div>
-
-                  {/* Show Search Context if active */}
                   {showSearchContext && (
-                    /* ... (Search Context Visuals - Simplified for brevity or keeping original block) ... */
-                    /* I will assume reusing the original large search context block is fine, but maybe scaled down? */
-                    /* For now, simplified placeholder or just keep it hidden unless requested */
                     <div className="p-4 rounded-xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-700">
                       <h6 className="font-bold text-xs text-stone-500 mb-2">Search Logic Active</h6>
                       <div className="space-y-1">
@@ -862,148 +1018,35 @@ const TopicListItem = ({
               )}
             </div>
 
-            {/* COLUMN 3: Equations / Figures (Equal Width) */}
-            <div className="flex-1 space-y-6 min-w-0">
-              <div>
-                <h5 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4">
-                  Equations & Figures
-                </h5>
+            {/* COLUMN 3: Practice Problem (Right) */}
+            {/* COLUMN 3: Equations & Figures (Right) */}
+            <div className="space-y-6">
+              <h5 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4">
+                Equations & Figures
+              </h5>
 
-                {equations && equations.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-3">
-                    {/* 2 Wide Modules logic: The user said "equation little modules, too wide" (two wide). 
-                           If the column is thin, maybe stack them or 2-col grid inside?
-                           "module, two wide, is all" -> Maybe they meant 2 per row? 
-                           If I use grid-cols-2 inside this col-span-3, they will be tiny. 
-                           I'll stick to full width cards inside this column for legibility unless space allows.
-                        */}
-                    <EquationDisplay equations={equations} />
-                  </div>
-                ) : (
-                  <div className="p-4 text-center border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-stone-800/50">
-                    <span className="text-xs text-stone-400">No equations detected</span>
-                  </div>
-                )}
-              </div>
+              {equations && equations.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3">
+                  <EquationDisplay equations={equations} />
+                </div>
+              ) : (
+                <div className="p-4 text-center border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-stone-800/50">
+                  <span className="text-xs text-stone-400">No equations detected</span>
+                </div>
+              )}
 
-              {topicFigures && topicFigures.length > 0 && (
-                <div>
+              {figures && figures.length > 0 && (
+                <div className="mt-6">
                   <h6 className="text-xs font-bold text-stone-500 mb-2">Figures</h6>
-                  <FigureDisplay figures={topicFigures} />
-                </div>
-              )}
-
-
-
-              {/* Practice Problem (Moved here or kept in Flow? - User didn't specify, but right column is good for tools) */}
-              {isWalkthrough && (
-                <div className="mt-4">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onGeneratePracticeProblem(unit);
-                    }}
-                    disabled={isGeneratingPractice}
-                    className="w-full px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg text-xs font-bold uppercase tracking-wide hover:shadow-lg transition-all disabled:opacity-50"
-                  >
-                    {isGeneratingPractice ? 'Generating...' : (practiceProblem ? 'New Problem' : 'Generate Practice')}
-                  </button>
-                  {/* Practice problem display would ideally expand in a modal or below, 
-                           but putting it in a narrow column is bad. 
-                           Maybe practice problem rendering should be overlay or stay in middle?
-                           The user said "Step-by-Step Solution drop-down... two columns...". 
-                           Practice Problem usually generates the step by step. 
-                           I'll leave the Practice Problem rendering in the MIDDLE column if it exists?
-                           Or just above the grid?
-                           
-                           User said "Inside each of those dropdowns... different layout... three columns".
-                           If I generate a practice problem, where does it go?
-                           "The photo starts on just the main screen...".
-                           
-                           Let's put Practice Problem Result below the 3-col grid if present, or inside Middle Column.
-                           Middle col is "Resources". 
-                           For now I'll hide Practice Problem result inside this specific component view 
-                           and assume it shows up in "Step by Step Solution" (which is a generic Unit-level card?).
-                           Actually, the code I replaced had `isWalkthrough && practiceProblem` RENDERED inside the expansion.
-                           I MUST render it. I'll put it in a full-width row BELOW the 3-col grid.
-                        */}
+                  <FigureDisplay figures={figures} />
                 </div>
               )}
             </div>
+
           </div>
-
-          {/* FULL WIDTH ROW: Practice Problem Display */}
-          {isWalkthrough && practiceProblem && (
-            <div className="mt-8 pt-6 border-t border-stone-200 dark:border-stone-700">
-              <h5 className="text-lg font-bold text-[#FF4A1C] mb-4">Practice Problem</h5>
-              {(Array.isArray(practiceProblem) ? practiceProblem : [practiceProblem]).map((problem, idx) => (
-                <div key={idx} className="bg-stone-50 dark:bg-stone-900/50 rounded-xl p-6 border border-stone-200 dark:border-stone-700 mb-6 last:mb-0">
-                  <p className="text-lg font-medium text-stone-900 dark:text-stone-100 mb-4">{problem.practice_problem}</p>
-
-                  {/* Hints and Solutions */}
-                  <div className="space-y-3">
-                    <div className="flex gap-4">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const key = `${idx}-hints`;
-                          setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
-                        }}
-                        className="px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-sm font-medium hover:bg-stone-50 dark:hover:bg-stone-700 transition-colors"
-                      >
-                        {expandedSections[`${idx}-hints`] ? 'Hide Hints' : 'Show Hints'}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const key = `${idx}-solution`;
-                          setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
-                        }}
-                        disabled={problem.solving}
-                        className="px-4 py-2 bg-[#FF4A1C] text-white rounded-lg text-sm font-medium disabled:opacity-50 hover:bg-[#e03e15] transition-colors"
-                      >
-                        View Solution
-                      </button>
-                    </div>
-
-                    {/* Expanded content */}
-                    {expandedSections[`${idx}-hints`] && problem.hints && (
-                      <div className="mt-4 p-4 bg-white dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700">
-                        <h6 className="font-bold text-xs uppercase text-stone-400 mb-2">Hints</h6>
-                        <ul className="list-disc pl-4 space-y-1">
-                          {problem.hints.map((h, i) => <li key={i} className="text-sm text-stone-600 dark:text-stone-300">{h}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                    {expandedSections[`${idx}-solution`] && problem.solution_steps && (
-                      <div className="mt-4 p-4 bg-white dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700">
-                        <h6 className="font-bold text-xs uppercase text-stone-400 mb-2">Solution</h6>
-                        <div className="space-y-2">
-                          {problem.solution_steps.map((s, i) => (
-                            <div key={i} className="flex gap-3 text-sm text-stone-700 dark:text-stone-300">
-                              <span className="font-bold text-stone-400">{i + 1}.</span>
-                              <p>{s}</p>
-                            </div>
-                          ))}
-                        </div>
-                        {problem.final_answer && (
-                          <div className="mt-4 pt-4 border-t border-stone-100 dark:border-stone-700/50">
-                            <div className="font-mono bg-stone-100 dark:bg-stone-900 p-2 rounded text-stone-800 dark:text-stone-200">
-                              {problem.final_answer}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-      )
-      }
-    </div >
+      )}
+    </div>
   );
 };
 
@@ -2848,20 +2891,12 @@ const Blueprint = () => {
     }));
   };
 
-  if (loading) {
-    return <BlueprintSkeleton />;
-  }
-  if (!blueprint) return null;
-
-  const content = blueprint.content || {};
   // Handle both direct structure and wrapped structure
   let structure = learningStructure?.structure;
   // If structure is wrapped in learning_structure key, unwrap it
   if (structure?.learning_structure) {
     structure = structure.learning_structure;
   }
-  const StatusIcon = STATUS_CONFIG[generationStatus]?.icon || Loader2;
-  const statusConfig = STATUS_CONFIG[generationStatus] || STATUS_CONFIG.pending;
 
   // Build tabs list
   const tabs = [];
@@ -2957,6 +2992,50 @@ const Blueprint = () => {
 
   console.log('[Blueprint] Final currentUnits count:', currentUnits.length);
 
+  /* Calculate Section Equations & Figures - Aggregated from "Learn" concepts only */
+  const sectionLearnEquations = React.useMemo(() => {
+    // Filter for Learn units (not walkthroughs)
+    const learnUnits = currentUnits.filter(u =>
+      u.unit_type !== 'walkthrough' &&
+      u.topic !== 'Similar Worked Example Walkthrough' &&
+      !u.topic?.includes('Similar')
+    );
+
+    return learnUnits.flatMap(u => topicEquations[u.unit_id] || u.equations || []).reduce((acc, eq) => {
+      // Deduplicate by name
+      if (!acc.some(e => e.name === eq.name)) {
+        acc.push(eq);
+      }
+      return acc;
+    }, []);
+  }, [currentUnits, topicEquations]);
+
+  const sectionLearnFigures = React.useMemo(() => {
+    // Filter for Learn units (not walkthroughs)
+    const learnUnits = currentUnits.filter(u =>
+      u.unit_type !== 'walkthrough' &&
+      u.topic !== 'Similar Worked Example Walkthrough' &&
+      !u.topic?.includes('Similar')
+    );
+
+    return learnUnits.flatMap(u => topicFigures[u.unit_id] || u.figures || []).reduce((acc, fig) => {
+      // Deduplicate by title or url
+      if (!acc.some(f => f.title === fig.title || f.url === fig.url)) {
+        acc.push(fig);
+      }
+      return acc;
+    }, []);
+  }, [currentUnits, topicFigures]);
+
+  if (loading) {
+    return <BlueprintSkeleton />;
+  }
+  if (!blueprint) return null;
+
+  const content = blueprint.content || {};
+  const StatusIcon = STATUS_CONFIG[generationStatus]?.icon || Loader2;
+  const statusConfig = STATUS_CONFIG[generationStatus] || STATUS_CONFIG.pending;
+
   const doc = blueprint.document || (blueprint.file_metadata ? {
     name: blueprint.file_metadata.name,
     file_size: blueprint.file_metadata.size,
@@ -2981,7 +3060,7 @@ const Blueprint = () => {
       <div className={`min-w-0 lg:ml-[304px] transition-all duration-300 ease-in-out ${isChatOpen ? 'mr-0 md:mr-[450px]' : ''}`}>
         <div className="sticky top-20 z-50 min-h-[140px] pointer-events-none">
           {/* Visual Wrapper - Handles background and transitions */}
-          <div className={`w-full transition-all duration-300 ease-in-out pointer-events-auto ${isScrolled ? 'bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 shadow-sm' : 'bg-transparent'}`}>
+          <div className={`w-full transition-all duration-300 ease-in-out pointer-events-auto ${isScrolled ? 'bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl' : 'bg-transparent'}`}>
             <div className="py-6">
               <div className="px-10 w-full max-w-none mx-0">
                 <div className={`transition-all duration-300 ease-in-out relative mb-0`}>
@@ -3422,6 +3501,9 @@ const Blueprint = () => {
 
                 {/* Topic List */}
                 <div className="space-y-6">
+                  {/* Calculate Section Equations - Unique across all units in this section */
+                    /* Note: currentUnits is already available in scope */
+                  }
                   {currentUnits.length > 0 ? (
                     currentUnits.map((unit, idx) => {
                       // Find matching section in document analysis to extract solution_approach
@@ -3474,6 +3556,8 @@ const Blueprint = () => {
                               topicResponse={topicResponses[unit.unit_id]}
                               topicResources={topicResources[unit.unit_id]}
                               topicEquations={topicEquations[unit.unit_id]}
+                              sectionLearnEquations={sectionLearnEquations}
+                              sectionLearnFigures={sectionLearnFigures}
                               topicFigures={topicFigures[unit.unit_id]}
                               onComfortSelect={handleComfortSelect}
                               onGenerateBlueprint={handleGenerateBlueprint}

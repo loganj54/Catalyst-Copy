@@ -297,7 +297,7 @@ const PdfViewerModal = ({ isOpen, onClose, fileUrl, fileName, initialSearchText 
 
                 {/* Header */}
                 <div className="relative flex items-center justify-between p-4 border-b border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 z-10 h-20">
-                    <div className="flex flex-col gap-1 z-10 max-w-[30%]">
+                    <div className="flex flex-col gap-1 z-10 max-w-[45%]">
                         <h3 className="font-semibold text-lg text-stone-900 dark:text-stone-100 truncate">
                             {fileName || "Document Viewer"}
                         </h3>

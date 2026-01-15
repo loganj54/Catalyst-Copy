@@ -66,7 +66,7 @@ const EquationCard = ({ equation, index }) => {
   };
 
   return (
-    <div className="aspect-square bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden h-full flex flex-col transition-colors duration-200 relative">
+    <div className="bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden h-full flex flex-col transition-colors duration-200 relative">
       {/* Equation Header */}
       <div className="px-4 py-3 bg-stone-100/50 dark:bg-stone-800/50 border-b border-stone-200 dark:border-stone-700">
         <div className="flex items-center gap-2">
@@ -77,8 +77,8 @@ const EquationCard = ({ equation, index }) => {
         </div>
       </div>
 
-      {/* LaTeX Equation Display */}
-      <div className="px-4 py-4 bg-white/60 dark:bg-stone-950/30 overflow-hidden">
+      {/* LaTeX Equation Display - Fixed height container for consistency */}
+      <div className="px-4 py-4 bg-white/60 dark:bg-stone-950/30 overflow-hidden border-b border-stone-100 dark:border-stone-800">
         <div className="flex justify-center items-center min-h-[3rem] text-xl text-stone-800 dark:text-stone-100 h-full">
           <ScalableEquation>
             {renderLatex(latex)}
@@ -86,8 +86,8 @@ const EquationCard = ({ equation, index }) => {
         </div>
       </div>
 
-      {/* Scrollable Content Container for Variables/Context */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      {/* Full Content Container (No Scrollbar) */}
+      <div className="flex-1">
         {/* Variable Definitions */}
         {variables && Object.keys(variables).length > 0 && (
           <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-900/50 border-t border-stone-200 dark:border-stone-700">
