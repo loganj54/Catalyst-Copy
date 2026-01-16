@@ -58,7 +58,7 @@ export async function callClaude(
     throw new Error('ANTHROPIC_API_KEY is not set. Run: supabase secrets set ANTHROPIC_API_KEY=your-key');
   }
 
-  const maxTokens = options?.maxTokens ?? 8192;
+  const maxTokens = options?.maxTokens ?? 16384;
   const temperature = options?.temperature ?? 0.3;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
