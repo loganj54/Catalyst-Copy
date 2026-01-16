@@ -656,7 +656,7 @@ const TopicListItem = ({
         },
         body: JSON.stringify({
           blueprint_id: blueprintId,
-          figure_suggestions: unit.suggested_figure,
+          figure_suggestions: unit.suggested_figures,
           subject_area: 'general'
         })
       });
@@ -1098,7 +1098,7 @@ const TopicListItem = ({
                       e.stopPropagation();
                       handleFindFigures();
                     }}
-                    disabled={figureSearching || !unit.suggested_figure?.length}
+                    disabled={figureSearching || !unit.suggested_figures?.length}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-xs disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-emerald-600 dark:text-emerald-400 border border-emerald-600 dark:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
                   >
                     {figureSearching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
@@ -1120,20 +1120,20 @@ const TopicListItem = ({
                 {/* Suggested Figures from AI */}
                 {(() => {
                   // Debug: Log suggested figures to see what data is available
-                  console.log('[TopicListItem] unit.suggested_figure:', unit.suggested_figure);
+                  console.log('[TopicListItem] unit.suggested_figures:', unit.suggested_figures);
                   return null;
                 })()}
-                {unit.suggested_figure ? (
+                {unit.suggested_figures ? (
                   <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700">
                     <h6 className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-2">Suggested Figures</h6>
                     {/* Handle both string and array formats */}
-                    {typeof unit.suggested_figure === 'string' ? (
+                    {typeof unit.suggested_figures === 'string' ? (
                       <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                        {unit.suggested_figure}
+                        {unit.suggested_figures}
                       </p>
-                    ) : Array.isArray(unit.suggested_figure) ? (
+                    ) : Array.isArray(unit.suggested_figures) ? (
                       <ul className="space-y-2">
-                        {unit.suggested_figure.map((fig, idx) => (
+                        {unit.suggested_figures.map((fig, idx) => (
                           <li key={idx} className="text-sm text-stone-700 dark:text-stone-300">
                             <span className="font-semibold text-emerald-700 dark:text-emerald-400">
                               {typeof fig === 'string' ? fig : fig.name}
@@ -1150,7 +1150,7 @@ const TopicListItem = ({
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-sm text-stone-600 dark:text-stone-300">{JSON.stringify(unit.suggested_figure)}</p>
+                      <p className="text-sm text-stone-600 dark:text-stone-300">{JSON.stringify(unit.suggested_figures)}</p>
                     )}
                   </div>
                 ) : (
@@ -3138,7 +3138,7 @@ const Blueprint = () => {
   // Debug: Check if units have suggested_figures
   if (currentUnits.length > 0) {
     console.log('[Blueprint] First unit keys:', Object.keys(currentUnits[0]));
-    console.log('[Blueprint] First unit suggested_figure:', currentUnits[0].suggested_figure);
+    console.log('[Blueprint] First unit suggested_figures:', currentUnits[0].suggested_figures);
   }
 
   /* Calculate Section Equations & Figures - Aggregated from "Learn" concepts only */

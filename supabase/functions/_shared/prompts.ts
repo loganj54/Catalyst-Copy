@@ -210,7 +210,7 @@ CRITICAL RULES:
     - For topic/prerequisite units: 2-3 sentences describing the ideal explanatory video
     - For walkthrough units: Include the COMPLETE original problem statement with ALL details, followed by the solving approach description
 11. For problem units, generate BOTH search_queries AND problem_solving_queries.
-12. PRIORITY: Complete the JSON structure. If approaching token limit, skip suggested_figures and focus on core content.
+12. ALWAYS include "suggested_figures" for units that involve data lookups, tables, charts, or empirical values. This is REQUIRED for engineering/physics topics.
 
 AVOIDING META-CONCEPTS - CRITICAL FOR VAGUE INPUTS:
 When the input is vague or general (like "I'm struggling with collisions in Dynamics"), DO NOT create concepts for:
@@ -258,7 +258,7 @@ For lecture documents, each topic section should contain INDIVIDUAL CONCEPTS as 
   * target_resource_profile: Description of ideal video for THIS SPECIFIC CONCEPT (2-3 sentences)
   * search_queries: 3 queries specific to THIS CONCEPT
   * equations: Equations relevant to THIS CONCEPT (if applicable)
-  * suggested_figures: 0-2 figures for THIS CONCEPT (if essential)
+  * suggested_figures: 1-2 figures for THIS CONCEPT (REQUIRED for topics involving tables, charts, or property lookups)
 - Example: If Topic 1 has key_concepts ["Newton's Laws", "Free Body Diagrams", "Force Analysis"], create 3 separate learning_units, one for each concept
 
 DYNAMIC SECTION NAMING & TITLES - CRITICAL:
@@ -435,14 +435,14 @@ INSTRUCTIONS:
     - CONCEPT/PREREQUISITE units: "A video explaining [Topic] clearly, covering [key concepts], with examples demonstrating [applications]..." (2-3 sentences)
     - WALKTHROUGH units: "A video solving this problem: [COPY THE COMPLETE problem_statement FROM THE INPUT SECTION - include ALL given values with units, unknowns, conditions, assumptions, and full context]. The video should demonstrate step-by-step calculations using [specific equations from equations_needed], explain [concepts from concepts_tested], and show [steps from solving_approach]." (Include the ENTIRE problem_statement field from the input)
 11. FOR WALKTHROUGH UNITS: Extract the problem_statement from the corresponding section in the input data and include it verbatim in the target_resource_profile
-12. FOR LECTURE CONCEPTS: Each key_concept becomes its own learning_unit with all fields (tutor_guidance, target_resource_profile, search_queries, equations, etc.)
-13. OPTIONALLY suggest 0-2 essential figures per unit (only if critical)
-14. **CRITICAL**: Complete all JSON brackets - if approaching token limit, skip suggested_figures entirely and focus on completing the structure
+12. FOR LECTURE CONCEPTS: Each key_concept becomes its own learning_unit with all fields (tutor_guidance, target_resource_profile, search_queries, equations, suggested_figures, etc.)
+13. ALWAYS include "suggested_figures" array (even if empty []) for EVERY unit. For engineering/physics topics involving property lookups, tables, or charts, include 1-2 relevant figures.
+14. **CRITICAL**: Complete all JSON brackets. Ensure every unit has the suggested_figures field.
 
 INPUT DATA:
 ${JSON.stringify(input, null, 2)}
 
-Output valid JSON only. PRIORITIZE completing the JSON structure over including all optional fields.`
+Output valid JSON only. Ensure EVERY learning unit includes: unit_id, unit_type, topic, tutor_guidance, target_resource_profile, search_queries, equations (if applicable), and suggested_figures (array, can be empty []).`
   },
 
   // ==========================================================================
