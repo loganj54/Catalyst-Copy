@@ -10,13 +10,13 @@ VALUES (
     'figures-library',
     'figures-library',
     true,  -- Public bucket so figures can be displayed without auth
-    524288,  -- 512KB max file size (0.5 MB) to keep costs down
-    ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
+    5242880,  -- 5MB max file size to allow PDFs and high-quality diagrams
+    ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'application/pdf']
 )
 ON CONFLICT (id) DO UPDATE SET
     public = true,
-    file_size_limit = 524288,
-    allowed_mime_types = ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    file_size_limit = 5242880,
+    allowed_mime_types = ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'application/pdf'];
 
 -- ============================================================================
 -- STORAGE POLICIES

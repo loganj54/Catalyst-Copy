@@ -577,9 +577,9 @@ const TopicListItem = ({
       return scoreB - scoreA;
     });
 
-    // 3. Take Top 2 for display, keep rest in queue
-    setActiveResources(sortedByRating.slice(0, 2));
-    setResourceQueue(sortedByRating.slice(2));
+    // 3. Take Top 1 for display, keep rest in queue (user can reroll to see more)
+    setActiveResources(sortedByRating.slice(0, 1));
+    setResourceQueue(sortedByRating.slice(1));
 
   }, [topicResources]);
 
@@ -885,9 +885,7 @@ const TopicListItem = ({
 
                   {unit.tutor_guidance && (
                     <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-wide mb-2 text-stone-900 dark:text-stone-100">
-                        Core Concept
-                      </p>
+
                       <p className="text-stone-600 dark:text-stone-400 text-sm leading-relaxed">
                         {unit.tutor_guidance}
                       </p>
@@ -916,120 +914,139 @@ const TopicListItem = ({
               </h5>
 
               {hasResources ? (
-                <div className="space-y-6">
-                  {activeResources.map((resource, idx) => {
-                    const resourceId = resource.id;
-                    const displayData = localAverages[resourceId] || {
-                      average_rating: resource.average_rating,
-                      rating_count: resource.rating_count
-                    };
-                    const averageRating = displayData.average_rating;
-                    const ratingCount = displayData.rating_count;
-                    const userRating = userRatings[resourceId];
-                    const isRating = ratingInProgress === resourceId;
+                <>
+                  <div className="space-y-6">
+                    {activeResources.map((resource, idx) => {
+                      const resourceId = resource.id;
+                      const displayData = localAverages[resourceId] || {
+                        average_rating: resource.average_rating,
+                        rating_count: resource.rating_count
+                      };
+                      const averageRating = displayData.average_rating;
+                      const ratingCount = displayData.rating_count;
+                      const userRating = userRatings[resourceId];
+                      const isRating = ratingInProgress === resourceId;
 
-                    const StarRatingWidget = () => {
-                      const [hoverRating, setHoverRating] = useState(0);
+                      const StarRatingWidget = () => {
+                        const [hoverRating, setHoverRating] = useState(0);
+                        return (
+                          <div className="flex items-center gap-1 mt-1" onClick={(e) => e.preventDefault()}>
+                            <div className="flex items-center">
+                              {[1, 2, 3, 4, 5].map((star) => {
+                                const isFilled = hoverRating ? star <= hoverRating : (userRating ? star <= userRating : star <= Math.round(averageRating || 0));
+                                return (
+                                  <button
+                                    key={star}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleRating(resourceId, star);
+                                    }}
+                                    onMouseEnter={() => setHoverRating(star)}
+                                    onMouseLeave={() => setHoverRating(0)}
+                                    disabled={isRating || !session}
+                                    className={`p-0.5 transition-all disabled:cursor-not-allowed ${isRating ? 'opacity-50' : 'hover:scale-110'}`}
+                                    title={session ? `Rate ${star} star${star > 1 ? 's' : ''}` : 'Sign in to rate'}
+                                  >
+                                    <Star
+                                      className={`w-3 h-3 transition-colors ${isFilled
+                                        ? 'fill-yellow-400 text-yellow-400'
+                                        : 'fill-transparent text-stone-300 dark:text-stone-600'
+                                        }`}
+                                    />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-stone-500 ml-1">
+                              <span>{parseFloat(averageRating || 0).toFixed(1)}</span>
+                              {ratingCount > 0 && <span>({ratingCount})</span>}
+                            </div>
+                          </div>
+                        );
+                      };
+
                       return (
-                        <div className="flex items-center gap-1 mt-1" onClick={(e) => e.preventDefault()}>
-                          <div className="flex items-center">
-                            {[1, 2, 3, 4, 5].map((star) => {
-                              const isFilled = hoverRating ? star <= hoverRating : (userRating ? star <= userRating : star <= Math.round(averageRating || 0));
-                              return (
-                                <button
-                                  key={star}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleRating(resourceId, star);
-                                  }}
-                                  onMouseEnter={() => setHoverRating(star)}
-                                  onMouseLeave={() => setHoverRating(0)}
-                                  disabled={isRating || !session}
-                                  className={`p-0.5 transition-all disabled:cursor-not-allowed ${isRating ? 'opacity-50' : 'hover:scale-110'}`}
-                                  title={session ? `Rate ${star} star${star > 1 ? 's' : ''}` : 'Sign in to rate'}
-                                >
-                                  <Star
-                                    className={`w-3 h-3 transition-colors ${isFilled
-                                      ? 'fill-yellow-400 text-yellow-400'
-                                      : 'fill-transparent text-stone-300 dark:text-stone-600'
-                                      }`}
-                                  />
-                                </button>
-                              );
-                            })}
+                        <div key={resource.id || idx} className="group relative">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-bold text-base text-stone-900 dark:text-stone-100 leading-tight transition-colors pr-8">
+                              {resource.title}
+                            </h4>
+
+                            {resourceQueue.length > 0 && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleSwapResource(idx);
+                                }}
+                                className="absolute top-0 right-0 p-1.5 text-stone-400 hover:text-[#FF4A1C] hover:bg-[#FF4A1C]/10 rounded-full transition-all"
+                                title="Swap with next best resource"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
-                          <div className="flex items-center gap-1 text-xs text-stone-500 ml-1">
-                            <span>{parseFloat(averageRating || 0).toFixed(1)}</span>
-                            {ratingCount > 0 && <span>({ratingCount})</span>}
-                          </div>
-                        </div>
-                      );
-                    };
 
-                    return (
-                      <div key={resource.id || idx} className="group relative">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-bold text-base text-stone-900 dark:text-stone-100 leading-tight transition-colors pr-8">
-                            {resource.title}
-                          </h4>
-
-                          {resourceQueue.length > 0 && (
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleSwapResource(idx);
-                              }}
-                              className="absolute top-0 right-0 p-1.5 text-stone-400 hover:text-[#FF4A1C] hover:bg-[#FF4A1C]/10 rounded-full transition-all"
-                              title="Swap with next best resource"
-                            >
-                              <RefreshCw className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-
-                        <a
-                          href={resource.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 p-0 overflow-hidden shadow-sm hover:border-[#FF4A1C] hover:shadow-[0_0_12px_rgba(255,74,28,0.25)] transition-all duration-300"
-                        >
-                          <div className="flex flex-col sm:flex-row h-full">
-                            <div className="sm:w-48 shrink-0 bg-stone-100 dark:bg-stone-800 border-b sm:border-b-0 sm:border-r border-stone-200 dark:border-stone-700 p-3 flex flex-col items-center justify-center gap-2">
-                              <div className="aspect-video w-full rounded-lg overflow-hidden bg-stone-200 dark:bg-stone-900 relative">
-                                {getYouTubeThumbnail(resource.url) ? (
-                                  <img src={getYouTubeThumbnail(resource.url)} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-stone-400">
-                                    <Youtube className="w-8 h-8 opacity-50" />
+                          <a
+                            href={resource.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 p-0 overflow-hidden shadow-sm hover:border-[#FF4A1C] hover:shadow-[0_0_12px_rgba(255,74,28,0.25)] transition-all duration-300"
+                          >
+                            <div className="flex flex-col sm:flex-row h-full">
+                              <div className="sm:w-48 shrink-0 bg-stone-100 dark:bg-stone-800 border-b sm:border-b-0 sm:border-r border-stone-200 dark:border-stone-700 p-3 flex flex-col items-center justify-center gap-2">
+                                <div className="aspect-video w-full rounded-lg overflow-hidden bg-stone-200 dark:bg-stone-900 relative">
+                                  {getYouTubeThumbnail(resource.url) ? (
+                                    <img src={getYouTubeThumbnail(resource.url)} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-stone-400">
+                                      <Youtube className="w-8 h-8 opacity-50" />
+                                    </div>
+                                  )}
+                                  <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1 rounded">
+                                    {formatDuration(resource.duration) || formatDuration(resource.duration_seconds) || 'Video'}
                                   </div>
-                                )}
-                                <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1 rounded">
-                                  {formatDuration(resource.duration) || formatDuration(resource.duration_seconds) || 'Video'}
+                                </div>
+                                <StarRatingWidget />
+                              </div>
+                              <div className="flex-1 p-4 relative">
+                                <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-4">
+                                  {resource.resource_explanation || resource.description || "No specific validation details available for this resource."}
+                                </p>
+                                <div className="mt-4 flex items-center justify-between">
+                                  <span className="text-xs font-medium text-stone-400 px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-800 uppercase tracking-wide">
+                                    {resource.platform || 'Web'}
+                                  </span>
+                                  <span className="text-xs text-[#FF4A1C] font-medium flex items-center gap-1">
+                                    Open Resource <ArrowUpRight className="w-3 h-3" />
+                                  </span>
                                 </div>
                               </div>
-                              <StarRatingWidget />
                             </div>
-                            <div className="flex-1 p-4 relative">
-                              <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-4">
-                                {resource.resource_explanation || resource.description || "No specific validation details available for this resource."}
-                              </p>
-                              <div className="mt-4 flex items-center justify-between">
-                                <span className="text-xs font-medium text-stone-400 px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-800 uppercase tracking-wide">
-                                  {resource.platform || 'Web'}
-                                </span>
-                                <span className="text-xs text-[#FF4A1C] font-medium flex items-center gap-1">
-                                  Open Resource <ArrowUpRight className="w-3 h-3" />
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </a>
+                          </a>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Data Gathering Resource Note */}
+                  {unit.data_gathering_resource && (
+                    <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <BookOpen className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                            Use Your Own: {unit.data_gathering_resource}
+                          </p>
+                          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                            Practice gathering this data from your class materials so you're ready on exam day.
+                          </p>
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="space-y-6">
                   <div className="p-6 text-center border-2 border-dashed border-stone-200 dark:border-stone-700 rounded-xl">
@@ -1077,7 +1094,7 @@ const TopicListItem = ({
             {/* COLUMN 3: Equations & Figures (Right) */}
             <div className="space-y-6">
               <h5 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4">
-                Equations & Figures
+                Equations
               </h5>
 
               {equations && equations.length > 0 ? (
@@ -1089,100 +1106,13 @@ const TopicListItem = ({
                   <span className="text-xs text-stone-400">No equations detected</span>
                 </div>
               )}
-
-              {/* Figure Buttons */}
-              <div className="mt-6 space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleFindFigures();
-                    }}
-                    disabled={figureSearching || !unit.suggested_figures?.length}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-xs disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-emerald-600 dark:text-emerald-400 border border-emerald-600 dark:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
-                  >
-                    {figureSearching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
-                    Find Figures
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLoadFigures();
-                    }}
-                    disabled={figureLoading}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-xs disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-purple-600 dark:text-purple-400 border border-purple-600 dark:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10"
-                  >
-                    {figureLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Database className="w-3 h-3" />}
-                    Load Figures
-                  </button>
-                </div>
-
-                {/* Suggested Figures from AI */}
-                {(() => {
-                  // Debug: Log suggested figures to see what data is available
-                  console.log('[TopicListItem] unit.suggested_figures:', unit.suggested_figures);
-                  return null;
-                })()}
-                {unit.suggested_figures ? (
-                  <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700">
-                    <h6 className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-2">Suggested Figures</h6>
-                    {/* Handle both string and array formats */}
-                    {typeof unit.suggested_figures === 'string' ? (
-                      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                        {unit.suggested_figures}
-                      </p>
-                    ) : Array.isArray(unit.suggested_figures) ? (
-                      <ul className="space-y-2">
-                        {unit.suggested_figures.map((fig, idx) => (
-                          <li key={idx} className="text-sm text-stone-700 dark:text-stone-300">
-                            <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                              {typeof fig === 'string' ? fig : fig.name}
-                            </span>
-                            {fig.search_terms && fig.search_terms.length > 0 && (
-                              <div className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                                Search: {fig.search_terms.join(', ')}
-                              </div>
-                            )}
-                            {fig.description && (
-                              <div className="text-xs text-stone-400 dark:text-stone-500 italic">{fig.description}</div>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-stone-600 dark:text-stone-300">{JSON.stringify(unit.suggested_figures)}</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-lg bg-stone-50 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-700">
-                    <p className="text-xs text-stone-400 dark:text-stone-500 italic">
-                      No figure suggestions for this topic
-                    </p>
-                  </div>
-                )}
-
-                {/* Figure Results */}
-                {figureResults && figureResults.success && figureResults.figures && figureResults.figures.length > 0 && (
-                  <div className="mt-4">
-                    <h6 className="text-xs font-bold text-stone-500 mb-2">Loaded Figures ({figureResults.figures.length})</h6>
-                    <FigureDisplay figures={figureResults.figures} />
-                  </div>
-                )}
-
-                {/* Existing Figures */}
-                {figures && figures.length > 0 && (
-                  <div>
-                    <h6 className="text-xs font-bold text-stone-500 mb-2">Figures</h6>
-                    <FigureDisplay figures={figures} />
-                  </div>
-                )}
-              </div>
             </div>
 
           </div>
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 };
 

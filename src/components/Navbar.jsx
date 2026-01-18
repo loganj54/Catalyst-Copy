@@ -33,16 +33,7 @@ const Navbar = () => {
     };
   }, []);
 
-  // Calculate sidebar offset based on current route to ensure visual centering relative to content
-  const sidebarOffset = (() => {
-    if (['/', '/auth', '/create'].includes(location.pathname)) return 0;
-    if (location.pathname.startsWith('/blueprint/')) return 152; // 304px total sidebar (80px + 224px)
-    if (location.pathname.startsWith('/class/')) return 152; // Class details likely follows blueprint layout or has similar sidebar
-    return 128; // Default Dashboard sidebar width (256px)
-  })();
 
-  // Chat offset for centering/positioning
-  const chatOffset = chatState.isOpen ? 225 : 0; // Half of 450px
   const rightMargin = chatState.isOpen ? 450 : 0;
 
   return (
@@ -70,8 +61,7 @@ const Navbar = () => {
       </div>
 
       <div
-        className="hidden lg:flex items-center justify-center gap-12 text-sm font-medium text-black/60 dark:text-white/60 absolute -translate-x-1/2 transition-all duration-300"
-        style={{ left: `calc(50% + ${sidebarOffset}px - ${chatOffset}px)` }}
+        className="hidden lg:flex items-center justify-center gap-12 text-sm font-medium text-black/60 dark:text-white/60 absolute left-1/2 -translate-x-1/2 transition-all duration-300"
       >
         <Link to="/create" className="hover:text-black dark:hover:text-white transition-colors">
           Create

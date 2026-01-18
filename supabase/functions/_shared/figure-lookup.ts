@@ -143,25 +143,8 @@ async function searchFigureByName(
         return mapToFigure(partial);
     }
 
-    // Try searching by significant keywords from the name
-    const nameParts = name.toLowerCase()
-        .split(/\s+/)
-        .filter(p => p.length > 3 && !['the', 'and', 'for', 'with'].includes(p));
-
-    for (const part of nameParts) {
-        const { data: byPart } = await supabase
-            .from('curated_figures')
-            .select('*')
-            .ilike('name', `%${part}%`)
-            .order('times_used', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-        if (byPart) {
-            console.log(`[figure-lookup] Found by keyword "${part}": ${byPart.name}`);
-            return mapToFigure(byPart);
-        }
-    }
+    // Keyword search removed to prevent false positives (e.g. "Control Volume" matching "Volume of Sphere")
+    return null;
 
     return null;
 }
@@ -206,11 +189,11 @@ async function fetchImageFromWikimedia(
         // Normalize search_terms to array (AI sometimes returns string)
         const searchTermsArray = normalizeSearchTerms(suggestion.search_terms);
 
-        // Use existing Wikimedia search
+        // Usage existing Wikimedia search - REQUEST 5 RESULTS for retry logic
         const results = await searchWikimediaFigures(
             searchTermsArray,
             suggestion.figure_type,
-            1  // Only get best result
+            5  // Get 5 results to try
         );
 
         if (results.length === 0) {
@@ -218,24 +201,37 @@ async function fetchImageFromWikimedia(
             return null;
         }
 
-        const result = results[0];
+        let storage = null;
+        let successfulResult = null;
 
-        // Download and store image
-        const filename = suggestion.name
-            .toLowerCase()
-            .replace(/[^a-z0-9]/g, '-')
-            .replace(/-+/g, '-')
-            .substring(0, 50);
+        // Try candidates one by one
+        for (const result of results) {
+            console.log(`[figure-lookup] Trying candidate: ${result.title}`);
 
-        const storage = await downloadAndStoreFigure(
-            result.imageUrl,
-            filename,
-            subjectArea,
-            supabase
-        );
+            const filename = suggestion.name
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, '-')
+                .replace(/-+/g, '-')
+                .substring(0, 50) + '-' + Date.now(); // Add timestamp to avoid collisions
 
-        if (!storage) {
-            console.log(`[figure-lookup] Failed to store image: ${suggestion.name}`);
+            storage = await downloadAndStoreFigure(
+                result.imageUrl,
+                filename,
+                subjectArea,
+                supabase
+            );
+
+            if (storage) {
+                successfulResult = result;
+                console.log(`[figure-lookup] Successfully stored image: ${result.title}`);
+                break;
+            } else {
+                console.log(`[figure-lookup] Candidate failed validation/storage: ${result.title}. Retrying...`);
+            }
+        }
+
+        if (!storage || !successfulResult) {
+            console.log(`[figure-lookup] All candidates failed to store for: ${suggestion.name}`);
             return null;
         }
 
@@ -253,8 +249,8 @@ async function fetchImageFromWikimedia(
                 subject_area: subjectArea,
                 search_terms: searchTermsForDb.map(t => t.toLowerCase()),
                 source: 'Wikimedia Commons',
-                license: result.license,
-                original_url: result.pageUrl,
+                license: successfulResult.license,
+                original_url: successfulResult.pageUrl,
                 times_used: 1
             })
             .select()

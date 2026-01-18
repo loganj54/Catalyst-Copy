@@ -686,6 +686,13 @@ export interface LearningUnit {
   search_queries: SearchQuery[];
   problem_solving_queries?: SearchQuery[];
   semantic_search_phrase?: string;
+  /** 
+   * When this unit requires looking up data from reference materials (steam tables, 
+   * Moody diagram, beam properties, etc.), this names the resource. Students are 
+   * encouraged to use their own class materials to practice for exams.
+   * Example: "Moody Diagram" or "Steam Tables (Appendix A)"
+   */
+  data_gathering_resource?: string;
 }
 
 export interface Equation {
@@ -720,18 +727,18 @@ export const ErrorCodes = {
   INVALID_INPUT: 'INVALID_INPUT',
   MISSING_REQUIRED_FIELD: 'MISSING_REQUIRED_FIELD',
   EMPTY_INPUT: 'EMPTY_INPUT',
-  
+
   // API errors
   API_ERROR: 'API_ERROR',
   MISSING_API_KEY: 'MISSING_API_KEY',
   RATE_LIMITED: 'RATE_LIMITED',
   TIMEOUT: 'TIMEOUT',
-  
+
   // Database errors
   DATABASE_ERROR: 'DATABASE_ERROR',
   NOT_FOUND: 'NOT_FOUND',
   DUPLICATE_ENTRY: 'DUPLICATE_ENTRY',
-  
+
   // System errors
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   MEMORY_ERROR: 'MEMORY_ERROR',

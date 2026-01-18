@@ -48,7 +48,11 @@ export async function searchWikimediaFigures(
   maxResults: number = 3
 ): Promise<WikimediaSearchResult[]> {
   try {
-    const query = searchTerms.join(' ');
+    // Construct query with filetype filters to avoid PDFs and SVGs
+    // filetype:bitmap (jpg, png, gif) ONLY
+    const baseQuery = searchTerms.join(' ');
+    const query = `${baseQuery} filetype:bitmap -filetype:pdf -filetype:audio -filetype:video -filetype:drawing`;
+
     console.log(`[figure-sourcing] Searching Wikimedia Commons for: ${query}`);
 
     // Use Wikimedia Commons API to search for images
@@ -92,6 +96,18 @@ export async function searchWikimediaFigures(
       const imageInfo = page.imageinfo[0];
       const metadata = imageInfo.extmetadata || {};
 
+      // Determine file type
+      const imageUrl = imageInfo.url || '';
+      const fileExt = imageUrl.split('.').pop()?.toLowerCase() || '';
+
+      // RESTRICT TO IMAGES ONLY
+      // Explicitly skip PDFs and other non-image formats
+      const nonImageExts = ['pdf', 'djvu', 'webm', 'ogv', 'mp4', 'ogg', 'mp3', 'wav', 'tif', 'tiff'];
+      if (nonImageExts.includes(fileExt)) {
+        console.log(`[figure-sourcing] Skipping ${page.title} - not an image: .${fileExt}`);
+        continue;
+      }
+
       // Extract license info
       const license = metadata.LicenseShortName?.value ||
         metadata.License?.value ||
@@ -109,7 +125,7 @@ export async function searchWikimediaFigures(
         thumbnailUrl: imageInfo.thumburl || imageInfo.url,
         description: metadata.ImageDescription?.value ||
           metadata.ObjectName?.value ||
-          page.title.replace('File:', '').replace(/\.(png|jpg|jpeg|gif|svg)/i, ''),
+          page.title.replace('File:', '').replace(/\.(png|jpg|jpeg|gif|svg|pdf)/i, ''),
         license: license,
         author: metadata.Artist?.value || metadata.Author?.value || 'Unknown',
         pageUrl: `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title)}`,
@@ -152,6 +168,7 @@ function isFreeLicense(license: string): boolean {
 
 /**
  * Download an image from a URL and store it in Supabase storage
+ * STRICTLY images only
  */
 export async function downloadAndStoreFigure(
   imageUrl: string,
@@ -160,28 +177,35 @@ export async function downloadAndStoreFigure(
   supabase: any
 ): Promise<{ fileUrl: string; thumbnailUrl?: string } | null> {
   try {
-    console.log(`[figure-sourcing] Downloading image from: ${imageUrl}`);
+    console.log(`[figure-sourcing] Downloading file from: ${imageUrl}`);
 
-    // Download the image
+    // Download the file
     const response = await fetch(imageUrl);
     if (!response.ok) {
-      console.error('[figure-sourcing] Failed to download image:', response.status);
+      console.error('[figure-sourcing] Failed to download file:', response.status);
       return null;
     }
 
-    const imageBlob = await response.blob();
-    const imageBuffer = await imageBlob.arrayBuffer();
+    const blob = await response.blob();
+    const buffer = await blob.arrayBuffer();
 
-    // Check file size (max 512KB as per bucket limit)
-    if (imageBuffer.byteLength > 512 * 1024) {
-      console.log('[figure-sourcing] Image too large, will need compression');
-      // For now, skip images that are too large
-      // TODO: Implement image compression
+    // Determine file type
+    const contentType = response.headers.get('content-type') || 'image/png';
+
+    // STRICT CHECK: content type must be an image
+    if (!contentType.startsWith('image/')) {
+      console.log(`[figure-sourcing] Skipped non-image content type: ${contentType}`);
+      return null;
+    }
+
+    // Check size limit: 3MB max for images
+    const maxSize = 3 * 1024 * 1024;
+    if (buffer.byteLength > maxSize) {
+      console.log(`[figure-sourcing] Image too large (${(buffer.byteLength / 1024 / 1024).toFixed(2)}MB), max ${maxSize / 1024 / 1024}MB`);
       return null;
     }
 
     // Determine file extension
-    const contentType = response.headers.get('content-type') || 'image/png';
     const ext = contentType.split('/')[1] || 'png';
 
     // Upload to Supabase storage
@@ -189,7 +213,7 @@ export async function downloadAndStoreFigure(
 
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('figures-library')
-      .upload(storagePath, imageBuffer, {
+      .upload(storagePath, buffer, {
         contentType: contentType,
         upsert: true, // Overwrite if exists
       });
@@ -204,11 +228,11 @@ export async function downloadAndStoreFigure(
       .from('figures-library')
       .getPublicUrl(storagePath);
 
-    console.log(`[figure-sourcing] Uploaded to: ${urlData.publicUrl}`);
+    console.log(`[figure-sourcing] Uploaded image to: ${urlData.publicUrl}`);
 
     return {
       fileUrl: urlData.publicUrl,
-      thumbnailUrl: urlData.publicUrl, // Same for now, can add thumbnail generation later
+      thumbnailUrl: urlData.publicUrl,
     };
 
   } catch (error) {
@@ -352,6 +376,7 @@ export async function createFigure(
 /**
  * Find or create a figure - the main function to use
  * Checks cache first, then searches Wikimedia Commons if needed
+ * RETRY LOGIC: Tries up to 5 results to find a valid image
  */
 export async function findOrCreateFigure(
   supabase: any,
@@ -377,27 +402,41 @@ export async function findOrCreateFigure(
     }
 
     // 2. Search Wikimedia Commons
+    // REQUEST 5 RESULTS so we can retry if the first ones are invalid
     console.log(`[figure-sourcing] Searching Wikimedia Commons for: ${name}`);
-    const searchResults = await searchWikimediaFigures(searchTerms, figureType, 1);
+    const searchResults = await searchWikimediaFigures(searchTerms, figureType, 5);
 
     if (searchResults.length === 0) {
       console.log(`[figure-sourcing] No Wikimedia results found for: ${name}`);
       return null;
     }
 
-    const result = searchResults[0];
+    // 3. Try to download and store, iterating through results until one works
+    let storageResult = null;
+    let successfulResult = null;
 
-    // 3. Download and store the image
-    const filename = `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`;
-    const storageResult = await downloadAndStoreFigure(
-      result.imageUrl,
-      filename,
-      subjectArea,
-      supabase
-    );
+    for (const result of searchResults) {
+      console.log(`[figure-sourcing] Trying candidate: ${result.title}`);
 
-    if (!storageResult) {
-      console.log(`[figure-sourcing] Failed to download/store: ${name}`);
+      const filename = `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`;
+      storageResult = await downloadAndStoreFigure(
+        result.imageUrl,
+        filename,
+        subjectArea,
+        supabase
+      );
+
+      if (storageResult) {
+        successfulResult = result;
+        console.log(`[figure-sourcing] Successfully stored image: ${result.title}`);
+        break; // Success! Stop retrying.
+      } else {
+        console.log(`[figure-sourcing] Candidate failed validation/storage: ${result.title}. Retrying with next...`);
+      }
+    }
+
+    if (!storageResult || !successfulResult) {
+      console.log(`[figure-sourcing] All candidates failed to download/store for: ${name}`);
       return null;
     }
 
@@ -413,8 +452,8 @@ export async function findOrCreateFigure(
       topicTags,
       concepts,
       'Wikimedia Commons',
-      result.license,
-      result.pageUrl,
+      successfulResult.license,
+      successfulResult.pageUrl,
       userId
     );
 
@@ -429,4 +468,3 @@ export async function findOrCreateFigure(
     return null;
   }
 }
-

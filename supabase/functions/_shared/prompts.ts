@@ -354,19 +354,29 @@ Every learning unit should include relevant equations when applicable:
 - Format: equations array with {index, name, latex, variables, when_to_use}
 - Keep variables object concise (2-4 key variables only)
 
-FIGURES - TARGET 80% OF UNITS
-Include 1-2 suggested_figures for most concepts. Skip only when genuinely unnecessary.
 
-FIGURE TYPES:
-- DATA LOOKUPS (figure_category: 'link'): Tables/references for looking up values (steam tables, property tables, material data)
-- VISUAL AIDS (figure_category: 'image'): Diagrams/illustrations to aid understanding (flow profiles, geometry visualizations, system schematics, comparison diagrams)
+DATA GATHERING RESOURCES - FOR REFERENCE LOOKUPS:
+When a concept requires looking up values from reference materials the student should have access to:
+- Include "data_gathering_resource": The name of the resource (e.g., "Moody Diagram", "Steam Tables", "AISC Beam Properties")
+- This tells students they need to gather data from THEIR OWN class resources
+- The video search will find "how to use" videos for these resources
 
-FORMAT: {name, figure_category, figure_type, description (1 sentence), search_terms (2-3 keywords)}
-figure_type options: 'diagram' | 'chart' | 'graph' | 'table' | 'illustration' | 'schematic'
+WHEN TO INCLUDE data_gathering_resource:
+- Friction factor problems → "Moody Diagram"
+- Thermodynamics property lookups → "Steam Tables" or "Refrigerant Property Tables"
+- Heat exchanger design → "Fouling Factor Tables"
+- Structural analysis → "AISC Standard Beam Cross-Sections"
+- Fluid properties → "Appendix: Fluid Properties Table"
+- Any step requiring empirical/tabulated data lookup
+
+DO NOT include data_gathering_resource for:
+- Pure calculation steps
+- Conceptual understanding topics
+- Units where all values are given in the problem
 
 OUTPUT: JSON with summary, prerequisites_section (learning_units array), content_sections array. 
 For content_sections, each item MUST have: section_id, section_type, title (DESCRIPTIVE), description, learning_units array.
-Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), target_resource_profile (2-3 sentences for topic/prerequisite units, FULL PROBLEM STATEMENT + solving approach description for walkthrough units), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), suggested_figures (1-2 figures for MOST units - include visual aids AND data lookups as appropriate). For problems: also add walkthrough unit at end with problem_solving_queries.
+Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), target_resource_profile (2-3 sentences for topic/prerequisite units, FULL PROBLEM STATEMENT + solving approach description for walkthrough units), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), data_gathering_resource (when external data lookup is needed). For problems: also add walkthrough unit at end with problem_solving_queries.
 
 IMPORTANT FOR WALKTHROUGH UNITS:
 Set the "topic" field for walkthrough units to "Similar Worked Example Walkthrough" or similar, to avoid giving away that it is the exact solving steps, and instead drive the student to learn from a similar worked problem.
@@ -417,14 +427,14 @@ INSTRUCTIONS:
     - CONCEPT/PREREQUISITE units: "A video explaining [Topic] clearly, covering [key concepts], with examples demonstrating [applications]..." (2-3 sentences)
     - WALKTHROUGH units: "A video solving this problem: [COPY THE COMPLETE problem_statement FROM THE INPUT SECTION - include ALL given values with units, unknowns, conditions, assumptions, and full context]. The video should demonstrate step-by-step calculations using [specific equations from equations_needed], explain [concepts from concepts_tested], and show [steps from solving_approach]." (Include the ENTIRE problem_statement field from the input)
 11. FOR WALKTHROUGH UNITS: Extract the problem_statement from the corresponding section in the input data and include it verbatim in the target_resource_profile
-12. FOR LECTURE CONCEPTS: Each key_concept becomes its own learning_unit with all fields (tutor_guidance, target_resource_profile, search_queries, equations, suggested_figures, etc.)
-13. ALWAYS include "suggested_figures" array (even if empty []) for EVERY unit. For engineering/physics topics involving property lookups, tables, or charts, include 1-2 relevant figures.
-14. **CRITICAL**: Complete all JSON brackets. Ensure every unit has the suggested_figures field.
+12. FOR LECTURE CONCEPTS: Each key_concept becomes its own learning_unit with all fields (tutor_guidance, target_resource_profile, search_queries, equations, data_gathering_resource if applicable)
+13. Include "data_gathering_resource" ONLY when the unit requires looking up external data (steam tables, Moody diagram, property tables, etc.). Set it to the resource name.
+14. **CRITICAL**: Complete all JSON brackets.
 
 INPUT DATA:
 ${JSON.stringify(input, null, 2)}
 
-Output valid JSON only. Ensure EVERY learning unit includes: unit_id, unit_type, topic, tutor_guidance, target_resource_profile, search_queries, equations (if applicable), and suggested_figures (array, can be empty []).`
+Output valid JSON only. Ensure EVERY learning unit includes: unit_id, unit_type, topic, tutor_guidance, target_resource_profile, search_queries, equations (if applicable), and data_gathering_resource (when external data lookup is needed).`
   },
 
   // ==========================================================================
@@ -433,15 +443,15 @@ Output valid JSON only. Ensure EVERY learning unit includes: unit_id, unit_type,
   // Executes search queries and finds actual learning resources
   // ==========================================================================
   resourceSearch: {
-    system: `You are an expert at finding high-quality educational resources. Given an analysis of what a student needs to learn, suggest specific resources that would help them.
+    system: `You are an expert at finding high- quality educational resources.Given an analysis of what a student needs to learn, suggest specific resources that would help them.
 
 Focus on:
-- YouTube videos with clear, well-explained content
+    - YouTube videos with clear, well- explained content
 - Interactive tools and calculators
-- Practice problem repositories
-- Any creator is valid - find the BEST resource for the topic regardless of channel
+  - Practice problem repositories
+    - Any creator is valid - find the BEST resource for the topic regardless of channel
 
-OUTPUT FORMAT (JSON only):
+OUTPUT FORMAT(JSON only):
 {
   "resources": [
     {
@@ -452,7 +462,7 @@ OUTPUT FORMAT (JSON only):
       "covers_concepts": ["List of concepts from the analysis this covers"],
       "difficulty_level": "beginner" | "intermediate" | "advanced",
       "estimated_time_minutes": number,
-      "quality_score": 0.0-1.0,
+      "quality_score": 0.0 - 1.0,
       "why_recommended": "Brief explanation of why this resource is helpful"
     }
   ]
