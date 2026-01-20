@@ -2201,16 +2201,11 @@ const Blueprint = () => {
           }
         }
 
-        // NEW: Get the pre-computed target resource embedding from the unit
-        // This avoids redundant embedding generation during search
-        const targetResourceEmbedding = unit.target_resource_embedding;
+        // Target resource profile is passed for backwards compatibility / fallback
+        // Embeddings are now stored in Pinecone and fetched by the backend
         const targetResourceProfile = unit.target_resource_profile;
 
-        if (targetResourceEmbedding && Array.isArray(targetResourceEmbedding) && targetResourceEmbedding.length === 1536) {
-          console.log(`[Blueprint] ✅ Using pre-computed target resource embedding for unit ${unitId} (${targetResourceEmbedding.length} dimensions)`);
-        } else {
-          console.log(`[Blueprint] ⚠️ No pre-computed target resource embedding found for unit ${unitId}, will generate on-demand`);
-        }
+        console.log(`[Blueprint] Searching resources - embeddings will be fetched from Pinecone target_profiles`);
 
         const requestBody = isWalkthrough ? {
           blueprint_id: id,
@@ -2222,8 +2217,8 @@ const Blueprint = () => {
           problem_solving_queries: unit.search_queries || [], // For walkthrough units, search_queries contain the problem-solving queries
           problem_details: unit.problem_details || {},
           semantic_search_phrase: unit.semantic_search_phrase,
-          target_resource_profile: targetResourceProfile, // NEW: Pass target resource profile
-          target_resource_embedding: targetResourceEmbedding, // NEW: Pass pre-computed embedding
+          target_resource_profile: targetResourceProfile, // Fallback text if Pinecone fetch fails
+          // target_resource_embedding: REMOVED - now fetched from Pinecone by backend
         } : {
           blueprint_id: id,
           unit_id: unitId,
@@ -2232,8 +2227,8 @@ const Blueprint = () => {
           learning_objective: unit.learning_objective,
           search_queries: unit.search_queries || [],
           semantic_search_phrase: unit.semantic_search_phrase,
-          target_resource_profile: targetResourceProfile, // NEW: Pass target resource profile
-          target_resource_embedding: targetResourceEmbedding, // NEW: Pass pre-computed embedding
+          target_resource_profile: targetResourceProfile, // Fallback text if Pinecone fetch fails
+          // target_resource_embedding: REMOVED - now fetched from Pinecone by backend
         };
 
         console.log(`[Blueprint] Fetching resources for unit ${unitId} (type: ${unit.unit_type}, method: ${searchMethod})...`);

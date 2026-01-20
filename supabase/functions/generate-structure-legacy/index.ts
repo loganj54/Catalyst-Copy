@@ -192,15 +192,14 @@ function flattenSearchQueries(structure: LearningStructure): FlatSearchQuery[] {
 /**
  * Generate embeddings for target resource profiles in all learning units
  * This pre-computes embeddings to avoid redundant generation during search phase
- * Embeddings are stored in:
- * 1. Pinecone (3072-dim vectors in 'target_profiles' namespace)
- * 2. Blueprint structure (for backwards compatibility)
+ * Embeddings are stored in Pinecone (3072-dim vectors in 'target_profiles' namespace)
+ * NOT stored in Supabase to reduce storage bloat (~100k chars per embedding)
  */
 async function generateTargetResourceEmbeddings(structure: LearningStructure, blueprintId: string): Promise<void> {
   let totalUnits = 0;
   let successCount = 0;
   let failCount = 0;
-  let pineconeVectors: any[] = [];
+  const pineconeVectors: any[] = [];
 
   // Process prerequisite units
   if (structure.prerequisites_section?.learning_units) {
@@ -215,9 +214,21 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
 
         const result = await generateEmbedding(embeddingText.trim());
 
-
-        // Store embedding directly in the unit (for blueprint structure)
-        unit.target_resource_embedding = result.embedding;
+        // Prepare vector for Pinecone storage (NOT stored in unit to reduce Supabase bloat)
+        const vectorId = `target-${blueprintId}-${unit.unit_id}`;
+        pineconeVectors.push({
+          id: vectorId,
+          values: result.embedding,
+          metadata: {
+            blueprint_id: blueprintId,
+            unit_id: unit.unit_id,
+            topic: unit.topic,
+            unit_type: unit.unit_type || 'prerequisite',
+            section_id: 'prerequisites',
+            target_resource_profile: (embeddingText || '').substring(0, 1000), // Truncate for metadata limit
+            type: 'target_profile'
+          }
+        });
 
         successCount++;
       } catch (error) {
@@ -226,7 +237,6 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
       }
     }
   }
-
 
   // Process content section units
   for (const section of structure.content_sections || []) {
@@ -242,8 +252,21 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
 
           const result = await generateEmbedding(embeddingText.trim());
 
-          // Store embedding directly in the unit (for blueprint structure)
-          unit.target_resource_embedding = result.embedding;
+          // Prepare vector for Pinecone storage (NOT stored in unit to reduce Supabase bloat)
+          const vectorId = `target-${blueprintId}-${unit.unit_id}`;
+          pineconeVectors.push({
+            id: vectorId,
+            values: result.embedding,
+            metadata: {
+              blueprint_id: blueprintId,
+              unit_id: unit.unit_id,
+              topic: unit.topic,
+              unit_type: unit.unit_type || 'topic',
+              section_id: section.section_id,
+              target_resource_profile: (embeddingText || '').substring(0, 1000), // Truncate for metadata limit
+              type: 'target_profile'
+            }
+          });
 
           successCount++;
         } catch (error) {
@@ -254,13 +277,23 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
     }
   }
 
-  // NOTE: Pinecone storage for target_profiles has been removed to reduce storage bloat.
-  // We now save the embedding in the blueprint structure (Supabase) and reuse it during search.
+  // Store all embeddings in Pinecone target_profiles namespace
+  if (pineconeVectors.length > 0) {
+    try {
+      console.log(`[generate-structure] Storing ${pineconeVectors.length} target profiles in Pinecone...`);
+      await upsertVectors(pineconeVectors, 'target_profiles');
+      console.log(`[generate-structure] ✅ Successfully stored ${pineconeVectors.length} target profiles in Pinecone`);
+    } catch (pineconeError) {
+      console.error('[generate-structure] ❌ Failed to store target profiles in Pinecone:', pineconeError);
+      // Don't fail the whole operation - embeddings can be regenerated on-demand during search
+    }
+  }
 
   console.log(`[generate-structure] Target resource embedding generation complete:`);
   console.log(`  - Total units: ${totalUnits}`);
   console.log(`  - Success: ${successCount}`);
   console.log(`  - Failed: ${failCount}`);
+  console.log(`  - Stored in Pinecone: ${pineconeVectors.length}`);
 }
 
 /**

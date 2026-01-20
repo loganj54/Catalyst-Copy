@@ -9,7 +9,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { corsHeaders } from '../_shared/cors.ts';
 import { generateEmbedding } from '../_shared/embeddings.ts';
-import { queryVectors } from '../_shared/pinecone-client.ts';
+import { queryVectors, fetchVectors } from '../_shared/pinecone-client.ts';
 
 serve(async (req: Request) => {
   // Handle CORS
@@ -46,16 +46,41 @@ serve(async (req: Request) => {
 
     console.log(`[search-resources-database] Searching for unit ${unit_id || 'unknown'}`);
 
-    let vector: number[];
+    let vector: number[] | null = null;
 
-    // 1. Determine vector source (Reuse > Generate)
+    // 1. Determine vector source (Pinecone > Pre-computed > Generate)
+
+    // Option A: Use pre-computed embedding if passed (backwards compatibility)
     if (target_resource_embedding && Array.isArray(target_resource_embedding) && target_resource_embedding.length === 3072) {
       console.log('[search-resources-database] ✅ Using provided pre-computed embedding (3072 dims)');
       vector = target_resource_embedding;
-    } else {
-      // Fallback: Generate embedding
+    }
+
+    // Option B: Fetch from Pinecone target_profiles namespace using blueprint_id + unit_id
+    if (!vector && unit_id && blueprint_id) {
+      try {
+        const vectorId = `target-${blueprint_id}-${unit_id}`;
+        console.log(`[search-resources-database] Fetching embedding from Pinecone target_profiles (${vectorId})...`);
+        const fetched = await fetchVectors([vectorId], 'target_profiles');
+
+        if (fetched[vectorId] && fetched[vectorId].values) {
+          vector = fetched[vectorId].values;
+          console.log(`[search-resources-database] ✅ Retrieved embedding from Pinecone target_profiles (${vector.length} dims)`);
+        } else {
+          console.log('[search-resources-database] ⚠️ No embedding found in Pinecone for this unit');
+        }
+      } catch (fetchError) {
+        console.error('[search-resources-database] Error fetching from Pinecone:', fetchError);
+      }
+    }
+
+    // Option C: Generate embedding on-demand (fallback for old blueprints or missing data)
+    if (!vector) {
       const textToEmbed = target_resource_profile || topic;
-      console.log(`[search-resources-database] ⚠️ Logic fallback: Generating new embedding (Text length: ${textToEmbed.length})`);
+      if (!textToEmbed) {
+        throw new Error('No embedding available and no text to generate from');
+      }
+      console.log(`[search-resources-database] ⚠️ Generating new embedding on-demand (Text length: ${textToEmbed.length})`);
       const embeddingResponse = await generateEmbedding(textToEmbed);
       vector = embeddingResponse.embedding;
     }
