@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, BookOpen, Target, Calendar, FileText, Loader2, Download,
   ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp,
-  ChevronRight, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
+  ChevronRight, ChevronLeft, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
   Layout, Grid, Circle, Eye, Info, Database, ToggleLeft, ToggleRight, Timer,
   AlignLeft, X, MessageSquare, ArrowUpRight, Search, Menu
 } from 'lucide-react';
@@ -12,8 +12,6 @@ import 'katex/dist/katex.min.css';
 import { useAuth } from '../context/AuthContext';
 import { useUiState } from '../context/UiStateContext';
 import { supabase } from '../lib/supabase';
-import Sidebar from '../components/Sidebar';
-import BlueprintSidebar from '../components/BlueprintSidebar';
 import EquationDisplay from '../components/EquationDisplay';
 import FigureDisplay from '../components/FigureDisplay';
 import StructureGenerationProgress from '../components/StructureGenerationProgress';
@@ -1404,6 +1402,57 @@ const Blueprint = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Build list of all sections for navigation
+  const allSections = useMemo(() => {
+    if (!learningStructure) return [];
+    const sections = [];
+    const structData = learningStructure.structure_data || learningStructure.structure || learningStructure;
+
+    // Add prerequisites if exists
+    if (structData?.prerequisites_section) {
+      sections.push({
+        id: 'prerequisites',
+        title: 'Prerequisites',
+        data: structData.prerequisites_section
+      });
+    }
+
+    // Add content sections
+    if (structData?.content_sections) {
+      structData.content_sections.forEach((s, i) => {
+        sections.push({
+          id: s.section_id || `section-${i}`,
+          title: s.title || `Section ${i + 1}`,
+          data: s
+        });
+      });
+    }
+
+    return sections;
+  }, [learningStructure]);
+
+  // Get current section index
+  const currentSectionIndex = useMemo(() => {
+    if (!activeSectionId || allSections.length === 0) return -1;
+    return allSections.findIndex(s => s.id === activeSectionId);
+  }, [activeSectionId, allSections]);
+
+  // Navigate to previous section
+  const goToPrevSection = () => {
+    if (currentSectionIndex > 0) {
+      const prevSection = allSections[currentSectionIndex - 1];
+      handleSectionSelect(prevSection.data);
+    }
+  };
+
+  // Navigate to next section
+  const goToNextSection = () => {
+    if (currentSectionIndex < allSections.length - 1) {
+      const nextSection = allSections[currentSectionIndex + 1];
+      handleSectionSelect(nextSection.data);
+    }
+  };
+
   const handleUnitSelect = (unit) => {
     setActiveUnitId(unit.unit_id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1413,15 +1462,16 @@ const Blueprint = () => {
   const activeSectionData = useMemo(() => {
     if (!activeSectionId || !learningStructure) return null;
 
+    const struct = learningStructure.structure_data || learningStructure.structure || learningStructure;
+
     // Check Prerequisites
     if (activeSectionId === 'prerequisites' || (activeSectionId.id === 'prerequisites')) {
       return {
         title: 'Prerequisites',
-        units: learningStructure.structure_data?.prerequisites_section?.learning_units || []
+        units: struct?.prerequisites_section?.learning_units || []
       };
     }
 
-    const struct = learningStructure.structure_data || learningStructure.structure || learningStructure;
     const foundSection = struct?.content_sections?.find(s => s.section_id === activeSectionId || s.section_id === activeSectionId.id); // Handle if passed object or ID
 
     if (foundSection) {
@@ -3191,24 +3241,10 @@ const Blueprint = () => {
   } : null);
 
   return (
-    <div className="flex bg-stone-50 dark:bg-stone-900 min-h-screen font-sans transition-colors duration-200">
+    <div className="flex bg-transparent min-h-screen font-sans transition-colors duration-200">
 
-      {/* Main App Sidebar (Leftmost) */}
-      <Sidebar collapsed={true} />
-
-      {/* Blueprint Navigation Sidebar (Content Mode) - This remains Section Level for High Level Nav */}
-      {viewMode === 'content' && (
-        <BlueprintSidebar
-          structure={learningStructure}
-          activeSectionId={activeSectionId}
-          onSelectSection={(section) => handleSectionSelect(section)}
-          open={sidebarOpen}
-          onToggle={() => setSidebarOpen(!sidebarOpen)}
-        />
-      )}
-
-      <main className={`flex-1 min-w-0 transition-all duration-300 ml-20 ${viewMode === 'content' ? 'lg:ml-[336px]' : ''}`}>
-
+      {/* Main Content Area */}
+      < div className="flex-1 min-w-0 transition-all duration-300 ease-in-out" >
         {/* LANDING VIEW */}
         {viewMode === 'landing' && (
           <BlueprintLanding title={blueprint?.title || "Course Blueprint"}>
@@ -3222,109 +3258,130 @@ const Blueprint = () => {
         )}
 
         {/* CONTENT VIEW */}
-        {viewMode === 'content' && (
-          <div className="animate-fade-in pb-20">
-            {/* Top Navigation Strip */}
-            <div className="sticky top-0 z-50 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm border-b border-stone-200 dark:border-stone-800 shadow-sm transition-all">
-              <div className="px-4 py-2 flex items-center justify-between border-b border-stone-100 dark:border-stone-800">
-                <div className="flex items-center gap-4">
+        {
+          viewMode === 'content' && (
+            <div className="animate-fade-in pb-20">
+              {/* Top Navigation Strip - Sticky below navbar */}
+              <div className="sticky top-20 z-30 bg-white/95 dark:bg-stone-900/95 backdrop-blur-sm border-b border-stone-200 dark:border-stone-800 shadow-sm transition-all">
+                {/* Header with Arrow Navigation */}
+                <div className="px-8 py-3 flex items-center justify-center gap-8">
+                  {/* Left Arrow - Previous Section */}
                   <button
-                    onClick={() => setSidebarOpen(true)}
-                    className="lg:hidden p-2 text-stone-500 hover:bg-stone-100 rounded-md"
+                    onClick={goToPrevSection}
+                    disabled={currentSectionIndex <= 0}
+                    className={`p-2 rounded-lg transition-all ${currentSectionIndex > 0
+                      ? 'text-stone-600 hover:text-black hover:bg-stone-100 dark:text-stone-400 dark:hover:text-white dark:hover:bg-stone-800'
+                      : 'text-stone-300 dark:text-stone-700 cursor-not-allowed'
+                      }`}
+                    title={currentSectionIndex > 0 ? `Go to ${allSections[currentSectionIndex - 1]?.title}` : ''}
                   >
-                    <Menu className="w-5 h-5" />
+                    <ChevronLeft className="w-6 h-6" />
                   </button>
 
+                  {/* Prominent Header - single line with slash */}
+                  <h2 className="text-xl font-bold text-black dark:text-white truncate max-w-xl text-center">
+                    {blueprint?.title} / {(() => {
+                      const title = activeSectionData?.title || '';
+                      // Check if it's a "Problem X: ..." format (homework)
+                      const problemMatch = title.match(/^(Problem\s*\d+)/i);
+                      if (problemMatch) {
+                        return problemMatch[1];
+                      }
+                      // Otherwise show the full title (lecture topic)
+                      return title;
+                    })()}
+                  </h2>
+
+                  {/* Right Arrow - Next Section */}
                   <button
-                    onClick={() => setViewMode('landing')}
-                    className="text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 flex items-center gap-2 text-sm font-medium transition-colors"
+                    onClick={goToNextSection}
+                    disabled={currentSectionIndex >= allSections.length - 1}
+                    className={`p-2 rounded-lg transition-all ${currentSectionIndex < allSections.length - 1
+                      ? 'text-stone-600 hover:text-black hover:bg-stone-100 dark:text-stone-400 dark:hover:text-white dark:hover:bg-stone-800'
+                      : 'text-stone-300 dark:text-stone-700 cursor-not-allowed'
+                      }`}
+                    title={currentSectionIndex < allSections.length - 1 ? `Go to ${allSections[currentSectionIndex + 1]?.title}` : ''}
                   >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back to Roadmap
+                    <ChevronRight className="w-6 h-6" />
                   </button>
                 </div>
 
-                <h2 className="text-sm font-bold text-stone-500 uppercase tracking-widest truncate max-w-md hidden md:block">
-                  {blueprint?.title} / {activeSectionData?.title}
-                </h2>
-                <div className="w-10" />
+                {/* Compact Flowmap (Units Level) */}
+                <BlueprintFlowmap
+                  structure={learningStructure} // Still pass structure for fallback or generic types logic
+                  units={activeSectionData?.units} // NEW: Pass the units of the active section
+                  activeUnitId={activeUnitId} // NEW: Active unit
+                  onSelectUnit={handleUnitSelect} // NEW: Handler
+                  viewMode="content"
+                />
               </div>
 
-              {/* Compact Flowmap (Units Level) */}
-              <BlueprintFlowmap
-                structure={learningStructure} // Still pass structure for fallback or generic types logic
-                units={activeSectionData?.units} // NEW: Pass the units of the active section
-                activeUnitId={activeUnitId} // NEW: Active unit
-                onSelectUnit={handleUnitSelect} // NEW: Handler
-                viewMode="content"
-              />
-            </div>
+              {/* Active Content Area - Single Page Unit View */}
+              <div className="w-full mx-auto px-8 py-8">
+                {activeUnit ? (
+                  <div key={activeUnit.unit_id} className="animate-slide-up">
 
-            {/* Active Content Area - Single Page Unit View */}
-            <div className="w-full mx-auto px-8 py-8">
-              {activeUnit ? (
-                <div key={activeUnit.unit_id} className="animate-slide-up">
+                    {/* Unit Title */}
+                    <div className="mb-8 border-b border-stone-100 dark:border-stone-800 pb-6">
+                      <h1 className="text-4xl font-bold text-[#2A2B2A] dark:text-white mb-2">
+                        {activeUnit.topic}
+                      </h1>
+                      {activeUnit.unit_type === 'walkthrough' && (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-medium">
+                          <Target className="w-4 h-4" />
+                          Walkthrough
+                        </span>
+                      )}
+                    </div>
 
-                  {/* Unit Title */}
-                  <div className="mb-8 border-b border-stone-100 dark:border-stone-800 pb-6">
-                    <h1 className="text-4xl font-bold text-[#2A2B2A] dark:text-white mb-2">
-                      {activeUnit.topic}
-                    </h1>
-                    {activeUnit.unit_type === 'walkthrough' && (
-                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-medium">
-                        <Target className="w-4 h-4" />
-                        Walkthrough
-                      </span>
-                    )}
+                    {/* Single Unit Topic Content */}
+                    <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-hidden">
+                      <TopicListItem
+                        unit={activeUnit}
+                        blueprintId={id}
+                        classId={blueprint?.class_id}
+                        currentDocumentId={blueprint?.document_id}
+                        topicResponse={topicResponses[activeUnit.unit_id]}
+                        topicResources={topicResources[activeUnit.unit_id]}
+                        topicEquations={topicEquations[activeUnit.unit_id]}
+                        topicFigures={topicFigures[activeUnit.unit_id]} // We might need to adjust this if using section-level figures aggregation
+
+                        // Drill down aggregated sections data if needed for walkthroughs/problems that span a section?
+                        // For now keep null unless we want to fetch section-wide data
+                        sectionLearnEquations={null}
+                        sectionLearnFigures={null}
+
+                        onComfortSelect={() => { }}
+                        onGenerateBlueprint={handleGenerateBlueprint}
+                        onTriggerWebhook={handleTriggerWebhook}
+                        onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
+                        onGeneratePracticeProblem={handleGeneratePracticeProblem}
+
+                        practiceProblem={practiceProblems[activeUnit.unit_id]}
+                        isGeneratingPractice={generatingPractice.has(activeUnit.unit_id)}
+                        isSearching={searchingTopics.has(activeUnit.unit_id)}
+
+                        isExpanded={true} // FORCE EXPANDED
+                        onToggle={() => { }} // No toggle needed
+                        session={session}
+                      />
+                    </div>
+
                   </div>
-
-                  {/* Single Unit Topic Content */}
-                  <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-hidden">
-                    <TopicListItem
-                      unit={activeUnit}
-                      blueprintId={id}
-                      classId={blueprint?.class_id}
-                      currentDocumentId={blueprint?.document_id}
-                      topicResponse={topicResponses[activeUnit.unit_id]}
-                      topicResources={topicResources[activeUnit.unit_id]}
-                      topicEquations={topicEquations[activeUnit.unit_id]}
-                      topicFigures={topicFigures[activeUnit.unit_id]} // We might need to adjust this if using section-level figures aggregation
-
-                      // Drill down aggregated sections data if needed for walkthroughs/problems that span a section?
-                      // For now keep null unless we want to fetch section-wide data
-                      sectionLearnEquations={null}
-                      sectionLearnFigures={null}
-
-                      onComfortSelect={() => { }}
-                      onGenerateBlueprint={handleGenerateBlueprint}
-                      onTriggerWebhook={handleTriggerWebhook}
-                      onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
-                      onGeneratePracticeProblem={handleGeneratePracticeProblem}
-
-                      practiceProblem={practiceProblems[activeUnit.unit_id]}
-                      isGeneratingPractice={generatingPractice.has(activeUnit.unit_id)}
-                      isSearching={searchingTopics.has(activeUnit.unit_id)}
-
-                      isExpanded={true} // FORCE EXPANDED
-                      onToggle={() => { }} // No toggle needed
-                      session={session}
-                    />
+                ) : (
+                  <div className="flex h-64 items-center justify-center text-stone-400">
+                    <p>Select a topic from the roadmap to begin</p>
                   </div>
-
-                </div>
-              ) : (
-                <div className="flex h-64 items-center justify-center text-stone-400">
-                  <p>Select a topic from the roadmap to begin</p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )
+        }
 
-      </main>
+      </div >
 
       {/* Chat Drawer */}
-      <ChatDrawer
+      < ChatDrawer
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         documentId={blueprint?.document_id || documentAnalysis?.document_id}
@@ -3332,7 +3389,7 @@ const Blueprint = () => {
         contextTitle={doc ? (blueprint?.document?.name || "Uploaded Document") : "AI Assistant"}
         hasDocument={!!doc}
       />
-    </div>
+    </div >
   );
 };
 

@@ -52,7 +52,7 @@ const BlueprintSidebar = ({
 
             {/* Sidebar Container */}
             <div className={`
-        fixed top-0 lg:left-20 left-0 bottom-0 z-40
+        fixed top-20 lg:left-0 left-0 bottom-0 z-40
         w-64 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800
         transform transition-transform duration-300 ease-in-out
         ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -80,12 +80,12 @@ const BlueprintSidebar = ({
                                 className={`
                               w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all
                               ${isActive
-                                        ? 'bg-[#FF4A1C]/10 text-[#FF4A1C] font-semibold shadow-sm'
-                                        : 'text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800'
+                                        ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-semibold shadow-sm border border-stone-300 dark:border-stone-600'
+                                        : 'text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 border border-transparent'
                                     }
                           `}
                             >
-                                <div className={`mt-0.5 shrink-0 ${isActive ? 'text-[#FF4A1C]' : 'text-stone-400'}`}>
+                                <div className={`mt-0.5 shrink-0 ${isActive ? 'text-stone-900 dark:text-stone-100' : 'text-stone-400'}`}>
                                     {section.type === 'learn' ? <BookOpen className="w-4 h-4" /> : <Target className="w-4 h-4" />}
                                 </div>
 

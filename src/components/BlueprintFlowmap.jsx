@@ -123,7 +123,7 @@ const BlueprintFlowmap = ({
             // SQUARE MODULES (w-64 = 16rem, h-64 = 16rem)
             classes += ' w-64 h-64 rounded-2xl p-4 gap-2';
         } else if (isContent) {
-            classes += ' w-48 h-48 rounded-xl p-4 gap-2';
+            classes += ' w-36 h-36 rounded-xl p-3 gap-1';
         } else {
             classes += ' w-40 h-24 rounded-xl p-2 gap-1';
         }
@@ -201,9 +201,9 @@ const BlueprintFlowmap = ({
     };
 
     return (
-        <div className={`w-full overflow-x-auto pb-6 hide-scrollbar px-4 ${className} ${viewMode === 'content' ? 'py-4' : 'py-8'}`} ref={scrollContainerRef}>
+        <div className={`w-full overflow-x-auto pb-2 hide-scrollbar px-4 ${className} ${viewMode === 'content' ? 'py-3' : 'py-8'}`} ref={scrollContainerRef}>
             {/* Added justify-center to center the modules */}
-            <div className="flex items-center justify-center gap-6 min-w-max mx-auto px-4"> {/* Increased gap for larger nodes */}
+            <div className={`flex items-center justify-center min-w-max mx-auto px-4 ${viewMode === 'content' ? 'gap-4' : 'gap-6'}`}> {/* Smaller gap for compact mode */}
                 {flowNodes.map((node, i) => {
                     const isActive = checkActive(node, i);
                     const isLast = i === flowNodes.length - 1;
@@ -216,8 +216,8 @@ const BlueprintFlowmap = ({
                                 onClick={() => handleNodeClick(node)}
                                 className={getNodeStyles(node, isActive)}
                             >
-                                {/* Banner for Types or Start */}
-                                {(isFirst || node.type === 'learn' || node.type === 'solve' || node.type === 'practice') && (
+                                {/* Banner for Types or Start - Only in landing mode */}
+                                {viewMode === 'landing' && (isFirst || node.type === 'learn' || node.type === 'solve' || node.type === 'practice') && (
                                     <div className={`absolute -top-3 px-3 py-1 rounded-full text-xs font-bold text-white uppercase tracking-wider shadow-sm 
                                         ${isFirst ? 'bg-stone-900 ring-2 ring-white' : getBannerColor(node.type)}`}>
 
@@ -239,7 +239,7 @@ const BlueprintFlowmap = ({
                                 {/* Text Content - Full Filling */}
                                 <div className="w-full h-full flex items-center justify-center p-2">
                                     <h3 className={`font-bold text-center leading-snug w-full whitespace-normal 
-                                        ${viewMode === 'landing' ? 'text-xl' : 'text-sm md:text-base'}`}>
+                                        ${viewMode === 'landing' ? 'text-xl' : 'text-xs'}`}>
                                         {node.label}
                                     </h3>
                                 </div>
@@ -255,7 +255,7 @@ const BlueprintFlowmap = ({
                             {/* Connector Arrow */}
                             {!isLast && (
                                 <div className="text-stone-300 dark:text-stone-600 shrink-0">
-                                    <ArrowRight className={viewMode === 'content' ? 'w-6 h-6' : 'w-8 h-8'} />
+                                    <ArrowRight className={viewMode === 'content' ? 'w-5 h-5' : 'w-8 h-8'} />
                                 </div>
                             )}
                         </React.Fragment>
