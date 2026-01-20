@@ -1,24 +1,26 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, BookOpen, Target, Calendar, FileText, Loader2, Download,
   ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp,
   ChevronRight, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
   Layout, Grid, Circle, Eye, Info, Database, ToggleLeft, ToggleRight, Timer,
-  AlignLeft, X, MessageSquare, ArrowUpRight, Search
+  AlignLeft, X, MessageSquare, ArrowUpRight, Search, Menu
 } from 'lucide-react';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import { useAuth } from '../context/AuthContext';
 import { useUiState } from '../context/UiStateContext';
 import { supabase } from '../lib/supabase';
+import Sidebar from '../components/Sidebar';
+import BlueprintSidebar from '../components/BlueprintSidebar';
 import EquationDisplay from '../components/EquationDisplay';
 import FigureDisplay from '../components/FigureDisplay';
-import Sidebar from '../components/Sidebar';
-import ClassSidebar from '../components/ClassSidebar';
 import StructureGenerationProgress from '../components/StructureGenerationProgress';
 import ChatDrawer from '../components/ChatDrawer';
 import RelatedMaterialModule from '../components/RelatedMaterialModule';
+import BlueprintFlowmap from '../components/BlueprintFlowmap';
+import BlueprintLanding from '../components/BlueprintLanding';
 
 // Generation status display configuration
 const STATUS_CONFIG = {
@@ -1374,6 +1376,72 @@ const Blueprint = () => {
   const { chatState, setChatOpen } = useUiState();
   const isChatOpen = chatState.isOpen;
   const setIsChatOpen = setChatOpen; // Convenience alias
+
+  // ============================================================================================
+  // UI REDESIGN STATE
+  // ============================================================================================
+  const [activeSectionId, setActiveSectionId] = useState(null);
+  const [activeUnitId, setActiveUnitId] = useState(null); // New: Track active unit within section
+  const [viewMode, setViewMode] = useState('landing'); // 'landing' | 'content'
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const handleSectionSelect = (section) => {
+    // section can be the section object or a special ID string (like 'prerequisites' if we map it that way in flowmap)
+    // Check if it has a section_id or if we handled it otherwise
+    const sId = section.section_id || 'prerequisites'; // Fallback needs care
+    setActiveSectionId(sId);
+
+    // Auto-select first unit
+    const units = section.learning_units || [];
+    if (units.length > 0) {
+      setActiveUnitId(units[0].unit_id);
+    } else {
+      setActiveUnitId(null);
+    }
+
+    setViewMode('content');
+    setSidebarOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleUnitSelect = (unit) => {
+    setActiveUnitId(unit.unit_id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Get active section data and its units
+  const activeSectionData = useMemo(() => {
+    if (!activeSectionId || !learningStructure) return null;
+
+    // Check Prerequisites
+    if (activeSectionId === 'prerequisites' || (activeSectionId.id === 'prerequisites')) {
+      return {
+        title: 'Prerequisites',
+        units: learningStructure.structure_data?.prerequisites_section?.learning_units || []
+      };
+    }
+
+    const struct = learningStructure.structure_data || learningStructure.structure || learningStructure;
+    const foundSection = struct?.content_sections?.find(s => s.section_id === activeSectionId || s.section_id === activeSectionId.id); // Handle if passed object or ID
+
+    if (foundSection) {
+      return {
+        title: foundSection.title,
+        units: foundSection.learning_units || []
+      };
+    }
+    return null;
+  }, [activeSectionId, learningStructure]);
+
+  // Derived Active Unit
+  const activeUnit = useMemo(() => {
+    if (!activeSectionData || !activeUnitId) return null;
+    return activeSectionData.units.find(u => u.unit_id === activeUnitId);
+  }, [activeSectionData, activeUnitId]);
+
+
+
+
 
   // Dev Mode State - Automated pipeline for development/testing
   const [devModeEnabled, setDevModeEnabled] = useState(false);
@@ -3101,14 +3169,20 @@ const Blueprint = () => {
     }, []);
   }, [currentUnits, topicFigures]);
 
-  if (loading) {
-    return <BlueprintSkeleton />;
-  }
-  if (!blueprint) return null;
 
-  const content = blueprint.content || {};
-  const StatusIcon = STATUS_CONFIG[generationStatus]?.icon || Loader2;
-  const statusConfig = STATUS_CONFIG[generationStatus] || STATUS_CONFIG.pending;
+  // ============================================================================================
+  // RENDER
+  // ============================================================================================
+
+  if (loading) {
+    return (
+      <div className="flex bg-stone-50 dark:bg-stone-900 min-h-screen">
+        <BlueprintSkeleton />
+      </div>
+    );
+  }
+
+  if (!blueprint) return null;
 
   const doc = blueprint.document || (blueprint.file_metadata ? {
     name: blueprint.file_metadata.name,
@@ -3117,552 +3191,137 @@ const Blueprint = () => {
   } : null);
 
   return (
-    <div
-      className="min-h-screen bg-transparent text-outline relative"
-    >
-      {/* Backgrounds */}
-      {/* Removed bgMode === 'default' background logic to match ClassDetails */}
+    <div className="flex bg-stone-50 dark:bg-stone-900 min-h-screen font-sans transition-colors duration-200">
 
-      {/* Sidebars */}
-      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-30 hidden lg:block w-20">
-        <Sidebar collapsed={true} />
-      </div>
-      <div className="fixed top-20 left-20 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
-        <ClassSidebar />
-      </div>
+      {/* Main App Sidebar (Leftmost) */}
+      <Sidebar collapsed={true} />
 
-      <div className={`min-w-0 lg:ml-[304px] transition-all duration-300 ease-in-out ${isChatOpen ? 'mr-0 md:mr-[450px]' : ''}`}>
-        <div className="sticky top-20 z-50 min-h-[140px] pointer-events-none">
-          {/* Visual Wrapper - Handles background and transitions */}
-          <div className={`w-full transition-all duration-300 ease-in-out pointer-events-auto ${isScrolled ? 'bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl' : 'bg-transparent'}`}>
-            <div className="py-6">
-              <div className="px-10 w-full max-w-none mx-0">
-                <div className={`transition-all duration-300 ease-in-out relative mb-0`}>
-                  {/* Top row: Back button, Title, Controls */}
-                  <div className="flex justify-between items-start gap-6">
-                    {/* Left side: Title and navigation */}
-                    <div className="flex-1 min-w-0">
-                      <button
-                        onClick={() => {
-                          if (blueprint.class_id) {
-                            navigate(`/class/${blueprint.class_id}?tab=blueprints`);
-                          } else {
-                            navigate('/dashboard');
-                          }
-                        }}
-                        className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors duration-200 text-sm font-medium dark:text-stone-400 mb-3"
-                      >
-                        <ArrowLeft className="w-4 h-4" />
-                        {blueprint.class?.name || 'Back to Class'}
-                      </button>
+      {/* Blueprint Navigation Sidebar (Content Mode) - This remains Section Level for High Level Nav */}
+      {viewMode === 'content' && (
+        <BlueprintSidebar
+          structure={learningStructure}
+          activeSectionId={activeSectionId}
+          onSelectSection={(section) => handleSectionSelect(section)}
+          open={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+        />
+      )}
 
-                      <h1 className={`font-bold text-[#2A2B2A] dark:text-stone-100 transition-all duration-300 ease-in-out truncate leading-tight ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>
-                        {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
-                      </h1>
+      <main className={`flex-1 min-w-0 transition-all duration-300 ml-20 ${viewMode === 'content' ? 'lg:ml-[336px]' : ''}`}>
 
-                      {/* Subtitle / Context */}
-                      {!isScrolled && blueprint.class?.name && (
-                        <p className="text-stone-500 dark:text-stone-400 mt-2 text-lg">
-                          {blueprint.class.name}
-                        </p>
-                      )}
-                    </div>
+        {/* LANDING VIEW */}
+        {viewMode === 'landing' && (
+          <BlueprintLanding title={blueprint?.title || "Course Blueprint"}>
+            <BlueprintFlowmap
+              structure={learningStructure}
+              activeSectionId={null}
+              onSelectSection={handleSectionSelect}
+              viewMode="landing"
+            />
+          </BlueprintLanding>
+        )}
 
-                    {/* Right side: Controls (Chat, Doc, etc) */}
-                    <div className="flex items-center gap-3 mt-8">
-                      {/* Optional Text Input Popover (Moved to Left) */}
-                      {(blueprint.description || blueprint.content?.textInput) && (
-                        <div className="relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowInputPopover(!showInputPopover);
-                            }}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 border shadow-sm ${showInputPopover ? 'bg-stone-100 dark:bg-stone-800' : 'bg-white dark:bg-stone-800'} border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700`}
-                          >
-                            <AlignLeft className="w-4 h-4" />
-                            Text Input
-                          </button>
-                          {showInputPopover && (
-                            <div className="absolute top-full right-0 mt-2 w-96 p-4 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 z-50 animate-in fade-in slide-in-from-top-2 text-left">
-                              <div className="text-sm text-stone-600 dark:text-stone-300 max-h-[300px] overflow-y-auto whitespace-pre-wrap">{blueprint.description || blueprint.content?.textInput}</div>
-                            </div>
-                          )}
-                        </div>
-                      )}
+        {/* CONTENT VIEW */}
+        {viewMode === 'content' && (
+          <div className="animate-fade-in pb-20">
+            {/* Top Navigation Strip */}
+            <div className="sticky top-0 z-50 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm border-b border-stone-200 dark:border-stone-800 shadow-sm transition-all">
+              <div className="px-4 py-2 flex items-center justify-between border-b border-stone-100 dark:border-stone-800">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setSidebarOpen(true)}
+                    className="lg:hidden p-2 text-stone-500 hover:bg-stone-100 rounded-md"
+                  >
+                    <Menu className="w-5 h-5" />
+                  </button>
 
-                      {/* View Document Button */}
-                      {(doc || blueprint.url) && (
-                        <button
-                          onClick={handleViewDocument}
-                          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-sm font-medium transition-colors shadow-sm"
-                          title={doc?.name || "View Document"}
-                        >
-                          <Eye className="w-4 h-4" />
-                          View Document
-                        </button>
-                      )}
-
-                      {/* Chat Toggle Button */}
-                      <button
-                        onClick={() => setIsChatOpen(!isChatOpen)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 border shadow-sm
-                            ${isChatOpen
-                            ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600'
-                            : 'bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600 hover:bg-stone-50 dark:hover:bg-stone-700'
-                          }`}
-                      >
-                        {isChatOpen ? <X className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
-                        {isChatOpen ? 'Close Chat' : 'Chat with Document'}
-                      </button>
-                    </div>
-                  </div>
+                  <button
+                    onClick={() => setViewMode('landing')}
+                    className="text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 flex items-center gap-2 text-sm font-medium transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to Roadmap
+                  </button>
                 </div>
+
+                <h2 className="text-sm font-bold text-stone-500 uppercase tracking-widest truncate max-w-md hidden md:block">
+                  {blueprint?.title} / {activeSectionData?.title}
+                </h2>
+                <div className="w-10" />
               </div>
+
+              {/* Compact Flowmap (Units Level) */}
+              <BlueprintFlowmap
+                structure={learningStructure} // Still pass structure for fallback or generic types logic
+                units={activeSectionData?.units} // NEW: Pass the units of the active section
+                activeUnitId={activeUnitId} // NEW: Active unit
+                onSelectUnit={handleUnitSelect} // NEW: Handler
+                viewMode="content"
+              />
+            </div>
+
+            {/* Active Content Area - Single Page Unit View */}
+            <div className="w-full mx-auto px-8 py-8">
+              {activeUnit ? (
+                <div key={activeUnit.unit_id} className="animate-slide-up">
+
+                  {/* Unit Title */}
+                  <div className="mb-8 border-b border-stone-100 dark:border-stone-800 pb-6">
+                    <h1 className="text-4xl font-bold text-[#2A2B2A] dark:text-white mb-2">
+                      {activeUnit.topic}
+                    </h1>
+                    {activeUnit.unit_type === 'walkthrough' && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-medium">
+                        <Target className="w-4 h-4" />
+                        Walkthrough
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Single Unit Topic Content */}
+                  <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-hidden">
+                    <TopicListItem
+                      unit={activeUnit}
+                      blueprintId={id}
+                      classId={blueprint?.class_id}
+                      currentDocumentId={blueprint?.document_id}
+                      topicResponse={topicResponses[activeUnit.unit_id]}
+                      topicResources={topicResources[activeUnit.unit_id]}
+                      topicEquations={topicEquations[activeUnit.unit_id]}
+                      topicFigures={topicFigures[activeUnit.unit_id]} // We might need to adjust this if using section-level figures aggregation
+
+                      // Drill down aggregated sections data if needed for walkthroughs/problems that span a section?
+                      // For now keep null unless we want to fetch section-wide data
+                      sectionLearnEquations={null}
+                      sectionLearnFigures={null}
+
+                      onComfortSelect={() => { }}
+                      onGenerateBlueprint={handleGenerateBlueprint}
+                      onTriggerWebhook={handleTriggerWebhook}
+                      onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
+                      onGeneratePracticeProblem={handleGeneratePracticeProblem}
+
+                      practiceProblem={practiceProblems[activeUnit.unit_id]}
+                      isGeneratingPractice={generatingPractice.has(activeUnit.unit_id)}
+                      isSearching={searchingTopics.has(activeUnit.unit_id)}
+
+                      isExpanded={true} // FORCE EXPANDED
+                      onToggle={() => { }} // No toggle needed
+                      session={session}
+                    />
+                  </div>
+
+                </div>
+              ) : (
+                <div className="flex h-64 items-center justify-center text-stone-400">
+                  <p>Select a topic from the roadmap to begin</p>
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        )}
 
-        <div className="pb-12 px-10 w-full max-w-none mx-0 space-y-8 pt-8">
-
-          {/* Debug Panel */}
-          {showDebug && (
-            <div className="bg-stone-900 text-stone-100 rounded-xl p-6 shadow-lg mb-8 font-mono text-xs overflow-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-[#FF4A1C]">🐛 Debug Panel</h3>
-                <button
-                  onClick={() => setShowDebug(false)}
-                  className="text-stone-400 hover:text-stone-200 transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {/* Document Analysis Result */}
-                {documentAnalysis && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">📄 Document Analysis Result</h4>
-                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto max-h-96">
-                      {JSON.stringify(documentAnalysis, null, 2)}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Structure Generation Result */}
-                {structureGenerationResult && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">🏗️ Structure Generation Result</h4>
-                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto max-h-96">
-                      {JSON.stringify(structureGenerationResult, null, 2)}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Blueprint Info */}
-                <div>
-                  <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">📋 Blueprint Info</h4>
-                  <pre className="bg-stone-950 p-3 rounded overflow-x-auto">
-                    {JSON.stringify({
-                      id: blueprint.id,
-                      title: blueprint.title,
-                      class_id: blueprint.class_id,
-                      document_id: blueprint.document_id,
-                      generation_status: blueprint.generation_status,
-                      created_at: blueprint.created_at,
-                    }, null, 2)}
-                  </pre>
-                </div>
-
-                {/* Structure Info */}
-                {learningStructure && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">🏗️ Learning Structure</h4>
-                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto max-h-96">
-                      {JSON.stringify({
-                        structure_id: learningStructure.id,
-                        total_prerequisites: learningStructure.total_prerequisites,
-                        total_sections: learningStructure.total_sections,
-                        total_learning_units: learningStructure.total_learning_units,
-                        total_search_queries: learningStructure.total_search_queries,
-                        model_used: learningStructure.model_used,
-                        from_cache: learningStructure.from_cache || false,
-                        cache_similarity: learningStructure.cache_similarity ? `${(learningStructure.cache_similarity * 100).toFixed(1)}%` : null,
-                        token_savings: learningStructure.from_cache ? '~24,000 tokens (~$0.06)' : 'N/A',
-                        created_at: learningStructure.created_at,
-                      }, null, 2)}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Active Tab & Section */}
-                {structure && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">📑 Active Section</h4>
-                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto">
-                      {JSON.stringify({
-                        activeTab: activeTab,
-                        currentSectionTitle: currentSectionTitle,
-                        currentUnitsCount: currentUnits.length,
-                        currentUnits: currentUnits.map(u => ({
-                          unit_id: u.unit_id,
-                          unit_type: u.unit_type,
-                          topic: u.topic,
-                          has_resources: topicResources[u.unit_id]?.length || 0,
-                          is_searching: searchingTopics.has(u.unit_id),
-                          is_expanded: expandedTopics[u.unit_id] || false,
-                        })),
-                      }, null, 2)}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Topic Resources */}
-                {Object.keys(topicResources).length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">📚 Resources Loaded</h4>
-                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto max-h-96">
-                      {JSON.stringify(
-                        Object.entries(topicResources).map(([unitId, resources]) => ({
-                          unit_id: unitId,
-                          resource_count: resources.length,
-                          resources: resources.map(r => ({
-                            title: r.title,
-                            url: r.url,
-                            platform: r.platform,
-                            channel: r.channel_name,
-                            from_cache: r.from_cache,
-                            quality_score: r.quality_score,
-                            has_explanation: !!r.resource_explanation,
-                          })),
-                        })),
-                        null,
-                        2
-                      )}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Topic Equations */}
-                {Object.keys(topicEquations).length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">🧮 Equations Loaded</h4>
-                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto">
-                      {JSON.stringify(
-                        Object.entries(topicEquations).map(([unitId, equations]) => ({
-                          unit_id: unitId,
-                          equations_count: equations.length,
-                          equations: equations.map(eq => ({
-                            name: eq.name,
-                            latex: eq.latex,
-                          })),
-                        })),
-                        null,
-                        2
-                      )}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Topic Responses */}
-                {Object.keys(topicResponses).length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">✅ User Responses</h4>
-                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto">
-                      {JSON.stringify(topicResponses, null, 2)}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Searching State */}
-                {searchingTopics.size > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">🔍 Currently Searching</h4>
-                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto">
-                      {JSON.stringify(Array.from(searchingTopics), null, 2)}
-                    </pre>
-                  </div>
-                )}
-
-                {/* Generation Status */}
-                <div>
-                  <h4 className="text-sm font-semibold text-[#FF4A1C] mb-2">⚙️ Generation State</h4>
-                  <pre className="bg-stone-950 p-3 rounded overflow-x-auto">
-                    {JSON.stringify({
-                      generating: generating,
-                      generationStatus: generationStatus,
-                      generationError: generationError,
-                      tabs: tabs,
-                    }, null, 2)}
-                  </pre>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Progress Panel Modal */}
-          {showProgressPanel && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-              <div className="w-full max-w-2xl animate-scale-in">
-                <StructureGenerationProgress
-                  blueprintId={id}
-                  authToken={session?.access_token}
-                  onComplete={handleProgressComplete}
-                  onError={handleProgressError}
-                />
-                <button
-                  onClick={() => setShowProgressPanel(false)}
-                  className="mt-4 w-full px-4 py-2 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors text-sm font-medium"
-                >
-                  Close Panel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Dev Mode Progress Panel - REMOVED per user request */}
-
-
-          {/* No Structure State - Show Generation UI */}
-          {!structure && (
-            <div className="bg-white dark:bg-stone-900 rounded-3xl p-8 shadow-sm border border-stone-300 dark:border-stone-600 mt-8">
-              <div className="text-center py-8">
-                <h3 className="text-xl font-bold text-[#2A2B2A] dark:text-stone-100 mb-2">
-                  Ready to Generate Your Learning Path
-                </h3>
-                <p className="text-stone-500 dark:text-stone-400 mb-8 max-w-md mx-auto">
-                  Analyze your document and create a personalized learning path with topics and resources.
-                </p>
-
-                <div className="flex flex-col items-center gap-4">
-                  {/* Step buttons - always visible */}
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={runAnalyzeStep}
-                      disabled={generating && generationStatus === 'analyzing'}
-                      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 border rounded-lg transition-all font-medium ${documentAnalysis || generationStatus === 'analyzed' || generationStatus === 'structure_generated' || generationStatus === 'completed'
-                        ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-600 text-green-900 dark:text-green-100'
-                        : 'bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600 text-blue-900 dark:text-blue-100 hover:bg-blue-200 dark:hover:bg-blue-800/40'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      {documentAnalysis || generationStatus === 'analyzed' || generationStatus === 'structure_generated' || generationStatus === 'completed' ? (
-                        <>
-                          <Check className="w-4 h-4" />
-                          1. Analyzed ✓
-                        </>
-                      ) : generating && generationStatus === 'analyzing' ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4" />
-                          1. Analyze Document
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={runStructureStep}
-                      disabled={
-                        !documentAnalysis ||
-                        generationStatus === 'analyzing' ||
-                        (generating && generationStatus === 'generating')
-                      }
-                      className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 border rounded-lg transition-all font-medium ${generationStatus === 'structure_generated' || generationStatus === 'completed'
-                        ? 'bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-600 text-green-900 dark:text-green-100'
-                        : 'bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-600 text-purple-900 dark:text-purple-100 hover:bg-purple-200 dark:hover:bg-purple-800/40'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                      title={!documentAnalysis ? 'Please run Step 1 (Analyze Document) first' : 'Generate learning structure'}
-                    >
-                      {generationStatus === 'structure_generated' || generationStatus === 'completed' ? (
-                        <>
-                          <Check className="w-4 h-4" />
-                          2. Generated ✓
-                        </>
-                      ) : generating && generationStatus === 'generating' ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Target className="w-4 h-4" />
-                          2. Generate Structure
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Status message */}
-                  {!documentAnalysis && generationStatus === 'pending' && (
-                    <div className="inline-flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100 text-sm">
-                      <AlertCircle className="w-4 h-4" />
-                      <span>Start by analyzing your document (Step 1), then generate the structure (Step 2).</span>
-                    </div>
-                  )}
-
-                  {(documentAnalysis || generationStatus === 'analyzed') && !structure && (
-                    <div className="inline-flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-900 dark:text-green-100 text-sm">
-                      <Check className="w-4 h-4" />
-                      <span>Document analyzed! Click step 2 to continue.</span>
-                    </div>
-                  )}
-
-                  {generationStatus === 'structure_generated' && (
-                    <div className="inline-flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-900 dark:text-green-100 text-sm">
-                      <Check className="w-4 h-4" />
-                      <span>Structure generated! Refresh to see your learning path.</span>
-                    </div>
-                  )}
-
-                  {/* "Run All" option */}
-                  {(generationStatus === 'pending' || generationStatus === 'failed') && (
-                    <button
-                      onClick={runAllSteps}
-                      disabled={generating}
-                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 font-medium disabled:opacity-50 text-sm"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      {generating ? 'Running...' : 'Or Run All Steps'}
-                    </button>
-                  )}
-                </div>
-
-                {generationError && (
-                  <p className="mt-4 text-red-500 text-sm">{generationError}</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Structure Content */}
-          {/* Structure Content */}
-          {structure && (
-            <div className="flex gap-10">
-              {/* Left Column: Vertical Tabs */}
-              <div className="shrink-0 w-fit">
-                <div className="sticky top-[290px] space-y-2">
-                  {tabs.map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => {
-                        setActiveTab(tab.id);
-                        window.scrollTo({ top: 0, behavior: 'smooth' }); // Optional scroll to top when changing section
-                      }}
-                      className={`block w-fit text-left px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap
-                           ${activeTab === tab.id
-                          ? 'bg-[#FF4A1C] text-white shadow-md shadow-orange-500/20'
-                          : 'bg-transparent text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 dark:text-stone-400'
-                        }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Right Column: Topics & Content */}
-              <div className="flex-1 min-w-0 pt-4">
-                {/* Active Section Header */}
-                <div className="mb-6 flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-[#2A2B2A] dark:text-stone-100 flex items-center gap-3">
-                    <div className="w-1.5 h-8 bg-[#FF4A1C] rounded-full"></div>
-                    {currentSectionTitle}
-                  </h2>
-                </div>
-
-                {/* Topic List */}
-                <div className="space-y-6">
-                  {/* Calculate Section Equations - Unique across all units in this section */
-                    /* Note: currentUnits is already available in scope */
-                  }
-                  {/* Extract solution data once per section for the Step-by-Step Solution card */}
-                  {(() => {
-                    // Pre-compute solution data for the section
-                    let sectionSolutionApproach = null;
-                    let sectionCommonMistakes = [];
-                    if (documentAnalysis?.raw_analysis?.sections && activeTab && structure?.content_sections) {
-                      const normalizeId = (id) => id?.replace('_walkthroughs', '') || '';
-                      const section = structure.content_sections.find(
-                        (s, index) => (s.section_id || `section-${index}`) === activeTab
-                      );
-                      if (section?.section_id) {
-                        const analysisSection = documentAnalysis.raw_analysis.sections.find(s =>
-                          normalizeId(s.section_id) === normalizeId(section.section_id)
-                        );
-                        if (analysisSection) {
-                          sectionSolutionApproach = analysisSection.solution_approach;
-                          sectionCommonMistakes = analysisSection.common_mistakes || [];
-                        }
-                      }
-                    }
-
-                    // Render units with StepByStepSolutionCard appearing right before the last unit (practice dropdown)
-                    if (currentUnits.length > 0) {
-                      return currentUnits.map((unit, idx) => {
-                        const isLastUnit = idx === currentUnits.length - 1;
-                        const isSecondToLast = idx === currentUnits.length - 2;
-                        // Show the solution card right before the last unit (practice dropdown)
-                        const showSolutionCardHere = isLastUnit && sectionSolutionApproach;
-
-                        return (
-                          <React.Fragment key={unit.unit_id || idx}>
-                            {/* Render Step by Step Solution Card right before the last unit (practice dropdown) */}
-                            {showSolutionCardHere && (
-                              <StepByStepSolutionCard
-                                solutionApproach={sectionSolutionApproach}
-                                commonMistakes={sectionCommonMistakes}
-                              />
-                            )}
-
-                            <div className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
-                              <TopicListItem
-                                unit={unit}
-                                blueprintId={id}
-                                classId={blueprint.class_id}
-                                currentDocumentId={blueprint.document_id}
-                                topicResponse={topicResponses[unit.unit_id]}
-                                topicResources={topicResources[unit.unit_id]}
-                                topicEquations={topicEquations[unit.unit_id]}
-                                sectionLearnEquations={sectionLearnEquations}
-                                sectionLearnFigures={sectionLearnFigures}
-                                topicFigures={topicFigures[unit.unit_id]}
-                                onComfortSelect={handleComfortSelect}
-                                onGenerateBlueprint={handleGenerateBlueprint}
-                                onTriggerWebhook={handleTriggerWebhook}
-                                onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
-                                onGeneratePracticeProblem={handleGeneratePracticeProblem}
-                                practiceProblem={practiceProblems[unit.unit_id]}
-                                isGeneratingPractice={generatingPractice.has(unit.unit_id)}
-                                isSearching={searchingTopics.has(unit.unit_id)}
-                                isExpanded={expandedTopics[unit.unit_id]}
-                                onToggle={() => toggleTopic(unit.unit_id)}
-                                session={session}
-                              />
-                            </div>
-                          </React.Fragment>
-                        );
-                      });
-                    }
-                    // Empty state when no units
-                    return (
-                      <div className="p-12 text-center text-stone-500 dark:text-stone-400 bg-white dark:bg-stone-800 rounded-xl border border-dashed border-stone-300 dark:border-stone-700">
-                        <Target className="w-8 h-8 mx-auto mb-3 opacity-50" />
-                        <p>No topics found in this section.</p>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      {/* Floating Chat Toggle Button */}
-      {/* Floating Chat Toggle Button - Always rendered */}
-
+      </main>
 
       {/* Chat Drawer */}
       <ChatDrawer
