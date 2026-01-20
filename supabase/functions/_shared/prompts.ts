@@ -220,11 +220,33 @@ When the input is vague or general (like "I'm struggling with collisions in Dyna
 - ❌ "Study tips" or "Learning strategies"
 
 These meta-concepts are IMPOSSIBLE to find good YouTube videos for. Instead, focus on CONCRETE, SEARCHABLE topics:
-- ✅ "Types of Collisions (Elastic vs Inelastic)"
+- ✅ "Elastic vs Inelastic Collisions"
 - ✅ "Conservation of Momentum"
 - ✅ "Coefficient of Restitution"
-- ✅ "Impulse and Impact Forces"
-- ✅ "Two-Body Collision Problems"
+- ✅ "Impulse and Impact"
+- ✅ "Two-Body Collisions"
+
+TOPIC/CONCEPT HEADER LENGTH - CRITICAL:
+All topic and concept headers MUST be SHORT and PUNCHY:
+- AIM for 6 words or fewer (strongly preferred)
+- NEVER exceed 8 words
+- Use potent, direct wording over precise descriptions
+- Sacrifice specificity for brevity when needed
+- Drop unnecessary qualifiers and parentheticals
+
+GOOD headers (under 6 words):
+- ✅ "Newton's Second Law"
+- ✅ "Free Body Diagrams"
+- ✅ "Elastic Collisions"
+- ✅ "Stress-Strain Relationships"
+- ✅ "Bernoulli's Equation"
+- ✅ "Heat Transfer Modes"
+
+BAD headers (too long/wordy):
+- ❌ "Understanding Newton's Second Law of Motion" → "Newton's Second Law"
+- ❌ "Introduction to Free Body Diagrams and Force Analysis" → "Free Body Diagrams"
+- ❌ "Types of Collisions (Elastic vs Inelastic)" → "Elastic vs Inelastic Collisions"
+- ❌ "The Relationship Between Stress and Strain" → "Stress-Strain Relationships"
 
 The math and problem-solving strategies will be COVERED NATURALLY when explaining these concrete topics.
 
@@ -253,7 +275,7 @@ For lecture documents, each topic section should contain INDIVIDUAL CONCEPTS as 
 - Each concept learning_unit must have:
   * unit_id: "topic-X-concept-Y" format
   * unit_type: "topic"
-  * topic: The concept name (from key_concepts)
+  * topic: The concept name - KEEP IT SHORT (under 6 words, max 8). Drop filler words.
   * tutor_guidance: 2-3 sentences explaining THIS SPECIFIC CONCEPT
   * target_resource_profile: Description of ideal video for THIS SPECIFIC CONCEPT (2-3 sentences)
   * search_queries: 3 queries specific to THIS CONCEPT
@@ -264,10 +286,12 @@ For lecture documents, each topic section should contain INDIVIDUAL CONCEPTS as 
 DYNAMIC SECTION NAMING & TITLES - CRITICAL:
 - EVERY content_section MUST have a "title" field.
 - The title MUST be descriptive, not just a number.
+- KEEP TITLES SHORT: Aim for 6 words or fewer after the prefix, max 8.
 - BAD: "Topic 1", "Problem 2", "Section 3"
-- GOOD: "Topic 1: Introduction to Thermodynamics", "Problem 2: Calculating Entropy", "Section 3: Forces and Motion"
-- If the input analysis only has "Topic 1", YOU MUST GENERATE A DESCRIPTION based on the topic_summary or key_concepts.
-- Format: "[Type] [Number]: [Descriptive Title]"
+- BAD (too long): "Topic 1: Introduction to the Fundamentals of Thermodynamics"
+- GOOD: "Topic 1: Thermodynamics Basics", "Problem 2: Entropy Calculation", "Section 3: Force Analysis"
+- If the input analysis only has "Topic 1", GENERATE A SHORT, PUNCHY description.
+- Format: "[Type] [Number]: [Short Title]" (keep the title portion under 6 words)
 
 TUTOR GUIDANCE - REQUIRED BUT BRIEF:
 Write a "tutor_guidance" field (2-3 sentences) that explains WHY this topic matters and HOW to approach it. Speak directly to the student. Reference equations by name, don't write them inline.
