@@ -147,7 +147,7 @@ const RelatedMaterialModule = ({ query, classId, excludeDocumentId, currentDocum
             <div className="mt-2 mb-4 animate-fade-in">
                 <div className="flex items-center gap-2 mb-3">
                     <BookOpen className={`w-5 h-5 ${unitColor}`} />
-                    <h4 className="font-semibold text-stone-800 dark:text-stone-200">
+                    <h4 className="font-normal tracking-tight text-stone-800 dark:text-stone-200">
                         Find this topic in your document
                     </h4>
                 </div>
@@ -165,11 +165,11 @@ const RelatedMaterialModule = ({ query, classId, excludeDocumentId, currentDocum
                                         <FileText className="w-4 h-4" />
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="font-medium text-sm text-stone-900 dark:text-stone-100 line-clamp-1">
+                                        <span className="font-normal tracking-tight text-sm text-stone-900 dark:text-stone-100 line-clamp-1">
                                             {match.document_name}
                                         </span>
                                         {match.document_id === currentDocumentId && (
-                                            <span className="text-[10px] font-bold uppercase tracking-wide text-green-600 dark:text-green-400">
+                                            <span className="text-[10px] font-medium uppercase tracking-wide text-green-600 dark:text-green-400">
                                                 In This Document
                                             </span>
                                         )}

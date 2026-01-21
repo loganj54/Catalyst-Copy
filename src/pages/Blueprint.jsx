@@ -19,6 +19,7 @@ import ClassSidebar from '../components/ClassSidebar';
 import StructureGenerationProgress from '../components/StructureGenerationProgress';
 import ChatDrawer from '../components/ChatDrawer';
 import RelatedMaterialModule from '../components/RelatedMaterialModule';
+import TopicCard from '../components/TopicCard';
 
 // Generation status display configuration
 const STATUS_CONFIG = {
@@ -303,49 +304,50 @@ const ResourceTable = ({ resources, session }) => {
 // ============================================================================
 // STEP BY STEP SOLUTION CARD COMPONENT
 // ============================================================================
-const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer, isFocusView = false }) => {
+  const [isExpanded, setIsExpanded] = useState(isFocusView); // Default expanded if focus view
 
   if (!solutionApproach) return null;
 
   return (
-    <div className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
-      <div
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full text-left py-3 px-3 flex items-start gap-3 cursor-pointer group select-none hover:bg-stone-50/30 dark:hover:bg-stone-800/30 transition-colors"
-      >
-        <div className="mt-1 text-stone-400 dark:text-stone-500 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
-          {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-3">
-            <h4 className="font-semibold text-lg text-[#2A2B2A] dark:text-stone-100">
-              Step by Step Solution
-            </h4>
-            {/* Contextual Tag - Right Aligned */}
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="px-2 py-0.5 bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 text-xs rounded-full font-medium">
-                Solve
-              </span>
+    <div className={isFocusView ? "" : "bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden"}>
+      {!isFocusView && (
+        <div
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full text-left py-3 px-3 flex items-start gap-3 cursor-pointer group select-none hover:bg-stone-50/30 dark:hover:bg-stone-800/30 transition-colors"
+        >
+          <div className="mt-1 text-stone-400 dark:text-stone-500 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
+            {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-3">
+              <h4 className="font-normal tracking-tight text-lg text-[#2A2B2A] dark:text-stone-100">
+                Step by Step Solution
+              </h4>
+              {/* Contextual Tag - Right Aligned */}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="px-2 py-0.5 bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 text-xs rounded-full font-medium">
+                  Solve
+                </span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {isExpanded && (
-        <div className="pl-12 pr-6 pb-8 animate-fade-in">
+      {(isExpanded || isFocusView) && (
+        <div className={`${isFocusView ? '' : 'pl-12 pr-6 pb-8'} animate-fade-in`}>
           <div className={`grid gap-8 ${commonMistakes?.length > 0 ? 'lg:grid-cols-2' : ''}`}>
             {/* Left Column: Solution Steps */}
             <div className="pl-1">
-              <h5 className="text-sm font-semibold text-stone-900 dark:text-stone-100 mb-4 opacity-50 uppercase tracking-wider">
+              <h5 className="text-sm font-medium text-stone-900 dark:text-stone-100 mb-4 opacity-50 uppercase tracking-wider">
                 Guide
               </h5>
               <div className="space-y-4">
                 {Array.isArray(solutionApproach) ? (
                   solutionApproach.map((step, i) => (
                     <div key={i} className="flex items-start gap-3">
-                      <span className="font-bold text-stone-400 shrink-0 mt-0.5">{i + 1}.</span>
+                      <span className="font-medium text-stone-400 shrink-0 mt-0.5">{i + 1}.</span>
                       <div className="flex-1">
                         <p className="text-stone-700 dark:text-stone-200 leading-relaxed">
                           <LatexText text={step} />
@@ -363,7 +365,7 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer 
                 {finalAnswer && (
                   <div className="mt-6 pt-6 border-t border-stone-100 dark:border-stone-700/50">
                     <div className="bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border border-stone-200 dark:border-stone-700">
-                      <span className="text-stone-500 uppercase text-xs font-bold tracking-wider block mb-2">Final Answer</span>
+                      <span className="text-stone-500 uppercase text-xs font-medium tracking-wider block mb-2">Final Answer</span>
                       <div className="text-lg font-medium text-stone-900 dark:text-stone-50">
                         <LatexText text={finalAnswer} />
                       </div>
@@ -376,7 +378,7 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer 
             {/* Right Column: Common Mistakes */}
             {commonMistakes?.length > 0 && (
               <div className="pl-1 border-l-0 lg:border-l border-stone-200 dark:border-stone-700 lg:pl-8 mt-6 lg:mt-0">
-                <h5 className="text-sm font-semibold text-stone-900 dark:text-stone-100 mb-4 opacity-50 uppercase tracking-wider flex items-center gap-2">
+                <h5 className="text-sm font-medium text-stone-900 dark:text-stone-100 mb-4 opacity-50 uppercase tracking-wider flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-orange-500" />
                   Common Mistakes
                 </h5>
@@ -444,6 +446,7 @@ const TopicListItem = ({
   isGeneratingPractice,
   isSearching,
   isExpanded,
+  isFocusView = false, // Default false for backward compatibility
   onToggle,
   session
 }) => {
@@ -709,48 +712,50 @@ const TopicListItem = ({
   };
 
   return (
-    <div className={`border-b border-stone-200 dark:border-stone-700 last:border-0 transition-all duration-300 ${isExpanded ? 'bg-stone-50/50 dark:bg-stone-800/50' : 'hover:bg-stone-50/30 dark:hover:bg-stone-800/30'}`}>
-      <div
-        onClick={onToggle}
-        className="w-full text-left py-3 px-3 flex items-start gap-3 cursor-pointer group select-none"
-      >
-        <div className="mt-1 text-stone-400 dark:text-stone-500 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
-          {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-3">
-            <h4 className={`font-semibold text-xl ${isWalkthrough ? 'text-stone-900 dark:text-stone-100' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
-              {unit.topic === 'Similar Worked Example Walkthrough' ? 'Similar Examples' : unit.topic}
-            </h4>
-            {/* Contextual Tags - Right Aligned */}
-            <div className="flex items-center gap-2 shrink-0">
-              {isWalkthrough && (
-                <span className="px-2 py-0.5 bg-[#FF4A1C]/10 dark:bg-[#FF4A1C]/20 text-[#FF4A1C] dark:text-[#FF4A1C] text-xs rounded-full font-medium">
-                  Practice
-                </span>
-              )}
-              {(unit.unit_type === 'topic' || unit.unit_type === 'prerequisite') && (
-                <span className="px-2 py-0.5 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs rounded-full font-medium">
-                  Learn
-                </span>
-              )}
-              {isComfortable && !isWalkthrough && (
-                <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full flex items-center gap-1">
-                  <Check className="w-3 h-3" />
-                  Completed
-                </span>
-              )}
-            </div>
+    <div className={`${isFocusView ? '' : 'border-b border-stone-200 dark:border-stone-700 last:border-0 transition-all duration-300 ' + (isExpanded ? 'bg-stone-50/50 dark:bg-stone-800/50' : 'hover:bg-stone-50/30 dark:hover:bg-stone-800/30')}`}>
+      {!isFocusView && (
+        <div
+          onClick={onToggle}
+          className="w-full text-left py-3 px-3 flex items-start gap-3 cursor-pointer group select-none"
+        >
+          <div className="mt-1 text-stone-400 dark:text-stone-500 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
+            {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
           </div>
-          {!isExpanded && (
-            <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 line-clamp-1">{unit.description}</p>
-          )}
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-3">
+              <h4 className={`font-normal tracking-tight text-xl ${isWalkthrough ? 'text-stone-900 dark:text-stone-100' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
+                {unit.topic === 'Similar Worked Example Walkthrough' ? 'Similar Examples' : unit.topic}
+              </h4>
+              {/* Contextual Tags - Right Aligned */}
+              <div className="flex items-center gap-2 shrink-0">
+                {isWalkthrough && (
+                  <span className="px-2 py-0.5 bg-[#FF4A1C]/10 dark:bg-[#FF4A1C]/20 text-[#FF4A1C] dark:text-[#FF4A1C] text-xs rounded-full font-medium">
+                    Practice
+                  </span>
+                )}
+                {(unit.unit_type === 'topic' || unit.unit_type === 'prerequisite') && (
+                  <span className="px-2 py-0.5 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs rounded-full font-medium">
+                    Learn
+                  </span>
+                )}
+                {isComfortable && !isWalkthrough && (
+                  <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    Completed
+                  </span>
+                )}
+              </div>
+            </div>
+            {!isExpanded && (
+              <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 line-clamp-1">{unit.description}</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {isExpanded && (
-        <div className="px-4 pb-8 animate-fade-in">
+        <div className={`${isFocusView ? '' : 'px-4 pb-8'} animate-fade-in`}>
           {/* Main 3-Column Layout */}
           {/* Main 2-Column Layout */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -762,7 +767,7 @@ const TopicListItem = ({
                 <div className="space-y-6">
                   {/* Unit Description Context */}
                   <div>
-                    <h5 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
+                    <h5 className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
                       Context
                     </h5>
                     <p className="text-stone-700 dark:text-stone-300 text-sm leading-relaxed">
@@ -772,7 +777,7 @@ const TopicListItem = ({
 
                   {/* Practice Problem Generator */}
                   <div className="border-t border-stone-200 dark:border-stone-700 pt-6">
-                    <h5 className="text-lg font-bold text-[#FF4A1C] mb-4">
+                    <h5 className="text-lg font-normal tracking-tight text-[#FF4A1C] mb-4">
                       Practice Problem
                     </h5>
 
@@ -783,7 +788,7 @@ const TopicListItem = ({
                         onGeneratePracticeProblem(unit);
                       }}
                       disabled={isGeneratingPractice}
-                      className="w-full py-4 bg-stone-900 dark:bg-black text-white rounded-xl text-sm font-bold uppercase tracking-widest shadow-lg hover:shadow-xl hover:bg-stone-800 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none disabled:shadow-none mb-4 flex items-center justify-center gap-2"
+                      className="w-full py-4 bg-stone-900 dark:bg-black text-white rounded-xl text-sm font-medium uppercase tracking-widest shadow-lg hover:shadow-xl hover:bg-stone-800 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none disabled:shadow-none mb-4 flex items-center justify-center gap-2"
                     >
                       {isGeneratingPractice ? (
                         <>
@@ -802,7 +807,7 @@ const TopicListItem = ({
                       (Array.isArray(practiceProblem) ? practiceProblem : [practiceProblem]).map((problem, idx) => (
                         <div key={idx} className="space-y-4">
                           <div className="p-4 bg-stone-50 dark:bg-stone-900/50 rounded-xl border border-stone-200 dark:border-stone-700">
-                            <p className="text-base font-medium text-stone-900 dark:text-stone-100 leading-relaxed">
+                            <p className="text-base font-normal tracking-tight text-stone-900 dark:text-stone-100 leading-relaxed">
                               <LatexText text={problem.practice_problem} />
                             </p>
                           </div>
@@ -818,7 +823,7 @@ const TopicListItem = ({
                                 }}
                                 className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors text-left"
                               >
-                                <span className="text-sm font-semibold text-stone-600 dark:text-stone-400">Hints</span>
+                                <span className="text-sm font-medium text-stone-600 dark:text-stone-400">Hints</span>
                                 {expandedSections[`${idx}-hints`] ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
                               </button>
                               {expandedSections[`${idx}-hints`] && (
@@ -875,7 +880,7 @@ const TopicListItem = ({
                 /* LEARN LAYOUT - LEFT COLUMN */
                 <div className="space-y-6">
                   <div>
-                    <h5 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
+                    <h5 className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
                       Overview
                     </h5>
                     <p className="text-stone-700 dark:text-stone-300 text-sm leading-relaxed">
@@ -893,7 +898,7 @@ const TopicListItem = ({
                   )}
 
                   <div className="pt-4 border-t border-stone-200 dark:border-stone-700">
-                    <p className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
+                    <p className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
                       Related
                     </p>
                     <RelatedMaterialModule
@@ -908,7 +913,7 @@ const TopicListItem = ({
 
             {/* COLUMN 2: Resources (Center) */}
             <div className="space-y-8 xl:border-r border-stone-200 dark:border-stone-700 xl:pr-8">
-              <h5 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4 flex items-center gap-2">
+              <h5 className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4 flex items-center gap-2">
                 <Play className="w-3 h-3" />
                 {isWalkthrough ? 'Similar Examples' : 'Resources'}
               </h5>
@@ -969,7 +974,7 @@ const TopicListItem = ({
                       return (
                         <div key={resource.id || idx} className="group relative">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-bold text-base text-stone-900 dark:text-stone-100 leading-tight transition-colors pr-8">
+                            <h4 className="font-normal tracking-tight text-base text-stone-900 dark:text-stone-100 leading-tight transition-colors pr-8">
                               {resource.title}
                             </h4>
 
@@ -1256,6 +1261,7 @@ const Blueprint = () => {
 
   // UI State
   const [activeTab, setActiveTab] = useState(null);
+  const [selectedUnitId, setSelectedUnitId] = useState(null); // New state for Grid-to-Focus
   const [expandedTopics, setExpandedTopics] = useState({});
   const [showInputPopover, setShowInputPopover] = useState(false);
 
@@ -3057,6 +3063,32 @@ const Blueprint = () => {
     // Use title if available, otherwise fallback to the tab label (e.g. "Topic 1")
     const activeTabLabel = tabs.find(t => t.id === activeTab)?.label;
     currentSectionTitle = activeSection?.title || activeTabLabel || 'Untitled Section';
+
+    // CHECK FOR SOLUTION DATA & INJECT VIRTUAL UNIT
+    if (documentAnalysis?.raw_analysis?.sections) {
+      const normalizeId = (id) => id?.replace('_walkthroughs', '') || '';
+      const analysisSection = documentAnalysis.raw_analysis.sections.find(s =>
+        normalizeId(s.section_id) === normalizeId(activeSection?.section_id)
+      );
+
+      if (analysisSection?.solution_approach) {
+        // Create a virtual unit for the Solution
+        const solutionUnit = {
+          unit_id: `solution-${activeSection.section_id || 'virtual'}`,
+          unit_type: 'solution',
+          topic: 'Step-by-Step Solution',
+          description: 'Master the core problem-solving strategy with a detailed breakdown.',
+          solutionData: {
+            approach: analysisSection.solution_approach,
+            mistakes: analysisSection.common_mistakes || []
+          }
+        };
+
+        // Append to currentUnits if not already present (though currentUnits is recreated every render here)
+        // We create a new array to avoid mutating the original structure
+        currentUnits = [...currentUnits, solutionUnit];
+      }
+    }
   }
 
   console.log('[Blueprint] Final currentUnits count:', currentUnits.length);
@@ -3071,6 +3103,7 @@ const Blueprint = () => {
     // Filter for Learn units (not walkthroughs)
     const learnUnits = currentUnits.filter(u =>
       u.unit_type !== 'walkthrough' &&
+      u.unit_type !== 'solution' && // Exclude solution units
       u.topic !== 'Similar Worked Example Walkthrough' &&
       !u.topic?.includes('Similar')
     );
@@ -3088,6 +3121,7 @@ const Blueprint = () => {
     // Filter for Learn units (not walkthroughs)
     const learnUnits = currentUnits.filter(u =>
       u.unit_type !== 'walkthrough' &&
+      u.unit_type !== 'solution' && // Exclude solution units
       u.topic !== 'Similar Worked Example Walkthrough' &&
       !u.topic?.includes('Similar')
     );
@@ -3148,13 +3182,13 @@ const Blueprint = () => {
                             navigate('/dashboard');
                           }
                         }}
-                        className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors duration-200 text-sm font-medium dark:text-stone-400 mb-3"
+                        className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors duration-200 text-sm font-normal dark:text-stone-400 mb-3"
                       >
                         <ArrowLeft className="w-4 h-4" />
                         {blueprint.class?.name || 'Back to Class'}
                       </button>
 
-                      <h1 className={`font-bold text-[#2A2B2A] dark:text-stone-100 transition-all duration-300 ease-in-out truncate leading-tight ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>
+                      <h1 className={`font-normal tracking-tight text-[#2A2B2A] dark:text-stone-100 transition-all duration-300 ease-in-out truncate leading-tight ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>
                         {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
                       </h1>
 
@@ -3176,7 +3210,7 @@ const Blueprint = () => {
                               e.stopPropagation();
                               setShowInputPopover(!showInputPopover);
                             }}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 border shadow-sm ${showInputPopover ? 'bg-stone-100 dark:bg-stone-800' : 'bg-white dark:bg-stone-800'} border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700`}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-normal text-sm transition-all duration-200 border shadow-sm ${showInputPopover ? 'bg-stone-100 dark:bg-stone-800' : 'bg-white dark:bg-stone-800'} border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700`}
                           >
                             <AlignLeft className="w-4 h-4" />
                             Text Input
@@ -3193,7 +3227,7 @@ const Blueprint = () => {
                       {(doc || blueprint.url) && (
                         <button
                           onClick={handleViewDocument}
-                          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-sm font-medium transition-colors shadow-sm"
+                          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-sm font-normal transition-colors shadow-sm"
                           title={doc?.name || "View Document"}
                         >
                           <Eye className="w-4 h-4" />
@@ -3204,7 +3238,7 @@ const Blueprint = () => {
                       {/* Chat Toggle Button */}
                       <button
                         onClick={() => setIsChatOpen(!isChatOpen)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 border shadow-sm
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-normal text-sm transition-all duration-200 border shadow-sm
                             ${isChatOpen
                             ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600'
                             : 'bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600 hover:bg-stone-50 dark:hover:bg-stone-700'
@@ -3225,9 +3259,10 @@ const Blueprint = () => {
                             key={tab.id}
                             onClick={() => {
                               setActiveTab(tab.id);
+                              setSelectedUnitId(null); // Reset focus when changing tabs
                               window.scrollTo({ top: 0, behavior: 'smooth' });
                             }}
-                            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id
+                            className={`px-4 py-1.5 rounded-md text-sm font-normal transition-all whitespace-nowrap ${activeTab === tab.id
                               ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
                               : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
                               }`}
@@ -3566,13 +3601,22 @@ const Blueprint = () => {
               <div className="min-w-0 pt-4">
                 {/* Active Section Header */}
                 <div className="mb-6 flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-[#2A2B2A] dark:text-stone-100 flex items-center gap-3">
-                    <div className="w-1.5 h-8 bg-[#FF4A1C] rounded-full"></div>
-                    {currentSectionTitle}
+                  <h2 className="text-2xl font-normal tracking-tight text-[#2A2B2A] dark:text-stone-100 flex items-center gap-3">
+                    <div className="w-1.5 h-8 bg-stone-900 dark:bg-stone-700 rounded-full"></div>
+                    {/* Header Logic: If a unit is selected (Focus Mode), show that unit's topic. Otherwise show section header. */}
+                    {selectedUnitId
+                      ? (() => {
+                        const focusedUnit = currentUnits.find(u => u.unit_id === selectedUnitId);
+                        return focusedUnit?.topic || 'Unit Detail';
+                      })()
+                      : (currentSectionTitle === 'Prerequisites'
+                        ? 'You must be comfortable with these things before moving forward'
+                        : currentSectionTitle)
+                    }
                   </h2>
                 </div>
 
-                {/* Topic List */}
+                {/* Topic List / Focus View */}
                 <div className="space-y-6">
                   {/* Calculate Section Equations - Unique across all units in this section */
                     /* Note: currentUnits is already available in scope */
@@ -3598,52 +3642,124 @@ const Blueprint = () => {
                       }
                     }
 
-                    // Render units with StepByStepSolutionCard appearing right before the last unit (practice dropdown)
                     if (currentUnits.length > 0) {
-                      return currentUnits.map((unit, idx) => {
-                        const isLastUnit = idx === currentUnits.length - 1;
-                        const isSecondToLast = idx === currentUnits.length - 2;
-                        // Show the solution card right before the last unit (practice dropdown)
-                        const showSolutionCardHere = isLastUnit && sectionSolutionApproach;
+                      // FOCUS MODE: Show only the selected unit
+                      if (selectedUnitId) {
+                        const unit = currentUnits.find(u => u.unit_id === selectedUnitId);
+                        const unitIndex = currentUnits.findIndex(u => u.unit_id === selectedUnitId);
+
+                        // Navigation handlers
+                        const handleNext = () => {
+                          if (unitIndex < currentUnits.length - 1) {
+                            setSelectedUnitId(currentUnits[unitIndex + 1].unit_id);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }
+                        };
+
+                        const handlePrev = () => {
+                          if (unitIndex > 0) {
+                            setSelectedUnitId(currentUnits[unitIndex - 1].unit_id);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }
+                        };
+
+                        if (!unit) return null; // Should not happen
 
                         return (
-                          <React.Fragment key={unit.unit_id || idx}>
-                            {/* Render Step by Step Solution Card right before the last unit (practice dropdown) */}
-                            {showSolutionCardHere && (
-                              <StepByStepSolutionCard
-                                solutionApproach={sectionSolutionApproach}
-                                commonMistakes={sectionCommonMistakes}
-                              />
-                            )}
+                          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                            {/* Focus Header Navigation - MOVED to top, detached from content box */}
+                            <div className="flex items-center justify-between mb-8">
+                              <button
+                                onClick={() => setSelectedUnitId(null)}
+                                className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors text-sm font-medium"
+                              >
+                                <ArrowLeft className="w-4 h-4" />
+                                Back to Overview
+                              </button>
 
-                            <div className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
-                              <TopicListItem
-                                unit={unit}
-                                blueprintId={id}
-                                classId={blueprint.class_id}
-                                currentDocumentId={blueprint.document_id}
-                                topicResponse={topicResponses[unit.unit_id]}
-                                topicResources={topicResources[unit.unit_id]}
-                                topicEquations={topicEquations[unit.unit_id]}
-                                sectionLearnEquations={sectionLearnEquations}
-                                sectionLearnFigures={sectionLearnFigures}
-                                topicFigures={topicFigures[unit.unit_id]}
-                                onComfortSelect={handleComfortSelect}
-                                onGenerateBlueprint={handleGenerateBlueprint}
-                                onTriggerWebhook={handleTriggerWebhook}
-                                onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
-                                onGeneratePracticeProblem={handleGeneratePracticeProblem}
-                                practiceProblem={practiceProblems[unit.unit_id]}
-                                isGeneratingPractice={generatingPractice.has(unit.unit_id)}
-                                isSearching={searchingTopics.has(unit.unit_id)}
-                                isExpanded={expandedTopics[unit.unit_id]}
-                                onToggle={() => toggleTopic(unit.unit_id)}
-                                session={session}
-                              />
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={handlePrev}
+                                  disabled={unitIndex === 0}
+                                  className="p-2 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                                  title="Previous Topic"
+                                >
+                                  <ChevronDown className="w-6 h-6 rotate-90" />
+                                </button>
+                                <span className="text-sm font-medium text-stone-400 tabular-nums">
+                                  {unitIndex + 1} / {currentUnits.length}
+                                </span>
+                                <button
+                                  onClick={handleNext}
+                                  disabled={unitIndex === currentUnits.length - 1}
+                                  className="p-2 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                                  title="Next Topic"
+                                >
+                                  <ChevronRight className="w-6 h-6" />
+                                </button>
+                              </div>
                             </div>
-                          </React.Fragment>
+
+                            {/* Main Content - Handle Unit Types */}
+                            {unit.unit_type === 'solution' ? (
+                              <div className="mb-8">
+                                <StepByStepSolutionCard
+                                  solutionApproach={unit.solutionData?.approach}
+                                  commonMistakes={unit.solutionData?.mistakes}
+                                  isFocusView={true}
+                                />
+                              </div>
+                            ) : (
+                              /* Main Content - No Wrapper Box in Focus View */
+                              <div>
+                                <TopicListItem
+                                  unit={unit}
+                                  blueprintId={id}
+                                  classId={blueprint.class_id}
+                                  currentDocumentId={blueprint.document_id}
+                                  topicResponse={topicResponses[unit.unit_id]}
+                                  topicResources={topicResources[unit.unit_id]}
+                                  topicEquations={topicEquations[unit.unit_id]}
+                                  sectionLearnEquations={sectionLearnEquations}
+                                  sectionLearnFigures={sectionLearnFigures}
+                                  topicFigures={topicFigures[unit.unit_id]}
+                                  onComfortSelect={handleComfortSelect}
+                                  onGenerateBlueprint={handleGenerateBlueprint}
+                                  onTriggerWebhook={handleTriggerWebhook}
+                                  onLoadResourcesToDatabase={handleLoadResourcesToDatabase}
+                                  onGeneratePracticeProblem={handleGeneratePracticeProblem}
+                                  practiceProblem={practiceProblems[unit.unit_id]}
+                                  isGeneratingPractice={generatingPractice.has(unit.unit_id)}
+                                  isSearching={searchingTopics.has(unit.unit_id)}
+                                  isExpanded={true} // Always expanded in focus mode
+                                  isFocusView={true} // New prop to control internal styling
+                                  onToggle={() => { }} // No toggle needed
+                                  session={session}
+                                />
+                              </div>
+                            )}
+                          </div>
                         );
-                      });
+
+
+                      }
+
+                      // GRID MODE (Overview)
+                      return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
+                          {currentUnits.map((unit) => (
+                            <TopicCard
+                              key={unit.unit_id}
+                              unit={unit}
+                              status={topicResponses[unit.unit_id]?.response}
+                              onClick={() => {
+                                setSelectedUnitId(unit.unit_id);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                            />
+                          ))}
+                        </div>
+                      );
                     }
                     // Empty state when no units
                     return (
@@ -3672,7 +3788,7 @@ const Blueprint = () => {
         contextTitle={doc ? (blueprint?.document?.name || "Uploaded Document") : "AI Assistant"}
         hasDocument={!!doc}
       />
-    </div>
+    </div >
   );
 };
 

@@ -74,7 +74,7 @@ const EquationCard = ({ equation, index }) => {
           <span className="flex items-center justify-center w-6 h-6 bg-stone-500 dark:bg-stone-600 text-white text-xs font-bold rounded-full">
             {index}
           </span>
-          <h4 className="font-semibold text-stone-900 dark:text-white">{name || 'Equation'}</h4>
+          <h4 className="font-normal tracking-tight text-stone-900 dark:text-white">{name || 'Equation'}</h4>
         </div>
       </div>
 
@@ -94,7 +94,7 @@ const EquationCard = ({ equation, index }) => {
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-1.5 text-black dark:text-white mb-0.5">
                 <Info className="w-3.5 h-3.5" />
-                <p className="text-xs font-bold uppercase tracking-wide">
+                <p className="text-xs font-medium uppercase tracking-wide">
                   When to Use
                 </p>
               </div>
@@ -110,7 +110,7 @@ const EquationCard = ({ equation, index }) => {
           <div className="border-t border-stone-200 dark:border-stone-700">
             <button
               onClick={() => setShowVariables(!showVariables)}
-              className="w-full px-4 py-2 flex items-center justify-center gap-2 text-xs font-semibold text-black dark:text-white uppercase tracking-wide hover:bg-stone-100 dark:hover:bg-stone-800/50 transition-colors"
+              className="w-full px-4 py-2 flex items-center justify-center gap-2 text-xs font-medium text-black dark:text-white uppercase tracking-wide hover:bg-stone-100 dark:hover:bg-stone-800/50 transition-colors"
             >
               <span>Variables</span>
               {showVariables ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}

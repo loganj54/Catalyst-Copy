@@ -34,11 +34,11 @@ const FigureDisplay = ({ figures }) => {
           <Image className="w-4 h-4 text-blue-500" />
           Reference Figures
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {figures.map((figure, idx) => (
-            <FigureCard 
-              key={figure.id || idx} 
+            <FigureCard
+              key={figure.id || idx}
               figure={figure}
               index={idx + 1}
               onImageClick={() => setLightboxImage(figure)}
@@ -49,9 +49,9 @@ const FigureDisplay = ({ figures }) => {
 
       {/* Lightbox Modal */}
       {lightboxImage && (
-        <Lightbox 
-          figure={lightboxImage} 
-          onClose={() => setLightboxImage(null)} 
+        <Lightbox
+          figure={lightboxImage}
+          onClose={() => setLightboxImage(null)}
         />
       )}
     </>
@@ -62,11 +62,11 @@ const FigureDisplay = ({ figures }) => {
  * Individual Figure Card
  */
 const FigureCard = ({ figure, index, onImageClick }) => {
-  const { 
-    name, 
-    description, 
-    figure_type, 
-    file_url, 
+  const {
+    name,
+    description,
+    figure_type,
+    file_url,
     thumbnail_url,
     source,
     license,
@@ -98,7 +98,7 @@ const FigureCard = ({ figure, index, onImageClick }) => {
             <span className="flex items-center justify-center w-6 h-6 bg-stone-500 text-white text-xs font-bold rounded-full shrink-0">
               {index}
             </span>
-            <h4 className="font-semibold text-stone-900 dark:text-stone-100 truncate">{name || 'Figure'}</h4>
+            <h4 className="font-normal tracking-tight text-stone-900 dark:text-stone-100 truncate">{name || 'Figure'}</h4>
           </div>
           {from_cache && (
             <span className="shrink-0 text-[10px] text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800">
@@ -110,15 +110,15 @@ const FigureCard = ({ figure, index, onImageClick }) => {
           {figure_type}
         </span>
       </div>
-      
+
       {/* Figure Image */}
-      <div 
+      <div
         className="px-4 py-4 bg-white dark:bg-stone-900 cursor-pointer hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors"
         onClick={onImageClick}
       >
         <div className="flex justify-center items-center min-h-[200px] max-h-[250px] overflow-hidden rounded-lg border border-stone-200 dark:border-stone-700">
-          <img 
-            src={displayUrl} 
+          <img
+            src={displayUrl}
             alt={name}
             className="max-w-full max-h-[250px] object-contain"
             loading="lazy"
@@ -131,7 +131,7 @@ const FigureCard = ({ figure, index, onImageClick }) => {
           Click to view full size
         </p>
       </div>
-      
+
       {/* Description */}
       {(description || relevance_explanation) && (
         <div className="px-4 py-3 bg-stone-50 dark:bg-stone-800/50 border-t border-stone-200 dark:border-stone-700">
@@ -140,7 +140,7 @@ const FigureCard = ({ figure, index, onImageClick }) => {
           </p>
         </div>
       )}
-      
+
       {/* Attribution */}
       {source && (
         <div className="px-4 py-3 bg-stone-100 dark:bg-stone-900 border-t border-stone-200 dark:border-stone-700 mt-auto">
@@ -152,7 +152,7 @@ const FigureCard = ({ figure, index, onImageClick }) => {
                 {license && ` (${license})`}
               </p>
               {original_url && (
-                <a 
+                <a
                   href={original_url}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -175,7 +175,7 @@ const FigureCard = ({ figure, index, onImageClick }) => {
  */
 const Lightbox = ({ figure, onClose }) => {
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
       onClick={onClose}
     >
@@ -185,13 +185,13 @@ const Lightbox = ({ figure, onClose }) => {
       >
         <X className="w-6 h-6 text-stone-700 dark:text-stone-300" />
       </button>
-      
-      <div 
+
+      <div
         className="max-w-6xl max-h-[90vh] bg-white dark:bg-stone-900 rounded-xl shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 border-b border-stone-200 dark:border-stone-700">
-          <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+          <h3 className="text-lg font-normal tracking-tight text-stone-900 dark:text-stone-100">
             {figure.name}
           </h3>
           {figure.description && (
@@ -200,15 +200,15 @@ const Lightbox = ({ figure, onClose }) => {
             </p>
           )}
         </div>
-        
+
         <div className="p-4 flex items-center justify-center max-h-[70vh] overflow-auto">
-          <img 
-            src={figure.file_url} 
+          <img
+            src={figure.file_url}
             alt={figure.name}
             className="max-w-full max-h-full object-contain"
           />
         </div>
-        
+
         {figure.source && (
           <div className="p-4 border-t border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800">
             <div className="flex items-center justify-between">
@@ -218,7 +218,7 @@ const Lightbox = ({ figure, onClose }) => {
                 </p>
               </div>
               {figure.original_url && (
-                <a 
+                <a
                   href={figure.original_url}
                   target="_blank"
                   rel="noopener noreferrer"
