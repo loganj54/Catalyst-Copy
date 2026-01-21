@@ -872,11 +872,13 @@ const TopicListItem = ({
                 /* LEARN LAYOUT - LEFT COLUMN */
                 <div className="space-y-6">
                   <div>
-                    <h5 className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4 flex items-center gap-2">
-                      <BookOpen className="w-3 h-3" />
-                      Overview
+                    <h5 className="flex items-center gap-2 w-fit mb-4">
+                      <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2">
+                        <BookOpen className="w-3 h-3" />
+                        Overview
+                      </span>
                     </h5>
-                    <p className="text-stone-700 dark:text-stone-200 text-base leading-relaxed">
+                    <p className="text-stone-700 dark:text-stone-200 text-base leading-relaxed -mt-1">
                       {unit.description}
                     </p>
                   </div>
@@ -902,209 +904,215 @@ const TopicListItem = ({
 
             {/* COLUMN 2: Resources (Center) */}
             <div className="space-y-8 xl:border-r border-stone-200 dark:border-stone-700 xl:pr-8">
-              <h5 className="flex items-center gap-2 w-fit mb-4">
-                <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2">
-                  <Play className="w-3 h-3" />
-                  {isWalkthrough ? 'Similar Examples' : 'Resources'}
-                </span>
-              </h5>
+              <div>
+                <h5 className="flex items-center gap-2 w-fit mb-4">
+                  <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2">
+                    <Play className="w-3 h-3" />
+                    {isWalkthrough ? 'Similar Examples' : 'Resources'}
+                  </span>
+                </h5>
 
-              {hasResources ? (
-                <>
-                  <div className="space-y-6">
-                    {activeResources.map((resource, idx) => {
-                      const resourceId = resource.id;
-                      const displayData = localAverages[resourceId] || {
-                        average_rating: resource.average_rating,
-                        rating_count: resource.rating_count
-                      };
-                      const averageRating = displayData.average_rating;
-                      const ratingCount = displayData.rating_count;
-                      const userRating = userRatings[resourceId];
-                      const isRating = ratingInProgress === resourceId;
+                {hasResources ? (
+                  <>
+                    <div className="space-y-6">
+                      {activeResources.map((resource, idx) => {
+                        const resourceId = resource.id;
+                        const displayData = localAverages[resourceId] || {
+                          average_rating: resource.average_rating,
+                          rating_count: resource.rating_count
+                        };
+                        const averageRating = displayData.average_rating;
+                        const ratingCount = displayData.rating_count;
+                        const userRating = userRatings[resourceId];
+                        const isRating = ratingInProgress === resourceId;
 
-                      const StarRatingWidget = () => {
-                        const [hoverRating, setHoverRating] = useState(0);
+                        const StarRatingWidget = () => {
+                          const [hoverRating, setHoverRating] = useState(0);
+                          return (
+                            <div className="flex items-center gap-1 mt-1" onClick={(e) => e.preventDefault()}>
+                              <div className="flex items-center">
+                                {[1, 2, 3, 4, 5].map((star) => {
+                                  const isFilled = hoverRating ? star <= hoverRating : (userRating ? star <= userRating : star <= Math.round(averageRating || 0));
+                                  return (
+                                    <button
+                                      key={star}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleRating(resourceId, star);
+                                      }}
+                                      onMouseEnter={() => setHoverRating(star)}
+                                      onMouseLeave={() => setHoverRating(0)}
+                                      disabled={isRating || !session}
+                                      className={`p-0.5 transition-all disabled:cursor-not-allowed ${isRating ? 'opacity-50' : 'hover:scale-110'}`}
+                                      title={session ? `Rate ${star} star${star > 1 ? 's' : ''}` : 'Sign in to rate'}
+                                    >
+                                      <Star
+                                        className={`w-3 h-3 transition-colors ${isFilled
+                                          ? 'fill-yellow-400 text-yellow-400'
+                                          : 'fill-transparent text-stone-300 dark:text-stone-600'
+                                          }`}
+                                      />
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <div className="flex items-center gap-1 text-xs text-stone-500 ml-1">
+                                <span>{parseFloat(averageRating || 0).toFixed(1)}</span>
+                                {ratingCount > 0 && <span>({ratingCount})</span>}
+                              </div>
+                            </div>
+                          );
+                        };
+
                         return (
-                          <div className="flex items-center gap-1 mt-1" onClick={(e) => e.preventDefault()}>
-                            <div className="flex items-center">
-                              {[1, 2, 3, 4, 5].map((star) => {
-                                const isFilled = hoverRating ? star <= hoverRating : (userRating ? star <= userRating : star <= Math.round(averageRating || 0));
-                                return (
+                          <div key={resource.id || idx} className="group relative">
+                            <a
+                              href={resource.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden shadow-sm hover:border-[#FF4A1C] hover:shadow-[0_0_12px_rgba(255,74,28,0.25)] transition-all duration-300"
+                            >
+                              {/* Card Header with Title & Swap Button */}
+                              <div className="bg-stone-50 dark:bg-stone-800/50 border-b border-stone-200 dark:border-stone-700 px-4 py-3 flex items-start justify-between gap-4 relative">
+                                <h4 className="font-medium tracking-tight text-sm text-stone-900 dark:text-stone-100 leading-snug line-clamp-2 pr-6">
+                                  {resource.title}
+                                </h4>
+
+                                {resourceQueue.length > 0 && (
                                   <button
-                                    key={star}
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      handleRating(resourceId, star);
+                                      handleSwapResource(idx);
                                     }}
-                                    onMouseEnter={() => setHoverRating(star)}
-                                    onMouseLeave={() => setHoverRating(0)}
-                                    disabled={isRating || !session}
-                                    className={`p-0.5 transition-all disabled:cursor-not-allowed ${isRating ? 'opacity-50' : 'hover:scale-110'}`}
-                                    title={session ? `Rate ${star} star${star > 1 ? 's' : ''}` : 'Sign in to rate'}
+                                    className="absolute top-2 right-2 p-1.5 text-stone-400 hover:text-[#FF4A1C] hover:bg-[#FF4A1C]/10 rounded-full transition-all"
+                                    title="Swap with next best resource"
                                   >
-                                    <Star
-                                      className={`w-3 h-3 transition-colors ${isFilled
-                                        ? 'fill-yellow-400 text-yellow-400'
-                                        : 'fill-transparent text-stone-300 dark:text-stone-600'
-                                        }`}
-                                    />
+                                    <RefreshCw className="w-3.5 h-3.5" />
                                   </button>
-                                );
-                              })}
-                            </div>
-                            <div className="flex items-center gap-1 text-xs text-stone-500 ml-1">
-                              <span>{parseFloat(averageRating || 0).toFixed(1)}</span>
-                              {ratingCount > 0 && <span>({ratingCount})</span>}
-                            </div>
-                          </div>
-                        );
-                      };
+                                )}
+                              </div>
 
-                      return (
-                        <div key={resource.id || idx} className="group relative">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="inline-block bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-3 py-1.5 rounded-lg font-normal tracking-tight text-base text-stone-900 dark:text-stone-100 leading-tight transition-colors pr-8">
-                              {resource.title}
-                            </h4>
-
-                            {resourceQueue.length > 0 && (
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleSwapResource(idx);
-                                }}
-                                className="absolute top-0 right-0 p-1.5 text-stone-400 hover:text-[#FF4A1C] hover:bg-[#FF4A1C]/10 rounded-full transition-all"
-                                title="Swap with next best resource"
-                              >
-                                <RefreshCw className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-
-                          <a
-                            href={resource.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 p-0 overflow-hidden shadow-sm hover:border-[#FF4A1C] hover:shadow-[0_0_12px_rgba(255,74,28,0.25)] transition-all duration-300"
-                          >
-                            <div className="flex flex-col sm:flex-row h-full">
-                              <div className="sm:w-48 shrink-0 bg-stone-100 dark:bg-stone-800 border-b sm:border-b-0 sm:border-r border-stone-200 dark:border-stone-700 p-3 flex flex-col items-center justify-center gap-2">
-                                <div className="aspect-video w-full rounded-lg overflow-hidden bg-stone-200 dark:bg-stone-900 relative">
-                                  {getYouTubeThumbnail(resource.url) ? (
-                                    <img src={getYouTubeThumbnail(resource.url)} alt="" className="w-full h-full object-cover" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-stone-400">
-                                      <Youtube className="w-8 h-8 opacity-50" />
+                              <div className="flex flex-col sm:flex-row h-full">
+                                <div className="sm:w-40 shrink-0 bg-white dark:bg-stone-800/30 p-3 flex flex-col items-center justify-start gap-2">
+                                  <div className="aspect-video w-full rounded-lg overflow-hidden bg-stone-200 dark:bg-stone-900 relative">
+                                    {getYouTubeThumbnail(resource.url) ? (
+                                      <img src={getYouTubeThumbnail(resource.url)} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-stone-400">
+                                        <Youtube className="w-8 h-8 opacity-50" />
+                                      </div>
+                                    )}
+                                    <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1 rounded">
+                                      {formatDuration(resource.duration) || formatDuration(resource.duration_seconds) || 'Video'}
                                     </div>
-                                  )}
-                                  <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1 rounded">
-                                    {formatDuration(resource.duration) || formatDuration(resource.duration_seconds) || 'Video'}
+                                  </div>
+                                  <StarRatingWidget />
+                                </div>
+                                <div className="flex-1 p-3 pt-2 relative border-l border-stone-100 dark:border-stone-800">
+                                  <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-3 mb-6">
+                                    {resource.resource_explanation || resource.description || "No specific validation details available for this resource."}
+                                  </p>
+                                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                                    <span className="text-[10px] font-semibold text-stone-400 px-1.5 py-0.5 rounded bg-stone-100 dark:bg-stone-800 uppercase tracking-wide">
+                                      {resource.platform || 'Web'}
+                                    </span>
+                                    <span className="text-[10px] text-[#FF4A1C] font-semibold flex items-center gap-1 uppercase tracking-wider">
+                                      Open <ArrowUpRight className="w-3 h-3" />
+                                    </span>
                                   </div>
                                 </div>
-                                <StarRatingWidget />
                               </div>
-                              <div className="flex-1 p-4 relative">
-                                <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-4">
-                                  {resource.resource_explanation || resource.description || "No specific validation details available for this resource."}
-                                </p>
-                                <div className="mt-4 flex items-center justify-between">
-                                  <span className="text-xs font-medium text-stone-400 px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-800 uppercase tracking-wide">
-                                    {resource.platform || 'Web'}
-                                  </span>
-                                  <span className="text-xs text-[#FF4A1C] font-medium flex items-center gap-1">
-                                    Open Resource <ArrowUpRight className="w-3 h-3" />
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </a>
-                        </div>
-                      );
-                    })}
-                  </div>
+                            </a>
+                          </div>
+                        );
+                      })}
+                    </div>
 
-                  {/* Data Gathering Resource Note */}
-                  {unit.data_gathering_resource && (
-                    <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <BookOpen className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                            Use Your Own: {unit.data_gathering_resource}
-                          </p>
-                          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                            Practice gathering this data from your class materials so you're ready on exam day.
-                          </p>
+                    {/* Data Gathering Resource Note */}
+                    {unit.data_gathering_resource && (
+                      <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <BookOpen className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                              Use Your Own: {unit.data_gathering_resource}
+                            </p>
+                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                              Practice gathering this data from your class materials so you're ready on exam day.
+                            </p>
+                          </div>
                         </div>
                       </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="p-6 text-center border-2 border-dashed border-stone-200 dark:border-stone-700 rounded-xl">
+                      <p className="text-stone-500 dark:text-stone-400 text-sm mb-4">No resources gathered yet.</p>
+                      {!isComfortable && (
+                        <div className="flex flex-wrap justify-center gap-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onTriggerWebhook(unit);
+                            }}
+                            disabled={isSearching}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-amber-600 dark:text-amber-400 border border-amber-600 dark:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10"
+                          >
+                            {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                            Activate Webhook
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onGenerateBlueprint(unit, 'database');
+                            }}
+                            disabled={isSearching}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-blue-600 dark:text-blue-400 border border-blue-600 dark:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10"
+                          >
+                            {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+                            Search DB
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </>
-              ) : (
-                <div className="space-y-6">
-                  <div className="p-6 text-center border-2 border-dashed border-stone-200 dark:border-stone-700 rounded-xl">
-                    <p className="text-stone-500 dark:text-stone-400 text-sm mb-4">No resources gathered yet.</p>
-                    {!isComfortable && (
-                      <div className="flex flex-wrap justify-center gap-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onTriggerWebhook(unit);
-                          }}
-                          disabled={isSearching}
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-amber-600 dark:text-amber-400 border border-amber-600 dark:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/10"
-                        >
-                          {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                          Activate Webhook
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onGenerateBlueprint(unit, 'database');
-                          }}
-                          disabled={isSearching}
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm disabled:opacity-50 transition-colors bg-white dark:bg-stone-800 text-blue-600 dark:text-blue-400 border border-blue-600 dark:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10"
-                        >
-                          {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
-                          Search DB
-                        </button>
+                    {showSearchContext && (
+                      <div className="p-4 rounded-xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-700">
+                        <h6 className="font-bold text-xs text-stone-500 mb-2">Search Logic Active</h6>
+                        <div className="space-y-1">
+                          {unit.search_queries?.map((q, i) => <div key={i} className="text-xs font-mono text-stone-600">{'>'} {q}</div>)}
+                        </div>
                       </div>
                     )}
                   </div>
-                  {showSearchContext && (
-                    <div className="p-4 rounded-xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-700">
-                      <h6 className="font-bold text-xs text-stone-500 mb-2">Search Logic Active</h6>
-                      <div className="space-y-1">
-                        {unit.search_queries?.map((q, i) => <div key={i} className="text-xs font-mono text-stone-600">{'>'} {q}</div>)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* COLUMN 3: Practice Problem (Right) */}
             {/* COLUMN 3: Equations & Figures (Right) */}
+            {/* COLUMN 3: Equations & Figures (Right) */}
             <div className="space-y-8">
-              <h5 className="flex items-center gap-2 w-fit mb-4">
-                <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2">
-                  <Calculator className="w-3 h-3" />
-                  Equations
-                </span>
-              </h5>
+              <div>
+                <h5 className="flex items-center gap-2 w-fit mb-4">
+                  <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2">
+                    <Calculator className="w-3 h-3" />
+                    Equations
+                  </span>
+                </h5>
 
-              {equations && equations.length > 0 ? (
-                <div className="grid grid-cols-1 gap-3 mt-12">
-                  <EquationDisplay equations={equations} />
-                </div>
-              ) : (
-                <div className="p-4 text-center border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-stone-800/50">
-                  <span className="text-xs text-stone-400">No equations detected</span>
-                </div>
-              )}
+                {equations && equations.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3">
+                    <EquationDisplay equations={equations} />
+                  </div>
+                ) : (
+                  <div className="p-4 text-center border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-stone-800/50">
+                    <span className="text-xs text-stone-400">No equations detected</span>
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>
