@@ -5,7 +5,7 @@ import {
   ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp,
   ChevronRight, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
   Layout, Grid, Circle, Eye, Info, Database, ToggleLeft, ToggleRight, Timer,
-  AlignLeft, X, MessageSquare, ArrowUpRight, Search
+  AlignLeft, X, MessageSquare, ArrowUpRight, Search, ArrowRight
 } from 'lucide-react';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
@@ -3680,25 +3680,29 @@ const Blueprint = () => {
                                 Back to Blueprint
                               </button>
 
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-4">
                                 <button
                                   onClick={handlePrev}
                                   disabled={unitIndex === 0}
-                                  className="p-2 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-stone-500 hover:text-[#FF4A1C] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-sm font-medium"
                                   title="Previous Topic"
                                 >
-                                  <ChevronDown className="w-6 h-6 rotate-90" />
+                                  <ArrowLeft className="w-4 h-4" />
+                                  <span>Previous</span>
                                 </button>
-                                <span className="text-sm font-medium text-stone-400 tabular-nums">
-                                  {unitIndex + 1} / {currentUnits.length}
+
+                                <span className="text-sm font-medium text-stone-500 dark:text-stone-400 tabular-nums select-none min-w-[100px] text-center">
+                                  Concept {unitIndex + 1} of {currentUnits.length}
                                 </span>
+
                                 <button
                                   onClick={handleNext}
                                   disabled={unitIndex === currentUnits.length - 1}
-                                  className="p-2 text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-stone-500 hover:text-[#FF4A1C] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-sm font-medium"
                                   title="Next Topic"
                                 >
-                                  <ChevronRight className="w-6 h-6" />
+                                  <span>Next</span>
+                                  <ArrowRight className="w-4 h-4" />
                                 </button>
                               </div>
                             </div>

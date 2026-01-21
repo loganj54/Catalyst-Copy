@@ -76,6 +76,10 @@ const TopicCard = ({ unit, status, onClick }) => {
                 <h3 className="text-2xl font-normal tracking-tight text-stone-900 dark:text-stone-100 mb-2 leading-tight transition-colors">
                     {unit.topic === 'Similar Worked Example Walkthrough' ? 'Similar Examples' : unit.topic}
                 </h3>
+
+                {/* Horizontal Separator */}
+                <div className="h-px bg-stone-300 dark:bg-stone-600 my-3" />
+
                 <p className="text-stone-600 dark:text-stone-300 text-base line-clamp-3 leading-relaxed">
                     {unit.concept_summary || unit.description || unit.tutor_guidance}
                 </p>
