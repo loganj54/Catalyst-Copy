@@ -344,35 +344,37 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer,
               <h5 className="text-sm font-medium text-stone-900 dark:text-stone-100 mb-4 opacity-50 uppercase tracking-wider">
                 Guide
               </h5>
-              <div className="space-y-4">
-                {Array.isArray(solutionApproach) ? (
-                  solutionApproach.map((step, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <span className="font-medium text-stone-400 shrink-0 mt-0.5">{i + 1}.</span>
-                      <div className="flex-1">
-                        <p className="text-stone-700 dark:text-stone-200 leading-relaxed">
-                          <LatexText text={step} />
-                        </p>
+              <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 shadow-sm">
+                <div className="space-y-4">
+                  {Array.isArray(solutionApproach) ? (
+                    solutionApproach.map((step, i) => (
+                      <div key={i} className="flex items-start gap-3">
+                        <span className="font-medium text-stone-400 shrink-0 mt-0.5">{i + 1}.</span>
+                        <div className="flex-1">
+                          <p className="text-stone-700 dark:text-stone-200 leading-relaxed">
+                            <LatexText text={step} />
+                          </p>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="whitespace-pre-wrap text-stone-700 dark:text-stone-200 leading-relaxed">
+                      <LatexText text={solutionApproach} />
                     </div>
-                  ))
-                ) : (
-                  <div className="whitespace-pre-wrap text-stone-700 dark:text-stone-200 leading-relaxed">
-                    <LatexText text={solutionApproach} />
-                  </div>
-                )}
+                  )}
 
-                {/* Final Answer inside the Guide column */}
-                {finalAnswer && (
-                  <div className="mt-6 pt-6 border-t border-stone-100 dark:border-stone-700/50">
-                    <div className="bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border border-stone-200 dark:border-stone-700">
-                      <span className="text-stone-500 uppercase text-xs font-medium tracking-wider block mb-2">Final Answer</span>
-                      <div className="text-lg font-medium text-stone-900 dark:text-stone-50">
-                        <LatexText text={finalAnswer} />
+                  {/* Final Answer inside the Guide column */}
+                  {finalAnswer && (
+                    <div className="mt-6 pt-6 border-t border-stone-100 dark:border-stone-700/50">
+                      <div className="bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border border-stone-200 dark:border-stone-700">
+                        <span className="text-stone-500 uppercase text-xs font-medium tracking-wider block mb-2">Final Answer</span>
+                        <div className="text-lg font-medium text-stone-900 dark:text-stone-50">
+                          <LatexText text={finalAnswer} />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
 
@@ -383,13 +385,15 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer,
                   <AlertCircle className="w-4 h-4 text-orange-500" />
                   Common Mistakes
                 </h5>
-                <div className="space-y-3">
-                  {commonMistakes.map((mistake, i) => (
-                    <div key={i} className="flex gap-3 text-sm text-stone-600 dark:text-stone-300 bg-stone-50 dark:bg-stone-800/50 p-3 rounded-lg border border-stone-100 dark:border-stone-700/50">
-                      <span className="text-red-500 font-bold shrink-0">•</span>
-                      <span>{mistake}</span>
-                    </div>
-                  ))}
+                <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 shadow-sm">
+                  <div className="space-y-3">
+                    {commonMistakes.map((mistake, i) => (
+                      <div key={i} className="flex gap-3 text-sm text-stone-600 dark:text-stone-300 bg-stone-50 dark:bg-stone-800/50 p-3 rounded-lg border border-stone-100 dark:border-stone-700/50">
+                        <span className="text-red-500 font-bold shrink-0">•</span>
+                        <span>{mistake}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -706,7 +710,7 @@ const TopicListItem = ({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-3">
-              <h4 className={`inline-block px-3 py-1 rounded-lg bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm font-normal tracking-tight text-xl ${isWalkthrough ? 'text-stone-900 dark:text-stone-100' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
+              <h4 className={`inline-block px-3 py-1 rounded-lg bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm font-normal tracking-tight text-xl transition-all duration-300 ${isWalkthrough ? 'text-stone-900 dark:text-stone-100' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
                 {unit.topic === 'Similar Worked Example Walkthrough' ? 'Similar Examples' : unit.topic}
               </h4>
 
@@ -719,17 +723,17 @@ const TopicListItem = ({
               {/* Contextual Tags - Right Aligned */}
               <div className="flex items-center gap-2 shrink-0">
                 {isWalkthrough && (
-                  <span className="px-3 py-1 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm text-[#FF4A1C] dark:text-[#FF4A1C] text-xs rounded-full font-medium">
+                  <span className="px-3 py-1 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm text-[#FF4A1C] dark:text-[#FF4A1C] text-xs rounded-full font-medium transition-all duration-300">
                     Practice
                   </span>
                 )}
                 {(unit.unit_type === 'topic' || unit.unit_type === 'prerequisite') && (
-                  <span className="px-3 py-1 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm text-blue-600 dark:text-blue-400 text-xs rounded-full font-medium">
+                  <span className="px-3 py-1 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm text-blue-600 dark:text-blue-400 text-xs rounded-full font-medium transition-all duration-300">
                     Learn
                   </span>
                 )}
                 {isComfortable && !isWalkthrough && (
-                  <span className="px-3 py-1 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm text-green-700 dark:text-green-400 text-xs rounded-full flex items-center gap-1">
+                  <span className="px-3 py-1 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm text-green-700 dark:text-green-400 text-xs rounded-full flex items-center gap-1 transition-all duration-300">
                     <Check className="w-3 h-3" />
                     Completed
                   </span>
@@ -755,125 +759,122 @@ const TopicListItem = ({
                 /* PRACTICE LAYOUT - LEFT COLUMN */
                 <div className="space-y-8">
                   <h5 className="flex items-center gap-2 w-fit">
-                    <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2">
+                    <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2 transition-all duration-300">
                       <Target className="w-3 h-3" />
                       Practice Problem
                     </span>
                   </h5>
 
                   {/* Unit Description Context */}
-                  <div className="mt-12">
+                  <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 shadow-sm transition-all duration-300">
                     <p className="text-stone-700 dark:text-stone-200 text-base leading-relaxed">
                       {unit.description}
                     </p>
                   </div>
 
-                  {/* Practice Problem Generator */}
-                  <div>
-                    {/* Generate Button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onGeneratePracticeProblem(unit);
-                      }}
-                      disabled={isGeneratingPractice}
-                      className="w-full py-4 bg-stone-900 dark:bg-black text-white rounded-xl text-sm font-medium uppercase tracking-widest shadow-lg hover:shadow-xl hover:bg-stone-800 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none disabled:shadow-none mb-4 flex items-center justify-center gap-2"
-                    >
-                      {isGeneratingPractice ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4" />
-                          {practiceProblem ? 'New Problem' : 'Generate'}
-                        </>
-                      )}
-                    </button>
+                  {/* Practice Problem Generator - Generate Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onGeneratePracticeProblem(unit);
+                    }}
+                    disabled={isGeneratingPractice}
+                    className="w-full py-4 bg-stone-900 dark:bg-black text-white rounded-xl text-sm font-medium uppercase tracking-widest shadow-lg hover:shadow-xl hover:bg-stone-800 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none disabled:shadow-none mb-4 flex items-center justify-center gap-2"
+                  >
+                    {isGeneratingPractice ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        {practiceProblem ? 'New Problem' : 'Generate'}
+                      </>
+                    )}
+                  </button>
 
-                    {practiceProblem ? (
-                      (Array.isArray(practiceProblem) ? practiceProblem : [practiceProblem]).map((problem, idx) => (
-                        <div key={idx} className="space-y-4">
-                          <div className="p-4 bg-stone-50 dark:bg-stone-900/50 rounded-xl border border-stone-200 dark:border-stone-700">
-                            <p className="text-base font-normal tracking-tight text-stone-900 dark:text-stone-100 leading-relaxed">
-                              <LatexText text={problem.practice_problem} />
-                            </p>
-                          </div>
+                  {practiceProblem ? (
+                    (Array.isArray(practiceProblem) ? practiceProblem : [practiceProblem]).map((problem, idx) => (
+                      <div key={idx} className="space-y-4">
+                        <div className="p-4 bg-stone-50 dark:bg-stone-900/50 rounded-xl border border-stone-200 dark:border-stone-700">
+                          <p className="text-base font-normal tracking-tight text-stone-900 dark:text-stone-100 leading-relaxed">
+                            <LatexText text={problem.practice_problem} />
+                          </p>
+                        </div>
 
-                          {/* Hints */}
-                          {problem.hints && problem.hints.length > 0 && (
-                            <div className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const key = `${idx}-hints`;
-                                  setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
-                                }}
-                                className="w-full text-left py-3 px-3 flex items-start gap-3 cursor-pointer group select-none hover:bg-stone-50/30 dark:hover:bg-stone-800/30 transition-colors"
-                              >
-                                <div className="mt-1 text-stone-400 dark:text-stone-500 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
-                                  {expandedSections[`${idx}-hints`] ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between gap-3">
-                                    <h4 className="font-normal tracking-tight text-lg text-[#2A2B2A] dark:text-stone-100">
-                                      Hints
-                                    </h4>
-                                  </div>
+                        {/* Hints */}
+                        {problem.hints && problem.hints.length > 0 && (
+                          <div className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const key = `${idx}-hints`;
+                                setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
+                              }}
+                              className="w-full text-left py-3 px-3 flex items-start gap-3 cursor-pointer group select-none hover:bg-stone-50/30 dark:hover:bg-stone-800/30 transition-colors"
+                            >
+                              <div className="mt-1 text-stone-400 dark:text-stone-500 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
+                                {expandedSections[`${idx}-hints`] ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-3">
+                                  <h4 className="font-normal tracking-tight text-lg text-[#2A2B2A] dark:text-stone-100">
+                                    Hints
+                                  </h4>
                                 </div>
                               </div>
-
-                              {expandedSections[`${idx}-hints`] && (
-                                <div className="px-4 pb-8 pl-12 pr-6 animate-fade-in">
-                                  <ul className="space-y-4 border-l-2 border-stone-100 dark:border-stone-700 ml-1 pl-4">
-                                    {(problem.hints.slice(0, revealedCounts[`${idx}-hints`] || 1)).map((h, i) => (
-                                      <li key={i} className="text-base text-stone-700 dark:text-stone-200 leading-relaxed animate-fade-in">
-                                        <LatexText text={h} />
-                                      </li>
-                                    ))}
-                                  </ul>
-
-                                  {/* Reveal Next Hint Button */}
-                                  {(revealedCounts[`${idx}-hints`] || 1) < problem.hints.length && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const key = `${idx}-hints`;
-                                        setRevealedCounts(prev => ({ ...prev, [key]: (prev[key] || 1) + 1 }));
-                                      }}
-                                      className="mt-4 ml-5 text-sm font-semibold text-[#FF4A1C] hover:text-[#d43b15] flex items-center gap-1 transition-colors"
-                                    >
-                                      <span>Reveal next hint</span>
-                                      <ChevronDown className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </div>
-                              )}
                             </div>
-                          )}
 
-                          {/* Solution Card */}
-                          {(problem.solution_steps || problem.solution_approach) && (
-                            <div className="mt-4">
-                              <StepByStepSolutionCard
-                                solutionApproach={problem.solution_steps || problem.solution_approach}
-                                commonMistakes={problem.common_mistakes}
-                                finalAnswer={problem.final_answer}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    ) : null}
-                  </div>
+                            {expandedSections[`${idx}-hints`] && (
+                              <div className="px-4 pb-8 pl-12 pr-6 animate-fade-in">
+                                <ul className="space-y-4 border-l-2 border-stone-100 dark:border-stone-700 ml-1 pl-4">
+                                  {(problem.hints.slice(0, revealedCounts[`${idx}-hints`] || 1)).map((h, i) => (
+                                    <li key={i} className="text-base text-stone-700 dark:text-stone-200 leading-relaxed animate-fade-in">
+                                      <LatexText text={h} />
+                                    </li>
+                                  ))}
+                                </ul>
+
+                                {/* Reveal Next Hint Button */}
+                                {(revealedCounts[`${idx}-hints`] || 1) < problem.hints.length && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const key = `${idx}-hints`;
+                                      setRevealedCounts(prev => ({ ...prev, [key]: (prev[key] || 1) + 1 }));
+                                    }}
+                                    className="mt-4 ml-5 text-sm font-semibold text-[#FF4A1C] hover:text-[#d43b15] flex items-center gap-1 transition-colors"
+                                  >
+                                    <span>Reveal next hint</span>
+                                    <ChevronDown className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Solution Card */}
+                        {(problem.solution_steps || problem.solution_approach) && (
+                          <div className="mt-4">
+                            <StepByStepSolutionCard
+                              solutionApproach={problem.solution_steps || problem.solution_approach}
+                              commonMistakes={problem.common_mistakes}
+                              finalAnswer={problem.final_answer}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : null}
                 </div>
               ) : (
                 /* LEARN LAYOUT - LEFT COLUMN */
                 <div className="space-y-6">
                   <div>
                     <h5 className="flex items-center gap-2 w-fit mb-4">
-                      <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2">
+                      <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2 transition-all duration-300">
                         <BookOpen className="w-3 h-3" />
                         Overview
                       </span>
@@ -884,7 +885,7 @@ const TopicListItem = ({
                   </div>
 
                   {unit.tutor_guidance && (
-                    <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 shadow-sm">
+                    <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 shadow-sm transition-all duration-300">
 
                       <p className="text-stone-700 dark:text-stone-300 text-base leading-relaxed">
                         {unit.tutor_guidance}
@@ -906,7 +907,7 @@ const TopicListItem = ({
             <div className="space-y-8 xl:border-r border-stone-200 dark:border-stone-700 xl:pr-8">
               <div>
                 <h5 className="flex items-center gap-2 w-fit mb-4">
-                  <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2">
+                  <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2 transition-all duration-300">
                     <Play className="w-3 h-3" />
                     {isWalkthrough ? 'Similar Examples' : 'Resources'}
                   </span>
@@ -1097,7 +1098,7 @@ const TopicListItem = ({
             <div className="space-y-8">
               <div>
                 <h5 className="flex items-center gap-2 w-fit mb-4">
-                  <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2">
+                  <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2 transition-all duration-300">
                     <Calculator className="w-3 h-3" />
                     Equations
                   </span>
@@ -3283,7 +3284,7 @@ const Blueprint = () => {
 
                   {/* Horizontal Tabs - Centered in Header */}
                   {structure && tabs.length > 0 && (
-                    <div className="flex justify-center w-full mt-6">
+                    <div className="flex justify-center w-full mt-2">
                       <div className="bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm p-1 rounded-lg inline-flex items-center border border-stone-200/50 dark:border-stone-700/50 overflow-x-auto max-w-full no-scrollbar shadow-sm">
                         {tabs.map(tab => (
                           <button
@@ -3310,7 +3311,7 @@ const Blueprint = () => {
           </div>
         </div>
 
-        <div className="pb-12 px-20 w-full max-w-none mx-0 space-y-8 pt-8">
+        <div className="pb-12 px-20 w-full max-w-none mx-0 space-y-8 pt-2">
 
           {/* Debug Panel */}
           {showDebug && (
@@ -3635,15 +3636,17 @@ const Blueprint = () => {
                   <h2 className="text-2xl font-normal tracking-tight text-[#2A2B2A] dark:text-stone-100 flex items-center gap-3">
                     <div className="w-1.5 h-8 bg-stone-900 dark:bg-stone-700 rounded-full"></div>
                     {/* Header Logic: If a unit is selected (Focus Mode), show that unit's topic. Otherwise show section header. */}
-                    {selectedUnitId
-                      ? (() => {
-                        const focusedUnit = currentUnits.find(u => u.unit_id === selectedUnitId);
-                        return focusedUnit?.topic || 'Unit Detail';
-                      })()
-                      : (currentSectionTitle === 'Prerequisites'
-                        ? 'You must be comfortable with these things before moving forward'
-                        : currentSectionTitle)
-                    }
+                    <span className="inline-block px-3 py-1 rounded-lg bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm transition-all duration-300">
+                      {selectedUnitId
+                        ? (() => {
+                          const focusedUnit = currentUnits.find(u => u.unit_id === selectedUnitId);
+                          return focusedUnit?.topic || 'Unit Detail';
+                        })()
+                        : (currentSectionTitle === 'Prerequisites'
+                          ? 'You must be comfortable with these things before moving forward'
+                          : currentSectionTitle)
+                      }
+                    </span>
                   </h2>
                 </div>
 
@@ -3702,13 +3705,13 @@ const Blueprint = () => {
                             <div className="flex items-center justify-between mb-8">
                               <button
                                 onClick={() => setSelectedUnitId(null)}
-                                className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors text-sm font-medium bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-4 py-2 rounded-xl"
+                                className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-all duration-300 text-sm font-medium bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-4 py-2 rounded-xl"
                               >
                                 <ArrowLeft className="w-4 h-4" />
                                 Back to Blueprint
                               </button>
 
-                              <div className="flex items-center gap-4 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm p-1.5 rounded-xl">
+                              <div className="flex items-center gap-4 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm p-1.5 rounded-xl transition-all duration-300">
                                 <button
                                   onClick={handlePrev}
                                   disabled={unitIndex === 0}
