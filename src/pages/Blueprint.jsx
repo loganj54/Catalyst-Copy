@@ -1261,8 +1261,32 @@ const Blueprint = () => {
   const [generatingPractice, setGeneratingPractice] = useState(new Set()); // Set of unitIds
 
   // UI State
-  const [activeTab, setActiveTab] = useState(null);
-  const [selectedUnitId, setSelectedUnitId] = useState(null); // New state for Grid-to-Focus
+  // Refactored activeTab to use URL params
+  const activeTab = searchParams.get('tab');
+  const setActiveTab = (newTab) => {
+    const next = new URLSearchParams(searchParams);
+    if (newTab) {
+      next.set('tab', newTab);
+      // When switching tabs, clear the specific selected Unit to allow "fresh" entry into that section
+      next.delete('unitId');
+    } else {
+      next.delete('tab');
+    }
+    setSearchParams(next);
+  };
+
+  // Refactored to use URL params for browser back button support
+  const selectedUnitId = searchParams.get('unitId');
+  const setSelectedUnitId = (newId) => {
+    const next = new URLSearchParams(searchParams);
+    if (newId) {
+      next.set('unitId', newId);
+    } else {
+      next.delete('unitId');
+    }
+    setSearchParams(next);
+  };
+
   const [expandedTopics, setExpandedTopics] = useState({});
   const [showInputPopover, setShowInputPopover] = useState(false);
 
@@ -1711,7 +1735,8 @@ const Blueprint = () => {
   // Reset state when blueprint ID changes
   useEffect(() => {
     // UI State
-    setActiveTab(null);
+    // activeTab and selectedUnitId are now URL-driven, so they reset automatically if the URL changes 
+    // or will be re-initialized by the effect below if missing.
     setExpandedTopics({});
     setIsScrolled(false);
 
@@ -3178,7 +3203,10 @@ const Blueprint = () => {
                       <div className="mb-3">
                         <button
                           onClick={() => {
-                            if (blueprint.class_id) {
+                            if (selectedUnitId) {
+                              setSelectedUnitId(null);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            } else if (blueprint.class_id) {
                               navigate(`/class/${blueprint.class_id}?tab=blueprints`);
                             } else {
                               navigate('/dashboard');
@@ -3187,7 +3215,7 @@ const Blueprint = () => {
                           className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors duration-200 text-sm font-normal dark:text-stone-400 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-3 py-1.5 rounded-lg"
                         >
                           <ArrowLeft className="w-4 h-4" />
-                          {blueprint.class?.name || 'Back to Class'}
+                          {selectedUnitId ? 'Back to Blueprint' : (blueprint.class?.name || 'Back to Class')}
                         </button>
                       </div>
 
@@ -3262,7 +3290,7 @@ const Blueprint = () => {
                             key={tab.id}
                             onClick={() => {
                               setActiveTab(tab.id);
-                              setSelectedUnitId(null); // Reset focus when changing tabs
+                              // setSelectedUnitId(null) is handled inside setActiveTab to prevent batching conflicts
                               window.scrollTo({ top: 0, behavior: 'smooth' });
                             }}
                             className={`px-4 py-1.5 rounded-md text-sm font-normal transition-all whitespace-nowrap ${activeTab === tab.id

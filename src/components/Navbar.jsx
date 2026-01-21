@@ -41,7 +41,7 @@ const Navbar = () => {
       <div className="flex items-center flex-1">
         <Link to="/" className="flex items-center gap-2">
           <img
-            src="/catalyst-logo-new.png"
+            src={theme === 'dark' ? '/catalyst-logo-dark.png' : '/catalyst-logo-new.png'}
             alt="Catalyst Engineering"
             className="h-16 w-auto object-contain"
             onError={(e) => {
