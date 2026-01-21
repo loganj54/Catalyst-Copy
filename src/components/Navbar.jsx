@@ -49,7 +49,7 @@ const Navbar = () => {
               e.target.nextSibling.style.display = 'flex';
             }}
           />
-          <span className="text-xl font-bold text-black dark:text-white tracking-widest uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>Catalyst</span>
+          <span className="text-2xl text-black dark:text-white tracking-tight">Catalyst</span>
           {/* Fallback if image fails to load */}
           <div className="hidden flex gap-3 items-center">
             <div className="flex text-[#FF4A1C] bg-[#FF4A1C]/10 w-10 h-10 rounded-full items-center justify-center">
