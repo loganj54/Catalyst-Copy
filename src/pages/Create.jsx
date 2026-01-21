@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Upload, FileText, Trash2, Sparkles, BookOpen, Briefcase,
+  Upload, FileText, Trash2, Sparkles, BookOpen,
   ArrowRight, Layers, Command, Loader2, Paperclip, Plus, Check, X,
   ToggleLeft, ToggleRight, Zap
 } from 'lucide-react';
@@ -16,7 +16,7 @@ const Create = () => {
   const fileInputRef = useRef(null);
 
   // State
-  const [mode, setMode] = useState('classwork'); // 'classwork' or 'project'
+
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragCounter = useRef(0);
@@ -96,22 +96,7 @@ const Create = () => {
     };
   }, [wrapperRef, isCreatingClass, newClassName]);
 
-  useEffect(() => {
-    if (mode !== 'classwork') {
-      setSelectedClassId(null);
-      setIsCreatingClass(false);
-      setNewClassName('');
-    } else {
-      // Re-fetch or re-establish default logic if needed
-      // but 'classes' state is preserved, just selection resets or stays?
-      // User said: "refresh... switching... clicking off... reset that entire box back to initial state"
-      // If we switch back to classwork, we probably want it clear or default.
-      // Let's clear selection on mode switch TO classwork too? 
-      // Actually, user said "reset that entire... box back to initial state".
-      // Initial state is no selection? Or default selection?
-      // Previous logic had no default selection.
-    }
-  }, [mode]);
+
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -180,10 +165,10 @@ const Create = () => {
 
   // Fetch Classes
   useEffect(() => {
-    if (user && mode === 'classwork') {
+    if (user) {
       fetchClasses();
     }
-  }, [user, mode]);
+  }, [user]);
 
   const fetchClasses = async () => {
     try {
@@ -371,8 +356,7 @@ const Create = () => {
           type: formData.fileUpload.type,
           url: fileUrl,
           file_urls: fileUrls // Store all chunk URLs if available
-        } : null,
-        mode: mode
+        } : null
       };
 
       console.log('[Create] Creating blueprint with document_id:', documentId);
@@ -385,7 +369,7 @@ const Create = () => {
           document_id: documentId,
           title: finalBlueprintName,
           description: formData.textInput,
-          task_type: mode === 'project' ? 'project' : 'Auto-detect',
+          task_type: 'Auto-detect',
           goal_type: 'Auto-detect from document', // Required field
           file_metadata: content.fileUpload,
           content: content
@@ -453,92 +437,88 @@ const Create = () => {
 
             <div className="flex gap-4 h-[180px]">
 
-              {/* Left Side: Upload Area (Only in Classwork Mode) */}
-              {mode === 'classwork' && (
-                <div className="flex-1">
-                  {!formData.fileUpload ? (
-                    <div
-                      onDragEnter={handleDragEnter}
-                      onDragLeave={handleDragLeave}
-                      onDragOver={handleDragOver}
-                      onDrop={handleDrop}
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`h-full border border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${isDragging
-                        ? 'border-stone-500 bg-stone-50 dark:bg-stone-800'
-                        : 'border-stone-300 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-500 hover:bg-stone-50 dark:hover:bg-stone-800'
-                        }`}
-                    >
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
-                      />
-                      <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-lg text-stone-500 dark:text-stone-400 mb-2">
-                        <Paperclip className="w-5 h-5" />
-                      </div>
-                      <p className="text-sm font-medium text-stone-900 dark:text-stone-100">Upload file</p>
-
+              {/* Left Side: Upload Area */}
+              <div className="flex-1">
+                {!formData.fileUpload ? (
+                  <div
+                    onDragEnter={handleDragEnter}
+                    onDragLeave={handleDragLeave}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`h-full border border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${isDragging
+                      ? 'border-stone-500 bg-stone-50 dark:bg-stone-800'
+                      : 'border-stone-300 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-500 hover:bg-stone-50 dark:hover:bg-stone-800'
+                      }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
+                    />
+                    <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-lg text-stone-500 dark:text-stone-400 mb-2">
+                      <Paperclip className="w-5 h-5" />
                     </div>
-                  ) : (
-                    <div className={`h-full border rounded-lg p-4 flex flex-col items-center justify-center text-center relative group ${formData.fileUpload.size > 5 * 1024 * 1024
-                      ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/10'
-                      : 'border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800'
+                    <p className="text-sm font-medium text-stone-900 dark:text-stone-100">Upload file</p>
+
+                  </div>
+                ) : (
+                  <div className={`h-full border rounded-lg p-4 flex flex-col items-center justify-center text-center relative group ${formData.fileUpload.size > 5 * 1024 * 1024
+                    ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/10'
+                    : 'border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800'
+                    }`}>
+                    <div className={`p-2 border rounded-lg mb-2 shadow-sm ${formData.fileUpload.size > 5 * 1024 * 1024
+                      ? 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400'
+                      : 'bg-white dark:bg-stone-900 border-stone-300 dark:border-stone-700 text-[#FF4A1C]'
                       }`}>
-                      <div className={`p-2 border rounded-lg mb-2 shadow-sm ${formData.fileUpload.size > 5 * 1024 * 1024
-                        ? 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400'
-                        : 'bg-white dark:bg-stone-900 border-stone-300 dark:border-stone-700 text-[#FF4A1C]'
-                        }`}>
-                        {formData.fileUpload.size > 5 * 1024 * 1024 ? (
-                          <X className="w-5 h-5" />
-                        ) : (
-                          <FileText className="w-5 h-5" />
-                        )}
-                      </div>
-                      <p className={`text-sm font-medium line-clamp-2 px-2 break-all ${formData.fileUpload.size > 5 * 1024 * 1024
-                        ? 'text-red-700 dark:text-red-300'
-                        : 'text-stone-900 dark:text-stone-100'
-                        }`}>
-                        {formData.fileUpload.name}
-                      </p>
-                      <p className={`text-xs mt-1 ${formData.fileUpload.size > 5 * 1024 * 1024
-                        ? 'text-red-500 dark:text-red-400 font-semibold'
-                        : 'text-stone-500 dark:text-stone-400'
-                        }`}>
-                        {formData.fileUpload.size > 5 * 1024 * 1024
-                          ? `Too large (${(formData.fileUpload.size / (1024 * 1024)).toFixed(1)} MB)`
-                          : `${(formData.fileUpload.size / 1024).toFixed(1)} KB`
-                        }
-                      </p>
-                      {formData.fileUpload.size > 5 * 1024 * 1024 && (
-                        <p className="text-[10px] text-red-500 dark:text-red-400 mt-1">
-                          Max 5MB allowed
-                        </p>
+                      {formData.fileUpload.size > 5 * 1024 * 1024 ? (
+                        <X className="w-5 h-5" />
+                      ) : (
+                        <FileText className="w-5 h-5" />
                       )}
-
-                      <button
-                        onClick={(e) => { e.stopPropagation(); removeFile(); }}
-                        className="absolute top-2 right-2 p-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-md text-stone-500 dark:text-stone-400 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-900/50 transition-colors opacity-0 group-hover:opacity-100"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
                     </div>
-                  )}
-                </div>
-              )}
+                    <p className={`text-sm font-medium line-clamp-2 px-2 break-all ${formData.fileUpload.size > 5 * 1024 * 1024
+                      ? 'text-red-700 dark:text-red-300'
+                      : 'text-stone-900 dark:text-stone-100'
+                      }`}>
+                      {formData.fileUpload.name}
+                    </p>
+                    <p className={`text-xs mt-1 ${formData.fileUpload.size > 5 * 1024 * 1024
+                      ? 'text-red-500 dark:text-red-400 font-semibold'
+                      : 'text-stone-500 dark:text-stone-400'
+                      }`}>
+                      {formData.fileUpload.size > 5 * 1024 * 1024
+                        ? `Too large (${(formData.fileUpload.size / (1024 * 1024)).toFixed(1)} MB)`
+                        : `${(formData.fileUpload.size / 1024).toFixed(1)} KB`
+                      }
+                    </p>
+                    {formData.fileUpload.size > 5 * 1024 * 1024 && (
+                      <p className="text-[10px] text-red-500 dark:text-red-400 mt-1">
+                        Max 5MB allowed
+                      </p>
+                    )}
+
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeFile(); }}
+                      className="absolute top-2 right-2 p-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-md text-stone-500 dark:text-stone-400 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-900/50 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Right Side: Text Input */}
-              <div className={mode === 'classwork' ? 'flex-1' : 'w-full'}>
+              <div className="flex-1">
                 <textarea
                   value={formData.textInput}
                   onChange={(e) => setFormData({ ...formData, textInput: e.target.value })}
                   placeholder={
                     formData.fileUpload && formData.fileUpload.size > 5 * 1024 * 1024
                       ? "Share a quick summary of your document instead... "
-                      : mode === 'classwork'
-                        ? "Or add any specific context, problem details, or questions here..."
-                        : "Describe your engineering project idea in detail..."
+                      : "Or add any specific context, problem details, or questions here..."
                   }
                   className={`w-full h-full p-3 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-sm text-stone-900 dark:text-stone-100 resize-none focus:outline-none focus:border-stone-500 dark:focus:border-stone-400 focus:ring-0 leading-relaxed transition-all ${formData.fileUpload && formData.fileUpload.size > 5 * 1024 * 1024
                     ? 'placeholder:text-[#FF4A1C] placeholder:font-medium placeholder:opacity-60'
@@ -552,25 +532,13 @@ const Create = () => {
             {/* Action Bar */}
             <div className="flex items-center justify-between pt-4 border-t border-stone-300 dark:border-stone-700">
               <div className="flex gap-2">
+                {/* Static Classwork Button (decorative only) */}
                 <button
-                  onClick={() => setMode('classwork')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${mode === 'classwork'
-                    ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600'
-                    : 'text-stone-500 dark:text-stone-400 border-transparent hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-stone-100'
-                    }`}
+                  type="button"
+                  className="flex items-center gap-2 px-4 py-2 border rounded-lg font-medium text-sm transition-all shadow-sm bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-700 cursor-default"
                 >
-                  <BookOpen className="w-3 h-3" />
+                  <BookOpen className="w-4 h-4" />
                   Classwork
-                </button>
-                <button
-                  onClick={() => setMode('project')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${mode === 'project'
-                    ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600'
-                    : 'text-stone-500 dark:text-stone-400 border-transparent hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-stone-100'
-                    }`}
-                >
-                  <Briefcase className="w-3 h-3" />
-                  Project
                 </button>
               </div>
 
@@ -630,7 +598,7 @@ const Create = () => {
         </div>
 
         {/* Class Selection Card (Classwork Mode Only) */}
-        {mode === 'classwork' && (formData.fileUpload || formData.textInput.trim().length > 0 || selectedClassId || isCreatingClass) && (
+        {(formData.fileUpload || formData.textInput.trim().length > 0 || selectedClassId || isCreatingClass) && (
           <div className="mt-6 flex gap-6 items-start">
             <div className="rounded-2xl shadow-xl border border-stone-300 dark:border-stone-700 overflow-hidden bg-white dark:bg-stone-900 max-w-[300px] w-full animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="p-5">

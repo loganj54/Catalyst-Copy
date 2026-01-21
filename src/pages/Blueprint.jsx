@@ -5,7 +5,7 @@ import {
   ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp,
   ChevronRight, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
   Layout, Grid, Circle, Eye, Info, Database, ToggleLeft, ToggleRight, Timer,
-  AlignLeft, X, MessageSquare, ArrowUpRight, Search, ArrowRight
+  AlignLeft, X, MessageSquare, ArrowUpRight, Search, ArrowRight, Calculator
 } from 'lucide-react';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
@@ -760,7 +760,7 @@ const TopicListItem = ({
                   </h5>
 
                   {/* Unit Description Context */}
-                  <div>
+                  <div className="mt-12">
                     <p className="text-stone-700 dark:text-stone-200 text-base leading-relaxed">
                       {unit.description}
                     </p>
@@ -870,7 +870,8 @@ const TopicListItem = ({
                 /* LEARN LAYOUT - LEFT COLUMN */
                 <div className="space-y-6">
                   <div>
-                    <h5 className="text-sm font-medium uppercase tracking-wider text-stone-600 dark:text-stone-300 mb-2">
+                    <h5 className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4 flex items-center gap-2">
+                      <BookOpen className="w-3 h-3" />
                       Overview
                     </h5>
                     <p className="text-stone-700 dark:text-stone-200 text-base leading-relaxed">
@@ -1083,13 +1084,14 @@ const TopicListItem = ({
 
             {/* COLUMN 3: Practice Problem (Right) */}
             {/* COLUMN 3: Equations & Figures (Right) */}
-            <div className="space-y-6">
-              <h5 className="text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4">
+            <div className="space-y-8">
+              <h5 className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4 flex items-center gap-2">
+                <Calculator className="w-3 h-3" />
                 Equations
               </h5>
 
               {equations && equations.length > 0 ? (
-                <div className="grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-1 gap-3 mt-12">
                   <EquationDisplay equations={equations} />
                 </div>
               ) : (

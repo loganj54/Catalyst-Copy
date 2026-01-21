@@ -66,10 +66,6 @@ const Navbar = () => {
         <Link to="/create" className="hover:text-black dark:hover:text-white transition-colors">
           Create
         </Link>
-        <Link to="/classes" className="hover:text-black dark:hover:text-white transition-colors">Classes</Link>
-        <a href="#" className="hover:text-black dark:hover:text-white transition-colors">Projects</a>
-        <a href="#" className="hover:text-black dark:hover:text-white transition-colors">Career</a>
-        <a href="#" className="hover:text-black dark:hover:text-white transition-colors">Misc</a>
       </div>
 
       <div
