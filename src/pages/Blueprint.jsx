@@ -706,7 +706,7 @@ const TopicListItem = ({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-3">
-              <h4 className={`font-normal tracking-tight text-xl ${isWalkthrough ? 'text-stone-900 dark:text-stone-100' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
+              <h4 className={`inline-block px-3 py-1 rounded-lg bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm font-normal tracking-tight text-xl ${isWalkthrough ? 'text-stone-900 dark:text-stone-100' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
                 {unit.topic === 'Similar Worked Example Walkthrough' ? 'Similar Examples' : unit.topic}
               </h4>
 
@@ -719,17 +719,17 @@ const TopicListItem = ({
               {/* Contextual Tags - Right Aligned */}
               <div className="flex items-center gap-2 shrink-0">
                 {isWalkthrough && (
-                  <span className="px-2 py-0.5 bg-[#FF4A1C]/10 dark:bg-[#FF4A1C]/20 text-[#FF4A1C] dark:text-[#FF4A1C] text-xs rounded-full font-medium">
+                  <span className="px-3 py-1 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm text-[#FF4A1C] dark:text-[#FF4A1C] text-xs rounded-full font-medium">
                     Practice
                   </span>
                 )}
                 {(unit.unit_type === 'topic' || unit.unit_type === 'prerequisite') && (
-                  <span className="px-2 py-0.5 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs rounded-full font-medium">
+                  <span className="px-3 py-1 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm text-blue-600 dark:text-blue-400 text-xs rounded-full font-medium">
                     Learn
                   </span>
                 )}
                 {isComfortable && !isWalkthrough && (
-                  <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full flex items-center gap-1">
+                  <span className="px-3 py-1 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm text-green-700 dark:text-green-400 text-xs rounded-full flex items-center gap-1">
                     <Check className="w-3 h-3" />
                     Completed
                   </span>
@@ -754,9 +754,11 @@ const TopicListItem = ({
               {isWalkthrough ? (
                 /* PRACTICE LAYOUT - LEFT COLUMN */
                 <div className="space-y-8">
-                  <h5 className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4 flex items-center gap-2">
-                    <Target className="w-3 h-3" />
-                    Practice Problem
+                  <h5 className="flex items-center gap-2 w-fit">
+                    <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2">
+                      <Target className="w-3 h-3" />
+                      Practice Problem
+                    </span>
                   </h5>
 
                   {/* Unit Description Context */}
@@ -900,9 +902,11 @@ const TopicListItem = ({
 
             {/* COLUMN 2: Resources (Center) */}
             <div className="space-y-8 xl:border-r border-stone-200 dark:border-stone-700 xl:pr-8">
-              <h5 className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4 flex items-center gap-2">
-                <Play className="w-3 h-3" />
-                {isWalkthrough ? 'Similar Examples' : 'Resources'}
+              <h5 className="flex items-center gap-2 w-fit mb-4">
+                <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2">
+                  <Play className="w-3 h-3" />
+                  {isWalkthrough ? 'Similar Examples' : 'Resources'}
+                </span>
               </h5>
 
               {hasResources ? (
@@ -961,7 +965,7 @@ const TopicListItem = ({
                       return (
                         <div key={resource.id || idx} className="group relative">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-normal tracking-tight text-base text-stone-900 dark:text-stone-100 leading-tight transition-colors pr-8">
+                            <h4 className="inline-block bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-3 py-1.5 rounded-lg font-normal tracking-tight text-base text-stone-900 dark:text-stone-100 leading-tight transition-colors pr-8">
                               {resource.title}
                             </h4>
 
@@ -1085,9 +1089,11 @@ const TopicListItem = ({
             {/* COLUMN 3: Practice Problem (Right) */}
             {/* COLUMN 3: Equations & Figures (Right) */}
             <div className="space-y-8">
-              <h5 className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4 flex items-center gap-2">
-                <Calculator className="w-3 h-3" />
-                Equations
+              <h5 className="flex items-center gap-2 w-fit mb-4">
+                <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2">
+                  <Calculator className="w-3 h-3" />
+                  Equations
+                </span>
               </h5>
 
               {equations && equations.length > 0 ? (
@@ -1116,8 +1122,7 @@ const BlueprintSkeleton = () => {
   return (
     <div className="min-h-screen bg-transparent text-outline relative animate-pulse">
       {/* Sidebars */}
-      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-30 hidden lg:block w-20 bg-stone-100 dark:bg-stone-900/50 border-r border-stone-200 dark:border-stone-800" />
-      <div className="fixed top-20 left-20 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
+      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
         <div className="p-6 space-y-6">
           <div className="h-6 w-32 bg-stone-200 dark:bg-stone-800 rounded" />
           <div className="space-y-3">
@@ -1128,7 +1133,7 @@ const BlueprintSkeleton = () => {
         </div>
       </div>
 
-      <div className="min-w-0 lg:ml-[304px] transition-all duration-300 ease-in-out">
+      <div className="min-w-0 lg:ml-[224px] transition-all duration-300 ease-in-out">
         {/* Sticky Header */}
         <div className="sticky top-20 z-50 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md">
           <div className="py-6">
@@ -3156,33 +3161,35 @@ const Blueprint = () => {
           {/* Visual Wrapper - Handles background and transitions */}
           <div className={`w-full transition-all duration-300 ease-in-out pointer-events-auto ${isScrolled ? 'bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl' : 'bg-transparent'}`}>
             <div className="py-6">
-              <div className="px-10 w-full max-w-none mx-0">
+              <div className="px-20 w-full max-w-none mx-0">
                 <div className={`transition-all duration-300 ease-in-out relative mb-0`}>
                   {/* Top row: Back button, Title, Controls */}
                   <div className="flex justify-between items-start gap-6">
                     {/* Left side: Title and navigation */}
-                    <div className="flex-1 min-w-0">
-                      <button
-                        onClick={() => {
-                          if (blueprint.class_id) {
-                            navigate(`/class/${blueprint.class_id}?tab=blueprints`);
-                          } else {
-                            navigate('/dashboard');
-                          }
-                        }}
-                        className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors duration-200 text-sm font-normal dark:text-stone-400 mb-3"
-                      >
-                        <ArrowLeft className="w-4 h-4" />
-                        {blueprint.class?.name || 'Back to Class'}
-                      </button>
+                    <div className="flex-1 min-w-0 flex flex-col items-start">
+                      <div className="mb-3">
+                        <button
+                          onClick={() => {
+                            if (blueprint.class_id) {
+                              navigate(`/class/${blueprint.class_id}?tab=blueprints`);
+                            } else {
+                              navigate('/dashboard');
+                            }
+                          }}
+                          className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors duration-200 text-sm font-normal dark:text-stone-400 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-3 py-1.5 rounded-lg"
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                          {blueprint.class?.name || 'Back to Class'}
+                        </button>
+                      </div>
 
-                      <h1 className={`font-normal tracking-tight text-[#2A2B2A] dark:text-stone-100 transition-all duration-300 ease-in-out truncate leading-tight ${isScrolled ? 'text-2xl' : 'text-4xl'}`}>
+                      <h1 className={`font-normal tracking-tight text-[#2A2B2A] dark:text-stone-100 transition-all duration-300 ease-in-out truncate leading-tight ${isScrolled ? 'text-2xl' : 'text-4xl'} inline-block bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-4 py-2 rounded-xl`}>
                         {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
                       </h1>
 
                       {/* Subtitle / Context */}
                       {!isScrolled && blueprint.class?.name && (
-                        <p className="text-stone-500 dark:text-stone-400 mt-2 text-lg">
+                        <p className="text-stone-500 dark:text-stone-400 mt-2 text-lg px-1">
                           {blueprint.class.name}
                         </p>
                       )}
@@ -3241,7 +3248,7 @@ const Blueprint = () => {
                   {/* Horizontal Tabs - Centered in Header */}
                   {structure && tabs.length > 0 && (
                     <div className="flex justify-center w-full mt-6">
-                      <div className="bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg inline-flex items-center border border-stone-200 dark:border-stone-700 overflow-x-auto max-w-full no-scrollbar">
+                      <div className="bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm p-1 rounded-lg inline-flex items-center border border-stone-200/50 dark:border-stone-700/50 overflow-x-auto max-w-full no-scrollbar shadow-sm">
                         {tabs.map(tab => (
                           <button
                             key={tab.id}
@@ -3267,7 +3274,7 @@ const Blueprint = () => {
           </div>
         </div>
 
-        <div className="pb-12 px-10 w-full max-w-none mx-0 space-y-8 pt-8">
+        <div className="pb-12 px-20 w-full max-w-none mx-0 space-y-8 pt-8">
 
           {/* Debug Panel */}
           {showDebug && (
@@ -3659,31 +3666,31 @@ const Blueprint = () => {
                             <div className="flex items-center justify-between mb-8">
                               <button
                                 onClick={() => setSelectedUnitId(null)}
-                                className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors text-sm font-medium"
+                                className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors text-sm font-medium bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-4 py-2 rounded-xl"
                               >
                                 <ArrowLeft className="w-4 h-4" />
                                 Back to Blueprint
                               </button>
 
-                              <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-4 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm p-1.5 rounded-xl">
                                 <button
                                   onClick={handlePrev}
                                   disabled={unitIndex === 0}
-                                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-stone-500 hover:text-[#FF4A1C] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-sm font-medium"
+                                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-stone-500 hover:text-[#FF4A1C] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-sm font-medium hover:bg-stone-100 dark:hover:bg-stone-800"
                                   title="Previous Topic"
                                 >
                                   <ArrowLeft className="w-4 h-4" />
                                   <span>Previous</span>
                                 </button>
 
-                                <span className="text-sm font-medium text-stone-500 dark:text-stone-400 tabular-nums select-none min-w-[100px] text-center">
+                                <span className="text-sm font-medium text-stone-500 dark:text-stone-400 tabular-nums select-none min-w-[100px] text-center px-4 border-x border-stone-200 dark:border-stone-700">
                                   Concept {unitIndex + 1} of {currentUnits.length}
                                 </span>
 
                                 <button
                                   onClick={handleNext}
                                   disabled={unitIndex === currentUnits.length - 1}
-                                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-stone-500 hover:text-[#FF4A1C] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-sm font-medium"
+                                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-stone-500 hover:text-[#FF4A1C] disabled:opacity-30 disabled:cursor-not-allowed transition-all text-sm font-medium hover:bg-stone-100 dark:hover:bg-stone-800"
                                   title="Next Topic"
                                 >
                                   <span>Next</span>
@@ -3755,7 +3762,7 @@ const Blueprint = () => {
                     }
                     // Empty state when no units
                     return (
-                      <div className="p-12 text-center text-stone-500 dark:text-stone-400 bg-white dark:bg-stone-800 rounded-xl border border-dashed border-stone-300 dark:border-stone-700">
+                      <div className="p-12 text-center text-stone-500 dark:text-stone-400 bg-white/90 dark:bg-stone-800/90 backdrop-blur-sm rounded-xl">
                         <Target className="w-8 h-8 mx-auto mb-3 opacity-50" />
                         <p>No topics found in this section.</p>
                       </div>
