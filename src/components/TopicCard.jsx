@@ -4,6 +4,9 @@ import { Check, Sparkles, BookOpen, Calculator, ArrowRight, Play } from 'lucide-
 const TopicCard = ({ unit, status, onClick }) => {
     // Determine icon and color based on unit type and title
     const getUnitStyle = () => {
+        // DEBUG: Check if concept_summary is present
+        // console.log(`[TopicCard] Unit: ${unit.topic}`, { concept_summary: unit.concept_summary, description: unit.description, unit });
+
         const isWalkthrough = unit.unit_type === 'walkthrough' ||
             unit.unit_type === 'problem' ||
             unit.topic?.includes('Walkthrough');
@@ -53,12 +56,12 @@ const TopicCard = ({ unit, status, onClick }) => {
             className={`
         group relative p-6 rounded-2xl border transition-all duration-300 cursor-pointer h-full flex flex-col hover:-translate-y-1
         bg-white dark:bg-stone-800 hover:shadow-xl
-        border-stone-200 dark:border-stone-700 ${style.hoverBorder}
+        border-stone-300 dark:border-stone-600 ${style.hoverBorder}
       `}
         >
             {/* Top Row: Badge & Status */}
             <div className="flex justify-between items-start mb-4">
-                <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${style.colors}`}>
+                <span className={`px-3 py-1 text-sm font-semibold rounded-full border ${style.colors}`}>
                     {style.badge}
                 </span>
                 {isCompleted && (
@@ -70,21 +73,21 @@ const TopicCard = ({ unit, status, onClick }) => {
 
             {/* Content */}
             <div className="flex-1">
-                <h3 className="text-xl font-normal tracking-tight text-stone-900 dark:text-stone-100 mb-2 leading-tight transition-colors">
+                <h3 className="text-2xl font-normal tracking-tight text-stone-900 dark:text-stone-100 mb-2 leading-tight transition-colors">
                     {unit.topic === 'Similar Worked Example Walkthrough' ? 'Similar Examples' : unit.topic}
                 </h3>
-                <p className="text-stone-500 dark:text-stone-400 text-sm line-clamp-3 leading-relaxed">
-                    {unit.description}
+                <p className="text-stone-600 dark:text-stone-300 text-base line-clamp-3 leading-relaxed">
+                    {unit.concept_summary || unit.description || unit.tutor_guidance}
                 </p>
             </div>
 
             {/* Footer / CTA */}
-            <div className="mt-6 pt-4 border-t border-stone-100 dark:border-stone-700/50 flex items-center justify-between">
-                <span className="text-xs font-medium text-stone-400 dark:text-stone-500 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
+            <div className="mt-6 pt-4 border-t border-stone-200 dark:border-stone-600 flex items-center justify-between">
+                <span className="text-sm font-medium text-stone-500 dark:text-stone-400 group-hover:text-stone-700 dark:group-hover:text-stone-200 transition-colors">
                     View Topic
                 </span>
-                <div className={`w-8 h-8 rounded-full bg-stone-50 dark:bg-stone-800 flex items-center justify-center ${style.hoverIconBg} transition-colors`}>
-                    <ArrowRight className="w-4 h-4 text-stone-400 group-hover:text-white transition-colors" />
+                <div className={`w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-700 flex items-center justify-center ${style.hoverIconBg} transition-colors`}>
+                    <ArrowRight className="w-4 h-4 text-stone-500 group-hover:text-white transition-colors" />
                 </div>
             </div>
         </div>

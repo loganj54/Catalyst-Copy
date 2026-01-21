@@ -727,6 +727,13 @@ const TopicListItem = ({
               <h4 className={`font-normal tracking-tight text-xl ${isWalkthrough ? 'text-stone-900 dark:text-stone-100' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
                 {unit.topic === 'Similar Worked Example Walkthrough' ? 'Similar Examples' : unit.topic}
               </h4>
+
+              {/* Short Summary Tagline - Visible if available */}
+              {unit.concept_summary && (
+                <p className="text-sm font-medium text-stone-500 dark:text-stone-400 max-w-2xl leading-snug">
+                  {unit.concept_summary}
+                </p>
+              )}
               {/* Contextual Tags - Right Aligned */}
               <div className="flex items-center gap-2 shrink-0">
                 {isWalkthrough && (
@@ -761,23 +768,23 @@ const TopicListItem = ({
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
 
             {/* COLUMN 1: Content (Overview or Practice) */}
-            <div className="space-y-8 xl:border-r border-stone-200 dark:border-stone-700 xl:pr-8">
+            <div className="space-y-8 xl:border-r border-stone-300 dark:border-stone-600 xl:pr-8">
               {isWalkthrough ? (
                 /* PRACTICE LAYOUT - LEFT COLUMN */
                 <div className="space-y-6">
                   {/* Unit Description Context */}
                   <div>
-                    <h5 className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
+                    <h5 className="text-sm font-medium uppercase tracking-wider text-stone-600 dark:text-stone-300 mb-2">
                       Context
                     </h5>
-                    <p className="text-stone-700 dark:text-stone-300 text-sm leading-relaxed">
+                    <p className="text-stone-700 dark:text-stone-200 text-base leading-relaxed">
                       {unit.description}
                     </p>
                   </div>
 
                   {/* Practice Problem Generator */}
-                  <div className="border-t border-stone-200 dark:border-stone-700 pt-6">
-                    <h5 className="text-lg font-normal tracking-tight text-[#FF4A1C] mb-4">
+                  <div className="border-t border-stone-300 dark:border-stone-600 pt-6">
+                    <h5 className="text-xl font-normal tracking-tight text-[#FF4A1C] mb-4">
                       Practice Problem
                     </h5>
 
@@ -880,33 +887,29 @@ const TopicListItem = ({
                 /* LEARN LAYOUT - LEFT COLUMN */
                 <div className="space-y-6">
                   <div>
-                    <h5 className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
+                    <h5 className="text-sm font-medium uppercase tracking-wider text-stone-600 dark:text-stone-300 mb-2">
                       Overview
                     </h5>
-                    <p className="text-stone-700 dark:text-stone-300 text-sm leading-relaxed">
+                    <p className="text-stone-700 dark:text-stone-200 text-base leading-relaxed">
                       {unit.description}
                     </p>
                   </div>
 
                   {unit.tutor_guidance && (
-                    <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 shadow-sm">
+                    <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 shadow-sm">
 
-                      <p className="text-stone-600 dark:text-stone-400 text-sm leading-relaxed">
+                      <p className="text-stone-700 dark:text-stone-300 text-base leading-relaxed">
                         {unit.tutor_guidance}
                       </p>
                     </div>
                   )}
 
-                  <div className="pt-4 border-t border-stone-200 dark:border-stone-700">
-                    <p className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-2">
-                      Related
-                    </p>
-                    <RelatedMaterialModule
-                      query={relatedMaterialQuery}
-                      classId={classId}
-                      currentDocumentId={currentDocumentId}
-                    />
-                  </div>
+                  <RelatedMaterialModule
+                    query={relatedMaterialQuery}
+                    classId={classId}
+                    currentDocumentId={currentDocumentId}
+                    showSectionHeader={true}
+                  />
                 </div>
               )}
             </div>
@@ -3674,7 +3677,7 @@ const Blueprint = () => {
                                 className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors text-sm font-medium"
                               >
                                 <ArrowLeft className="w-4 h-4" />
-                                Back to Overview
+                                Back to Blueprint
                               </button>
 
                               <div className="flex items-center gap-2">

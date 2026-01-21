@@ -275,6 +275,9 @@ Write a "tutor_guidance" field (2-3 sentences) that explains WHY this topic matt
 UNIT TYPE - REQUIRED:
 Set "unit_type": "prerequisite" | "topic" | "walkthrough"
 
+CONCEPT SUMMARY - REQUIRED:
+Generate a "concept_summary" (10-15 words). This is a punchy, action-oriented tagline like "Master the core problem-solving strategy with a breakdown." or "Visualize how forces interact in static systems."
+
 TARGET RESOURCE PROFILE - REQUIRED FOR EMBEDDING:
 Write a specific description of the PERFECT video resource for this unit. We will use this text to find the video.
 
@@ -426,15 +429,20 @@ INSTRUCTIONS:
 10. MANDATORY: Generate a "target_resource_profile" for EVERY unit that describes the perfect video match.
     - CONCEPT/PREREQUISITE units: "A video explaining [Topic] clearly, covering [key concepts], with examples demonstrating [applications]..." (2-3 sentences)
     - WALKTHROUGH units: "A video solving this problem: [COPY THE COMPLETE problem_statement FROM THE INPUT SECTION - include ALL given values with units, unknowns, conditions, assumptions, and full context]. The video should demonstrate step-by-step calculations using [specific equations from equations_needed], explain [concepts from concepts_tested], and show [steps from solving_approach]." (Include the ENTIRE problem_statement field from the input)
-11. FOR WALKTHROUGH UNITS: Extract the problem_statement from the corresponding section in the input data and include it verbatim in the target_resource_profile
-12. FOR LECTURE CONCEPTS: Each key_concept becomes its own learning_unit with all fields (tutor_guidance, target_resource_profile, search_queries, equations, data_gathering_resource if applicable)
-13. Include "data_gathering_resource" ONLY when the unit requires looking up external data (steam tables, Moody diagram, property tables, etc.). Set it to the resource name.
-14. **CRITICAL**: Complete all JSON brackets.
+11. MANDATORY: Generate a "concept_summary" (10-15 words) for EVERY unit.
+    - This should be a punchy, engaging, action-oriented "second header" that tells the student what they will unlock.
+    - Example: "Master the core problem-solving strategy with a detailed breakdown."
+    - Example: "Visualize how forces interact in static equilibrium systems."
+    - Example: "Learn to apply the Chain Rule to complex composite functions."
+12. FOR WALKTHROUGH UNITS: Extract the problem_statement from the corresponding section in the input data and include it verbatim in the target_resource_profile
+13. FOR LECTURE CONCEPTS: Each key_concept becomes its own learning_unit with all fields (tutor_guidance, target_resource_profile, search_queries, equations, data_gathering_resource if applicable)
+14. Include "data_gathering_resource" ONLY when the unit requires looking up external data (steam tables, Moody diagram, property tables, etc.). Set it to the resource name.
+15. **CRITICAL**: Complete all JSON brackets.
 
 INPUT DATA:
 ${JSON.stringify(input, null, 2)}
 
-Output valid JSON only. Ensure EVERY learning unit includes: unit_id, unit_type, topic, tutor_guidance, target_resource_profile, search_queries, equations (if applicable), and data_gathering_resource (when external data lookup is needed).`
+Output valid JSON only. Ensure EVERY learning unit includes: unit_id, unit_type, topic, concept_summary, tutor_guidance, target_resource_profile, search_queries, equations (if applicable), and data_gathering_resource (when external data lookup is needed).`
   },
 
   // ==========================================================================

@@ -79,6 +79,7 @@ interface LearningUnit {
   unit_id: string;
   unit_type: 'prerequisite' | 'topic' | 'walkthrough'; // Type of learning unit
   topic: string;
+  concept_summary?: string; // Short, punchy 10-15 word summary tagline
   description?: string;
   learning_objective?: string;
   tutor_guidance: string; // AI-generated tutor explanation (3-5 sentences) explaining WHY this topic matters and the approach
@@ -214,6 +215,10 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
 
         const result = await generateEmbedding(embeddingText.trim());
 
+        // ATTACH EMBEDDING TO UNIT FOR CACHING
+        // This ensures prepareSectionsForCache has valid data
+        unit.target_resource_embedding = result.embedding;
+
         // Prepare vector for Pinecone storage (NOT stored in unit to reduce Supabase bloat)
         const vectorId = `target-${blueprintId}-${unit.unit_id}`;
         pineconeVectors.push({
@@ -224,7 +229,7 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
             unit_id: unit.unit_id,
             topic: unit.topic,
             unit_type: unit.unit_type || 'prerequisite',
-            section_id: 'prerequisites',
+            section_id: 'prerequisites', // Hardcoded for prereq section
             target_resource_profile: (embeddingText || '').substring(0, 1000), // Truncate for metadata limit
             type: 'target_profile'
           }
@@ -251,6 +256,9 @@ async function generateTargetResourceEmbeddings(structure: LearningStructure, bl
             || `${unit.topic} ${unit.description || ''} ${unit.learning_objective || ''}`;
 
           const result = await generateEmbedding(embeddingText.trim());
+
+          // ATTACH EMBEDDING TO UNIT FOR CACHING
+          unit.target_resource_embedding = result.embedding;
 
           // Prepare vector for Pinecone storage (NOT stored in unit to reduce Supabase bloat)
           const vectorId = `target-${blueprintId}-${unit.unit_id}`;
@@ -1275,57 +1283,67 @@ serve(async (req) => {
 
         if (cacheResult.cache_hit && cacheResult.cached_unit) {
           // Extract learning units from cached_unit
-          // IMPORTANT: Use the EXACT cached data - do NOT modify or regenerate anything
           let learningUnits: LearningUnit[] = [];
           if (Array.isArray(cacheResult.cached_unit.units)) {
-            // Multiple units stored - use them exactly as cached
+            // Multiple units stored
             learningUnits = cacheResult.cached_unit.units;
           } else if (cacheResult.cached_unit.topic) {
-            // Single unit stored - use it exactly as cached
+            // Single unit stored
             learningUnits = [cacheResult.cached_unit];
           }
 
-          // DETAILED VERIFICATION: Log ALL fields from cached units
-          console.log(`[generate-structure] ✅ CACHE HIT for section: ${cacheResult.section_id}`);
-          console.log(`[generate-structure]   - Similarity: ${(cacheResult.similarity * 100).toFixed(1)}%`);
-          console.log(`[generate-structure]   - Units count: ${learningUnits.length}`);
+          // CHECK FOR NEW FIELDS (Concept Summary)
+          // If missing, invalidate cache to force regeneration
+          const isMissingSummary = learningUnits.some((u: any) => !u.concept_summary);
 
-          for (let i = 0; i < learningUnits.length; i++) {
-            const unit = learningUnits[i];
-            console.log(`[generate-structure]   Unit ${i + 1} (${unit.unit_id || 'no-id'}):`);
-            console.log(`[generate-structure]     - topic: ${unit.topic ? '✓' : '✗'} "${unit.topic?.substring(0, 50) || 'MISSING'}"`);
-            console.log(`[generate-structure]     - tutor_guidance: ${unit.tutor_guidance ? '✓' : '✗'} (${unit.tutor_guidance?.length || 0} chars)`);
-            console.log(`[generate-structure]     - target_resource_profile: ${unit.target_resource_profile ? '✓' : '✗'} (${unit.target_resource_profile?.length || 0} chars)`);
-            console.log(`[generate-structure]     - target_resource_embedding: ${unit.target_resource_embedding ? '✓' : '✗'} (${unit.target_resource_embedding?.length || 0} dims)`);
-            console.log(`[generate-structure]     - equations: ${unit.equations ? '✓' : '✗'} (${unit.equations?.length || 0} equations)`);
-            console.log(`[generate-structure]     - search_queries: ${unit.search_queries ? '✓' : '✗'} (${unit.search_queries?.length || 0} queries)`);
-            console.log(`[generate-structure]     - estimated_time_minutes: ${unit.estimated_time_minutes || 0}`);
-
-            // Accumulate time
-            totalEstimatedTime += unit.estimated_time_minutes || 15;
-
-            // Log equations if present
-            if (unit.equations && unit.equations.length > 0) {
-              console.log(`[generate-structure]     - Equation names: ${unit.equations.map((e: any) => e.name).join(', ')}`);
-            }
-          }
-
-          // Check if this is prerequisites or a content section
-          if (cacheResult.section_id === 'prerequisites') {
-            // Load prerequisites from cache - USE EXACTLY AS STORED
-            structure.prerequisites_section.learning_units = learningUnits;
-            console.log(`[generate-structure] ✅ Loaded ${learningUnits.length} prerequisite units from cache (VERBATIM)`);
+          if (isMissingSummary) {
+            console.log(`[generate-structure] ⚠️ Cache invalid for ${cacheResult.section_id}: Missing concept_summary field. Forcing regeneration.`);
+            missedSections.push(cacheResult.section_id);
           } else {
-            // Load content section from cache - USE EXACTLY AS STORED
-            const originalSection = analysisData.sections?.find((s: any) => s.section_id === cacheResult.section_id);
-            structure.content_sections.push({
-              section_id: cacheResult.section_id,
-              section_type: originalSection?.section_type || 'problem',
-              title: originalSection?.section_id || cacheResult.section_id,
-              description: originalSection?.problem_statement || originalSection?.topic_summary || '',
-              concepts: originalSection?.concepts_tested || [],
-              learning_units: learningUnits // EXACT cached units - no regeneration
-            });
+            // USE CACHE
+            // DETAILED VERIFICATION: Log ALL fields from cached units
+            console.log(`[generate-structure] ✅ CACHE HIT for section: ${cacheResult.section_id}`);
+            console.log(`[generate-structure]   - Similarity: ${(cacheResult.similarity * 100).toFixed(1)}%`);
+            console.log(`[generate-structure]   - Units count: ${learningUnits.length}`);
+
+            for (let i = 0; i < learningUnits.length; i++) {
+              const unit = learningUnits[i];
+              console.log(`[generate-structure]   Unit ${i + 1} (${unit.unit_id || 'no-id'}):`);
+              console.log(`[generate-structure]     - topic: ${unit.topic ? '✓' : '✗'} "${unit.topic?.substring(0, 50) || 'MISSING'}"`);
+              console.log(`[generate-structure]     - concept_summary: ${unit.concept_summary ? '✓' : '✗'} "${unit.concept_summary?.substring(0, 30) || 'MISSING'}"`);
+              console.log(`[generate-structure]     - tutor_guidance: ${unit.tutor_guidance ? '✓' : '✗'} (${unit.tutor_guidance?.length || 0} chars)`);
+              console.log(`[generate-structure]     - target_resource_profile: ${unit.target_resource_profile ? '✓' : '✗'} (${unit.target_resource_profile?.length || 0} chars)`);
+              console.log(`[generate-structure]     - target_resource_embedding: ${unit.target_resource_embedding ? '✓' : '✗'} (${unit.target_resource_embedding?.length || 0} dims)`);
+              console.log(`[generate-structure]     - equations: ${unit.equations ? '✓' : '✗'} (${unit.equations?.length || 0} equations)`);
+              console.log(`[generate-structure]     - search_queries: ${unit.search_queries ? '✓' : '✗'} (${unit.search_queries?.length || 0} queries)`);
+              console.log(`[generate-structure]     - estimated_time_minutes: ${unit.estimated_time_minutes || 0}`);
+
+              // Accumulate time
+              totalEstimatedTime += unit.estimated_time_minutes || 15;
+
+              // Log equations if present
+              if (unit.equations && unit.equations.length > 0) {
+                console.log(`[generate-structure]     - Equation names: ${unit.equations.map((e: any) => e.name).join(', ')}`);
+              }
+            }
+
+            // Check if this is prerequisites or a content section
+            if (cacheResult.section_id === 'prerequisites') {
+              // Load prerequisites from cache
+              structure.prerequisites_section.learning_units = learningUnits;
+              console.log(`[generate-structure] ✅ Loaded ${learningUnits.length} prerequisite units from cache (VERBATIM)`);
+            } else {
+              // Load content section from cache
+              const originalSection = analysisData.sections?.find((s: any) => s.section_id === cacheResult.section_id);
+              structure.content_sections.push({
+                section_id: cacheResult.section_id,
+                section_type: originalSection?.section_type || 'problem',
+                title: originalSection?.section_id || cacheResult.section_id,
+                description: originalSection?.problem_statement || originalSection?.topic_summary || '',
+                concepts: originalSection?.concepts_tested || [],
+                learning_units: learningUnits // EXACT cached units
+              });
+            }
           }
         } else {
           missedSections.push(cacheResult.section_id);
