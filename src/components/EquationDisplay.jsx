@@ -26,12 +26,12 @@ const EquationDisplay = ({ equations }) => {
     <div className="mt-4 space-y-4">
 
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 grid-flow-row-dense">
         {equations.map((equation, idx) => (
           <EquationCard
             key={equation.name || idx}
             equation={equation}
-            index={equation.index ?? idx + 1}
+            index={idx + 1}
           />
         ))}
       </div>
@@ -69,13 +69,8 @@ const EquationCard = ({ equation, index }) => {
   return (
     <div className={`bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden h-fit flex flex-col transition-all duration-200 relative ${isWide ? 'md:col-span-2' : ''}`}>
       {/* Equation Header */}
-      <div className="px-4 py-3 bg-stone-100/50 dark:bg-stone-800/50 border-b border-stone-200 dark:border-stone-700">
-        <div className="flex items-center justify-center gap-2">
-          <span className="flex items-center justify-center w-6 h-6 bg-stone-500 dark:bg-stone-600 text-white text-xs font-bold rounded-full">
-            {index}
-          </span>
-          <h4 className="font-normal tracking-tight text-stone-900 dark:text-white">{name || 'Equation'}</h4>
-        </div>
+      <div className="px-4 py-3 bg-stone-100/50 dark:bg-stone-800/50 border-b border-stone-200 dark:border-stone-700 text-center">
+        <h4 className="font-normal tracking-tight text-stone-900 dark:text-white inline-block">{name || 'Equation'}</h4>
       </div>
 
       {/* LaTeX Equation Display */}
