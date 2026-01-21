@@ -20,6 +20,7 @@ import StructureGenerationProgress from '../components/StructureGenerationProgre
 import ChatDrawer from '../components/ChatDrawer';
 import RelatedMaterialModule from '../components/RelatedMaterialModule';
 import TopicCard from '../components/TopicCard';
+import LatexText from '../components/LatexText';
 
 // Generation status display configuration
 const STATUS_CONFIG = {
@@ -399,26 +400,7 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer,
   );
 };
 
-// ============================================================================
-// LATEX TEXT COMPONENT
-// ============================================================================
-const LatexText = ({ text }) => {
-  if (!text) return null;
-  // Split by $...$ (inline) or $$...$$ (block) could be added if needed
-  // For now handling $...$ inline math
-  const parts = text.split(/(\$[^$]+\$)/g);
-  return (
-    <span>
-      {parts.map((part, i) => {
-        if (part.startsWith('$') && part.endsWith('$')) {
-          const content = part.slice(1, -1);
-          return <span key={i} className="inline-block"><InlineMath math={content} /></span>;
-        }
-        return <span key={i}>{part}</span>;
-      })}
-    </span>
-  );
-};
+
 
 // ============================================================================
 // TOPIC LIST ITEM COMPONENT
@@ -771,23 +753,21 @@ const TopicListItem = ({
             <div className="space-y-8 xl:border-r border-stone-300 dark:border-stone-600 xl:pr-8">
               {isWalkthrough ? (
                 /* PRACTICE LAYOUT - LEFT COLUMN */
-                <div className="space-y-6">
+                <div className="space-y-8">
+                  <h5 className="text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 mb-4 flex items-center gap-2">
+                    <Target className="w-3 h-3" />
+                    Practice Problem
+                  </h5>
+
                   {/* Unit Description Context */}
                   <div>
-                    <h5 className="text-sm font-medium uppercase tracking-wider text-stone-600 dark:text-stone-300 mb-2">
-                      Context
-                    </h5>
                     <p className="text-stone-700 dark:text-stone-200 text-base leading-relaxed">
                       {unit.description}
                     </p>
                   </div>
 
                   {/* Practice Problem Generator */}
-                  <div className="border-t border-stone-300 dark:border-stone-600 pt-6">
-                    <h5 className="text-xl font-normal tracking-tight text-[#FF4A1C] mb-4">
-                      Practice Problem
-                    </h5>
-
+                  <div>
                     {/* Generate Button */}
                     <button
                       onClick={(e) => {
@@ -821,23 +801,32 @@ const TopicListItem = ({
 
                           {/* Hints */}
                           {problem.hints && problem.hints.length > 0 && (
-                            <div className="border border-stone-200 dark:border-stone-700 rounded-lg overflow-hidden">
-                              <button
+                            <div className="bg-white dark:bg-stone-800 rounded-xl border border-stone-300 dark:border-stone-600 shadow-sm overflow-hidden">
+                              <div
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const key = `${idx}-hints`;
                                   setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
                                 }}
-                                className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors text-left"
+                                className="w-full text-left py-3 px-3 flex items-start gap-3 cursor-pointer group select-none hover:bg-stone-50/30 dark:hover:bg-stone-800/30 transition-colors"
                               >
-                                <span className="text-sm font-medium text-stone-600 dark:text-stone-400">Hints</span>
-                                {expandedSections[`${idx}-hints`] ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
-                              </button>
+                                <div className="mt-1 text-stone-400 dark:text-stone-500 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors">
+                                  {expandedSections[`${idx}-hints`] ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <h4 className="font-normal tracking-tight text-lg text-[#2A2B2A] dark:text-stone-100">
+                                      Hints
+                                    </h4>
+                                  </div>
+                                </div>
+                              </div>
+
                               {expandedSections[`${idx}-hints`] && (
-                                <div className="px-4 pb-4 pt-0 bg-white dark:bg-stone-800">
-                                  <ul className="space-y-4 pl-4 border-l-2 border-stone-100 dark:border-stone-700 ml-1 mt-2">
+                                <div className="px-4 pb-8 pl-12 pr-6 animate-fade-in">
+                                  <ul className="space-y-4 border-l-2 border-stone-100 dark:border-stone-700 ml-1 pl-4">
                                     {(problem.hints.slice(0, revealedCounts[`${idx}-hints`] || 1)).map((h, i) => (
-                                      <li key={i} className="text-lg font-medium text-stone-700 dark:text-stone-200 animate-fade-in mb-2">
+                                      <li key={i} className="text-base text-stone-700 dark:text-stone-200 leading-relaxed animate-fade-in">
                                         <LatexText text={h} />
                                       </li>
                                     ))}
@@ -874,13 +863,7 @@ const TopicListItem = ({
                           )}
                         </div>
                       ))
-                    ) : (
-                      /* Empty state for practice problem */
-                      <div className="text-stone-400 text-sm text-center italic mt-4 bg-stone-50 dark:bg-stone-900/30 p-6 rounded-xl border border-dashed border-stone-200 dark:border-stone-800">
-                        <Target className="w-6 h-6 mx-auto mb-2 opacity-50" />
-                        <p>Generate a verified problem to practice.</p>
-                      </div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               ) : (

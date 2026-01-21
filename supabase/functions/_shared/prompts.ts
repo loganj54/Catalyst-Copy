@@ -20,8 +20,10 @@ CRITICAL RULES:
 4. Be specific - don't repeat the same information in multiple places.
 5. Focus on what the student needs to LEARN and DO, not just what the document contains.
 6. All output must be valid JSON with no markdown formatting.
-7. COMPLETE THE JSON STRUCTURE - ensure all brackets and braces are properly closed.
-8. Keep descriptions concise (2-3 sentences max). Focus on key information, not lengthy explanations.
+7. FORMATTING: Use LaTeX formatting for ALL mathematical expressions, variable names, and units. Enclose all LaTeX in single dollar signs like $E = mc^2$.
+8. JSON ESCAPING: You MUST escape all backslashes in your JSON strings. Use \\frac instead of \frac, \\theta instead of \theta.
+9. COMPLETE THE JSON STRUCTURE - ensure all brackets and braces are properly closed.
+10. Keep descriptions concise (2-3 sentences max). Focus on key information, not lengthy explanations.
 
 DOCUMENT CLASSIFICATION - THIS IS CRITICAL:
 Before analyzing content, you MUST determine the document type:
@@ -202,7 +204,9 @@ CRITICAL RULES:
 3. Target YouTube and educational platforms with specific keywords that find high-quality content
 4. Think like a master teacher: what videos/resources would YOU recommend to teach this from scratch?
 5. All output must be valid JSON with no markdown formatting.
-6. Keep ALL text BRIEF (1-2 sentences max) - focus on search queries, not lengthy explanations.
+6. FORMATTING: Use LaTeX formatting for ALL mathematical content. Enclose in single dollar signs like $F=ma$.
+7. JSON ESCAPING: Double-escape all backslashes in JSON strings (e.g., write \\frac not \frac).
+8. Keep ALL text BRIEF (1-2 sentences max) - focus on search queries, not lengthy explanations.
 7. COMPLETE THE JSON - ensure all brackets are closed. If running long, SKIP OPTIONAL FIELDS rather than truncating.
 8. ALWAYS include "tutor_guidance" for EVERY learning unit - this is REQUIRED (but keep it 2-3 sentences).
 9. ALWAYS set "unit_type" for EVERY learning unit - this is REQUIRED.
@@ -740,7 +744,9 @@ CRITICAL REQUIREMENTS FOR UNIQUENESS:
 - Each problem you generate should be distinctly different from any previous one
 
 Do NOT calculate or provide the answer - that will be done separately to ensure accuracy.
-The difficulty level should match the original. Output must be valid JSON with no markdown formatting.`,
+The difficulty level should match the original. Output must be valid JSON with no markdown formatting.
+CRITICAL FORMATTING: Use LaTeX formatting for ALL mathematical expressions, variables, numbers, and units. Enclose all LaTeX in single dollar signs (e.g., $2.5 \\text{ kg}$, $\\mu = 0.5$).
+CRITICAL JSON ESCAPING: You MUST escape all backslashes in the code (e.g. write \\frac instead of \frac).`,
 
     user: (originalProblem: string, topic: string) => `Original Problem (for reference only - DO NOT COPY):
 ${originalProblem}
@@ -783,7 +789,9 @@ CRITICAL REQUIREMENTS:
 - Verify the final answer is reasonable
 - Provide the final answer as JUST the literal answer. None of those filler words. Just the literal answer.
 
-Output must be valid JSON with no markdown formatting.`,
+Output must be valid JSON with no markdown formatting.
+CRITICAL FORMATTING: Use LaTeX formatting for ALL mathematical expressions, variables, equations, and numbers used in steps. Enclose in single dollar signs (e.g., $a = 9.8 \\text{ m/s}^2$).
+CRITICAL JSON ESCAPING: You MUST escape all backslashes in the code (e.g. write \\frac instead of \frac).`,
 
     user: (problemStatement: string) => `Solve this problem completely:
 
@@ -873,7 +881,9 @@ This problem will be cached and reused, so it must be:
 
 CRITICAL: Your solution MUST be correct. This will be verified by other models.
 
-Output must be valid JSON with no markdown formatting.`,
+Output must be valid JSON with no markdown formatting.
+CRITICAL FORMATTING: Use LaTeX formatting for ALL mathematical expressions, variables, and units. Enclose in single dollar signs.
+CRITICAL JSON ESCAPING: You MUST escape all backslashes in the code (e.g. write \\frac instead of \frac).`,
 
     user: (topic: string, originalProblem: string, context: any) => `Generate a unique practice problem based on:
 

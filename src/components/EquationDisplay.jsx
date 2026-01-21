@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 import { Calculator, Info, ChevronDown, ChevronRight } from 'lucide-react';
+import LatexText from './LatexText';
 
 /**
  * EquationDisplay Component
@@ -94,7 +95,7 @@ const EquationCard = ({ equation, index }) => {
                 </p>
               </div>
               <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed text-left">
-                {when_to_use}
+                <LatexText text={when_to_use} />
               </p>
             </div>
           </div>
@@ -119,7 +120,7 @@ const EquationCard = ({ equation, index }) => {
                       <span className="font-mono font-semibold text-stone-600 dark:text-stone-300 shrink-0">
                         <InlineMath math={symbol} />
                       </span>
-                      <span className="text-stone-600 dark:text-stone-400 break-words min-w-0">= {description}</span>
+                      <span className="text-stone-600 dark:text-stone-400 break-words min-w-0">= <LatexText text={description} /></span>
                     </div>
                   ))}
                 </div>
