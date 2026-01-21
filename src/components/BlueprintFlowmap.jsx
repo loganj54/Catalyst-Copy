@@ -33,6 +33,7 @@ const BlueprintFlowmap = ({
             units.forEach((unit, idx) => {
                 let nodeType = 'learn';
                 if (unit.unit_type === 'walkthrough' || unit.unit_type === 'problem') nodeType = 'solve';
+                if (unit.unit_type === 'solution' || unit.topic?.toLowerCase().includes('solution')) nodeType = 'solution';
                 if (unit.topic?.toLowerCase().includes('practice')) nodeType = 'practice';
 
                 nodes.push({
@@ -157,6 +158,11 @@ const BlueprintFlowmap = ({
                     ? ' bg-orange-50 border-orange-500 text-orange-900 shadow-[0_0_25px_rgba(249,115,22,0.5)] scale-105 ring-2 ring-orange-200'
                     : ' bg-white border-orange-200 text-stone-600 hover:border-orange-400 hover:shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:scale-105';
                 break;
+            case 'solution':
+                classes += isActive
+                    ? ' bg-orange-50 border-orange-500 text-orange-900 shadow-[0_0_25px_rgba(249,115,22,0.5)] scale-105 ring-2 ring-orange-200'
+                    : ' bg-white border-orange-200 text-stone-600 hover:border-orange-400 hover:shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:scale-105';
+                break;
             default:
                 classes += ' bg-white border-stone-200 text-stone-600';
         }
@@ -174,6 +180,7 @@ const BlueprintFlowmap = ({
             case 'learn': return 'bg-blue-500';
             case 'solve': return 'bg-green-500';
             case 'practice': return 'bg-orange-500';
+            case 'solution': return 'bg-orange-500';
             default: return 'bg-stone-500';
         }
     };
@@ -217,13 +224,13 @@ const BlueprintFlowmap = ({
                                 className={getNodeStyles(node, isActive)}
                             >
                                 {/* Banner for Types or Start - Only in landing mode */}
-                                {viewMode === 'landing' && (isFirst || node.type === 'learn' || node.type === 'solve' || node.type === 'practice') && (
+                                {viewMode === 'landing' && (isFirst || node.type === 'learn' || node.type === 'solve' || node.type === 'practice' || node.type === 'solution') && (
                                     <div className={`absolute -top-3 px-3 py-1 rounded-full text-xs font-bold text-white uppercase tracking-wider shadow-sm 
                                         ${isFirst ? 'bg-stone-900 ring-2 ring-white' : getBannerColor(node.type)}`}>
 
                                         {/* Logic for Label: Landing = Start/Type, Content = Step #? or Type */}
                                         {isFirst ? 'Start' : (
-                                            node.type === 'learn' ? 'Learn' : node.type === 'solve' ? 'Problem' : 'Practice'
+                                            node.type === 'learn' ? 'Learn' : node.type === 'solve' ? 'Problem' : node.type === 'solution' ? 'Solution' : 'Practice'
                                         )}
 
                                         {/* Icons removed/minimized? User want full clean look. Keeping text for clarity for now. */}

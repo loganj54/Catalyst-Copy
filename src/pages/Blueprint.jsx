@@ -626,7 +626,8 @@ const TopicListItem = ({
   const [showSearchContext, setShowSearchContext] = useState(false);
   const hasResources = activeResources && activeResources.length > 0;
   const isComfortable = topicResponse?.response === 'comfortable';
-  const isWalkthrough = unit.unit_type === 'walkthrough' || unit.unit_type === 'problem';
+  const isWalkthrough = unit.unit_type === 'walkthrough' || unit.unit_type === 'problem' || unit.unit_type === 'solution';
+  const isSolution = unit.unit_type === 'solution';
 
   // Use equations from database if available, fallback to structure data
   // Prioritize sectionEquations as requested ("pull all equations from the whole section")
@@ -755,10 +756,10 @@ const TopicListItem = ({
           {/* Main 2-Column Layout */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
 
-            {/* COLUMN 1: Content (Overview or Practice) */}
+            {/* COLUMN 1: Content (Overview or Practice or Solution) */}
             <div className="space-y-8 xl:border-r border-stone-200 dark:border-stone-700 xl:pr-8">
               {isWalkthrough ? (
-                /* PRACTICE LAYOUT - LEFT COLUMN */
+                /* PRACTICE/SOLUTION LAYOUT - LEFT COLUMN */
                 <div className="space-y-6">
                   {/* Unit Description Context */}
                   <div>
@@ -770,106 +771,116 @@ const TopicListItem = ({
                     </p>
                   </div>
 
-                  {/* Practice Problem Generator */}
-                  <div className="border-t border-stone-200 dark:border-stone-700 pt-6">
-                    <h5 className="text-lg font-bold text-[#FF4A1C] mb-4">
-                      Practice Problem
-                    </h5>
+                  {/* Solution Card OR Practice Problem Generator */}
+                  {isSolution ? (
+                    <div className="border-t border-stone-200 dark:border-stone-700 pt-6">
+                      <h5 className="text-lg font-bold text-orange-600 dark:text-orange-500 mb-4">
+                        Full Solution
+                      </h5>
+                      <StepByStepSolutionCard
+                        solutionApproach={unit.solution_steps || unit.solution_approach}
+                        commonMistakes={unit.common_mistakes}
+                        finalAnswer={unit.final_answer}
+                      />
+                    </div>
+                  ) : (
+                    <div className="border-t border-stone-200 dark:border-stone-700 pt-6">
+                      <h5 className="text-lg font-bold text-[#FF4A1C] mb-4">
+                        Practice Problem
+                      </h5>
 
-                    {/* Generate Button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onGeneratePracticeProblem(unit);
-                      }}
-                      disabled={isGeneratingPractice}
-                      className="w-full py-4 bg-stone-900 dark:bg-black text-white rounded-xl text-sm font-bold uppercase tracking-widest shadow-lg hover:shadow-xl hover:bg-stone-800 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none disabled:shadow-none mb-4 flex items-center justify-center gap-2"
-                    >
-                      {isGeneratingPractice ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4" />
-                          {practiceProblem ? 'New Problem' : 'Generate'}
-                        </>
-                      )}
-                    </button>
+                      {/* Generate Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onGeneratePracticeProblem(unit);
+                        }}
+                        disabled={isGeneratingPractice}
+                        className="w-full py-4 bg-stone-900 dark:bg-black text-white rounded-xl text-sm font-bold uppercase tracking-widest shadow-lg hover:shadow-xl hover:bg-stone-800 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none disabled:shadow-none mb-4 flex items-center justify-center gap-2"
+                      >
+                        {isGeneratingPractice ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4" />
+                            {practiceProblem ? 'New Problem' : 'Generate'}
+                          </>
+                        )}
+                      </button>
 
-                    {practiceProblem ? (
-                      (Array.isArray(practiceProblem) ? practiceProblem : [practiceProblem]).map((problem, idx) => (
-                        <div key={idx} className="space-y-4">
-                          <div className="p-4 bg-stone-50 dark:bg-stone-900/50 rounded-xl border border-stone-200 dark:border-stone-700">
-                            <p className="text-base font-medium text-stone-900 dark:text-stone-100 leading-relaxed">
-                              <LatexText text={problem.practice_problem} />
-                            </p>
+                      {practiceProblem ? (
+                        (Array.isArray(practiceProblem) ? practiceProblem : [practiceProblem]).map((problem, idx) => (
+                          <div key={idx} className="space-y-4">
+                            <div className="p-4 bg-stone-50 dark:bg-stone-900/50 rounded-xl border border-stone-200 dark:border-stone-700">
+                              <p className="text-base font-medium text-stone-900 dark:text-stone-100 leading-relaxed">
+                                <LatexText text={problem.practice_problem} />
+                              </p>
+                            </div>
+
+                            {/* Hints */}
+                            {problem.hints && problem.hints.length > 0 && (
+                              <div className="border border-stone-200 dark:border-stone-700 rounded-lg overflow-hidden">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const key = `${idx}-hints`;
+                                    setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
+                                  }}
+                                  className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors text-left"
+                                >
+                                  <span className="text-sm font-semibold text-stone-600 dark:text-stone-400">Hints</span>
+                                  {expandedSections[`${idx}-hints`] ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
+                                </button>
+                                {expandedSections[`${idx}-hints`] && (
+                                  <div className="px-4 pb-4 pt-0 bg-white dark:bg-stone-800">
+                                    <ul className="space-y-4 pl-4 border-l-2 border-stone-100 dark:border-stone-700 ml-1 mt-2">
+                                      {(problem.hints.slice(0, revealedCounts[`${idx}-hints`] || 1)).map((h, i) => (
+                                        <li key={i} className="text-lg font-medium text-stone-700 dark:text-stone-200 animate-fade-in mb-2">
+                                          <LatexText text={h} />
+                                        </li>
+                                      ))}
+                                    </ul>
+
+                                    {(revealedCounts[`${idx}-hints`] || 1) < problem.hints.length && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const key = `${idx}-hints`;
+                                          setRevealedCounts(prev => ({ ...prev, [key]: (prev[key] || 1) + 1 }));
+                                        }}
+                                        className="mt-4 ml-5 text-sm font-semibold text-[#FF4A1C] hover:text-[#d43b15] flex items-center gap-1 transition-colors"
+                                      >
+                                        <span>Reveal next hint</span>
+                                        <ChevronDown className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {(problem.solution_steps || problem.solution_approach) && (
+                              <div className="mt-4">
+                                <StepByStepSolutionCard
+                                  solutionApproach={problem.solution_steps || problem.solution_approach}
+                                  commonMistakes={problem.common_mistakes}
+                                  finalAnswer={problem.final_answer}
+                                />
+                              </div>
+                            )}
                           </div>
-
-                          {/* Hints */}
-                          {problem.hints && problem.hints.length > 0 && (
-                            <div className="border border-stone-200 dark:border-stone-700 rounded-lg overflow-hidden">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const key = `${idx}-hints`;
-                                  setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
-                                }}
-                                className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-700/50 transition-colors text-left"
-                              >
-                                <span className="text-sm font-semibold text-stone-600 dark:text-stone-400">Hints</span>
-                                {expandedSections[`${idx}-hints`] ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
-                              </button>
-                              {expandedSections[`${idx}-hints`] && (
-                                <div className="px-4 pb-4 pt-0 bg-white dark:bg-stone-800">
-                                  <ul className="space-y-4 pl-4 border-l-2 border-stone-100 dark:border-stone-700 ml-1 mt-2">
-                                    {(problem.hints.slice(0, revealedCounts[`${idx}-hints`] || 1)).map((h, i) => (
-                                      <li key={i} className="text-lg font-medium text-stone-700 dark:text-stone-200 animate-fade-in mb-2">
-                                        <LatexText text={h} />
-                                      </li>
-                                    ))}
-                                  </ul>
-
-                                  {/* Reveal Next Hint Button */}
-                                  {(revealedCounts[`${idx}-hints`] || 1) < problem.hints.length && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const key = `${idx}-hints`;
-                                        setRevealedCounts(prev => ({ ...prev, [key]: (prev[key] || 1) + 1 }));
-                                      }}
-                                      className="mt-4 ml-5 text-sm font-semibold text-[#FF4A1C] hover:text-[#d43b15] flex items-center gap-1 transition-colors"
-                                    >
-                                      <span>Reveal next hint</span>
-                                      <ChevronDown className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Solution Card */}
-                          {(problem.solution_steps || problem.solution_approach) && (
-                            <div className="mt-4">
-                              <StepByStepSolutionCard
-                                solutionApproach={problem.solution_steps || problem.solution_approach}
-                                commonMistakes={problem.common_mistakes}
-                                finalAnswer={problem.final_answer}
-                              />
-                            </div>
-                          )}
+                        ))
+                      ) : (
+                        <div className="text-stone-400 text-sm text-center italic mt-4 bg-stone-50 dark:bg-stone-900/30 p-6 rounded-xl border border-dashed border-stone-200 dark:border-stone-800">
+                          <Target className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                          <p>Generate a verified problem to practice.</p>
                         </div>
-                      ))
-                    ) : (
-                      /* Empty state for practice problem */
-                      <div className="text-stone-400 text-sm text-center italic mt-4 bg-stone-50 dark:bg-stone-900/30 p-6 rounded-xl border border-dashed border-stone-200 dark:border-stone-800">
-                        <Target className="w-6 h-6 mx-auto mb-2 opacity-50" />
-                        <p>Generate a verified problem to practice.</p>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 /* LEARN LAYOUT - LEFT COLUMN */
@@ -885,7 +896,6 @@ const TopicListItem = ({
 
                   {unit.tutor_guidance && (
                     <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 shadow-sm">
-
                       <p className="text-stone-600 dark:text-stone-400 text-sm leading-relaxed">
                         {unit.tutor_guidance}
                       </p>

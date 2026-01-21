@@ -400,10 +400,22 @@ DO NOT include data_gathering_resource for:
 
 OUTPUT: JSON with summary, prerequisites_section (learning_units array), content_sections array. 
 For content_sections, each item MUST have: section_id, section_type, title (DESCRIPTIVE), description, learning_units array.
-Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), target_resource_profile (2-3 sentences for topic/prerequisite units, FULL PROBLEM STATEMENT + solving approach description for walkthrough units), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), data_gathering_resource (when external data lookup is needed). For problems: also add walkthrough unit at end with problem_solving_queries.
+Each unit needs: unit_id, unit_type, topic, tutor_guidance (2-3 sentences), target_resource_profile (2-3 sentences for topic/prerequisite units, FULL PROBLEM STATEMENT + solving approach description for walkthrough units), search_queries (exactly 3), equations (when applicable, be aggressive but keep variables brief), data_gathering_resource (when external data lookup is needed).
 
-IMPORTANT FOR WALKTHROUGH UNITS:
-Set the "topic" field for walkthrough units to "Similar Worked Example Walkthrough" or similar, to avoid giving away that it is the exact solving steps, and instead drive the student to learn from a similar worked problem.
+CRITICAL FOR PROBLEM SECTIONS:
+For every "problem" section, you MUST generate the units in this order:
+1. Concept Unit(s) - The core concepts needed
+2. Solution Walkthrough - COMPLETE step-by-step solution to the problem
+   - unit_type: "solution"
+   - topic: "Step-by-Step Solution"
+   - solution_steps: ["Step 1...", "Step 2..."] (Array of strings, Latex supported)
+   - common_mistakes: ["Mistake 1...", "Mistake 2..."] (Array of strings)
+   - final_answer: "The final value with units"
+3. Practice Problem - A similar problem for the student to try
+   - unit_type: "practice"
+   - topic: "Practice Problem"
+
+IMPORTANT: The "Solution Walkthrough" MUST be the SECOND TO LAST unit. The "Practice Problem" MUST be the LAST unit.
 `,
 
     user: (input: any, inputType: 'document_analysis' | 'custom' = 'document_analysis') => `Generate learning structure with search queries.

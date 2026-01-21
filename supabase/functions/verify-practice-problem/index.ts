@@ -289,6 +289,47 @@ serve(async (req: Request) => {
             }
         } // end while
 
+        // 2b. Ensure Solution Steps Exist (if verification succeeded)
+        if (isVerified && finalProblem) {
+            if (!finalProblem.solution_steps || finalProblem.solution_steps.length === 0) {
+                console.log('[verify-practice-problem] Solution steps missing, generating with Sonnet...');
+                try {
+                    // Use Sonnet to generate clear step-by-step solution
+                    // We provide the verified answer to ensure consistency
+                    const verifiedAnswer = finalVerificationData?.verified_answer || finalProblem.final_answer;
+
+                    if (anthropicApiKey) {
+                        const res = await fetch('https://api.anthropic.com/v1/messages', {
+                            method: 'POST',
+                            headers: { 'x-api-key': anthropicApiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                model: 'claude-sonnet-4-5',
+                                max_tokens: 1024,
+                                messages: [{
+                                    role: 'user',
+                                    content: PROMPTS.practiceProblemSolution.user(finalProblem.practice_problem + `\n\n(Note: The verified correct answer is ${verifiedAnswer}. Ensure your steps lead to this result.)`)
+                                }],
+                                system: PROMPTS.practiceProblemSolution.system
+                            })
+                        });
+                        const data = await res.json();
+                        const parsed = parseModelJson(data.content[0].text, 'Sonnet-Solution');
+
+                        if (parsed.solution_steps) {
+                            finalProblem.solution_steps = parsed.solution_steps;
+                            // Update final_answer to match formatting if needed, but keep verified value
+                            if (!finalProblem.final_answer) finalProblem.final_answer = parsed.final_answer;
+                            console.log('[verify-practice-problem] Generated solution steps successfully');
+                        }
+                    }
+                } catch (err) {
+                    console.error('[verify-practice-problem] Failed to generate solution steps:', err);
+                    // Fallback to a basic message if generation fails
+                    finalProblem.solution_steps = ["Step-by-step solution could not be generated at this time."];
+                }
+            }
+        }
+
         // 3. Cache and Return
         if (isVerified && finalProblem) {
             // Store in Supabase
