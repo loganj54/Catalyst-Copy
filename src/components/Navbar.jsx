@@ -37,19 +37,19 @@ const Navbar = () => {
   const rightMargin = chatState.isOpen ? 450 : 0;
 
   return (
-    <nav className="lg:px-12 flex fixed z-50 bg-white/90 dark:bg-stone-900/90 w-full border-stone-200 dark:border-stone-800 border-b py-6 top-0 backdrop-blur-sm items-center transition-all duration-300">
+    <nav className="lg:px-12 flex fixed z-50 bg-white/90 dark:bg-stone-900/90 w-full border-stone-200 dark:border-stone-800 border-b py-3 top-0 backdrop-blur-sm items-center transition-all duration-300">
       <div className="flex items-center flex-1">
         <Link to="/" className="flex items-center gap-2">
           <img
-            src="/catalyst-logo-2.png"
-            alt="Catalyst"
-            className="h-8 w-auto object-contain mix-blend-multiply dark:mix-blend-lighten dark:invert dark:contrast-200"
+            src="/catalyst-logo-new.png"
+            alt="Catalyst Engineering"
+            className="h-16 w-auto object-contain"
             onError={(e) => {
               e.target.style.display = 'none';
               e.target.nextSibling.style.display = 'flex';
             }}
           />
-          <span className="text-2xl text-black dark:text-white tracking-tight">Catalyst</span>
+          <span className="hidden text-2xl text-black dark:text-white tracking-tight">Catalyst</span>
           {/* Fallback if image fails to load */}
           <div className="hidden flex gap-3 items-center">
             <div className="flex text-[#FF4A1C] bg-[#FF4A1C]/10 w-10 h-10 rounded-full items-center justify-center">
