@@ -3124,14 +3124,12 @@ const Blueprint = () => {
       {/* Removed bgMode === 'default' background logic to match ClassDetails */}
 
       {/* Sidebars */}
-      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-30 hidden lg:block w-20">
-        <Sidebar collapsed={true} />
-      </div>
-      <div className="fixed top-20 left-20 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
+
+      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
         <ClassSidebar />
       </div>
 
-      <div className={`min-w-0 lg:ml-[304px] transition-all duration-300 ease-in-out ${isChatOpen ? 'mr-0 md:mr-[450px]' : ''}`}>
+      <div className={`min-w-0 lg:ml-[224px] transition-all duration-300 ease-in-out ${isChatOpen ? 'mr-0 md:mr-[450px]' : ''}`}>
         <div className="sticky top-20 z-50 min-h-[140px] pointer-events-none">
           {/* Visual Wrapper - Handles background and transitions */}
           <div className={`w-full transition-all duration-300 ease-in-out pointer-events-auto ${isScrolled ? 'bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl' : 'bg-transparent'}`}>
@@ -3217,6 +3215,29 @@ const Blueprint = () => {
                       </button>
                     </div>
                   </div>
+
+                  {/* Horizontal Tabs - Centered in Header */}
+                  {structure && tabs.length > 0 && (
+                    <div className="flex justify-center w-full mt-6">
+                      <div className="bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg inline-flex items-center border border-stone-200 dark:border-stone-700 overflow-x-auto max-w-full no-scrollbar">
+                        {tabs.map(tab => (
+                          <button
+                            key={tab.id}
+                            onClick={() => {
+                              setActiveTab(tab.id);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id
+                              ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
+                              : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
+                              }`}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -3540,31 +3561,9 @@ const Blueprint = () => {
           {/* Structure Content */}
           {/* Structure Content */}
           {structure && (
-            <div className="flex gap-10">
-              {/* Left Column: Vertical Tabs */}
-              <div className="shrink-0 w-fit">
-                <div className="sticky top-[290px] space-y-2">
-                  {tabs.map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => {
-                        setActiveTab(tab.id);
-                        window.scrollTo({ top: 0, behavior: 'smooth' }); // Optional scroll to top when changing section
-                      }}
-                      className={`block w-fit text-left px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap
-                           ${activeTab === tab.id
-                          ? 'bg-[#FF4A1C] text-white shadow-md shadow-orange-500/20'
-                          : 'bg-transparent text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 dark:text-stone-400'
-                        }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Right Column: Topics & Content */}
-              <div className="flex-1 min-w-0 pt-4">
+            <div className="w-full">
+              {/* Content Area */}
+              <div className="min-w-0 pt-4">
                 {/* Active Section Header */}
                 <div className="mb-6 flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-[#2A2B2A] dark:text-stone-100 flex items-center gap-3">

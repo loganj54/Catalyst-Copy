@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { 
-  FileText, 
-  PenTool, 
-  Plus, 
+import {
+  FileText,
+  PenTool,
+  Plus,
   MoreVertical,
   Loader2,
   FolderOpen,
@@ -24,7 +24,7 @@ const ClassDetails = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const fileInputRef = useRef(null);
-  
+
   const [classData, setClassData] = useState(null);
   const [blueprints, setBlueprints] = useState([]);
   const [documents, setDocuments] = useState([]);
@@ -122,7 +122,7 @@ const ClassDetails = () => {
       // Upload file to Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${id}/${Date.now()}.${fileExt}`;
-      
+
       console.log('Attempting to upload file:', fileName);
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('class-documents')
@@ -130,18 +130,18 @@ const ClassDetails = () => {
 
       if (uploadError) {
         console.error('Storage upload error:', uploadError);
-        
+
         // Check for specific errors
         if (uploadError.message?.includes('not found') || uploadError.message?.includes('does not exist')) {
           alert('⚠️ Storage bucket not set up!\n\nPlease create the "class-documents" bucket in Supabase:\n1. Go to Storage in Supabase Dashboard\n2. Create new bucket named "class-documents"\n3. Set it to Public\n4. Add storage policies (see STORAGE_SETUP.md)');
           return;
         }
-        
+
         throw uploadError;
       }
 
       console.log('File uploaded successfully, getting public URL...');
-      
+
       // Get public URL
       const { data: urlData } = supabase.storage
         .from('class-documents')
@@ -166,18 +166,18 @@ const ClassDetails = () => {
 
       if (docError) {
         console.error('Database error:', docError);
-        
+
         // Check for specific database errors
         if (docError.message?.includes('relation') && docError.message?.includes('does not exist')) {
           alert('⚠️ Database table not set up!\n\nPlease run the SQL migration:\n1. Go to SQL Editor in Supabase Dashboard\n2. Run the file: create_class_documents_table.sql\n\nNote: The file was uploaded to storage but metadata wasn\'t saved.');
           return;
         }
-        
+
         if (docError.code === '42501' || docError.message?.includes('policy')) {
           alert('⚠️ Database permissions issue!\n\nPlease check that RLS policies are set up for the class_documents table.\n\nNote: The file was uploaded to storage but metadata wasn\'t saved.');
           return;
         }
-        
+
         throw docError;
       }
 
@@ -212,17 +212,17 @@ const ClassDetails = () => {
 
   const handleViewDocument = async (e, doc) => {
     e.stopPropagation();
-    
+
     try {
       let viewUrl = doc.file_url;
-      
+
       // If public URL is not available or might be broken, try generating a signed URL
       if (!viewUrl || viewUrl.includes('error')) {
         console.log('Public URL not available, generating signed URL...');
         const { data, error } = await supabase.storage
           .from('class-documents')
           .createSignedUrl(doc.file_path, 3600); // 1 hour expiry
-        
+
         if (error) {
           console.error('Error generating signed URL:', error);
           alert('❌ Failed to open document.\n\nPlease check that storage policies are configured correctly.');
@@ -230,7 +230,7 @@ const ClassDetails = () => {
         }
         viewUrl = data.signedUrl;
       }
-      
+
       // Open document in new tab
       window.open(viewUrl, '_blank', 'noopener,noreferrer');
     } catch (error) {
@@ -241,7 +241,7 @@ const ClassDetails = () => {
 
   const confirmDelete = async () => {
     const { type, itemId, itemPath } = confirmDialog;
-    
+
     try {
       if (type === 'document') {
         // Delete from storage
@@ -297,7 +297,7 @@ const ClassDetails = () => {
 
   const saveBlueprintName = async () => {
     if (!editingBlueprint || !newBlueprintName.trim()) return;
-    
+
     setIsSavingName(true);
     try {
       // Update both title column and content.blueprintName for consistency
@@ -308,17 +308,17 @@ const ClassDetails = () => {
 
       const { error } = await supabase
         .from('blueprints')
-        .update({ 
+        .update({
           title: newBlueprintName.trim(),
-          content: updatedContent 
+          content: updatedContent
         })
         .eq('id', editingBlueprint.id);
 
       if (error) throw error;
 
       // Update local state
-      setBlueprints(blueprints.map(bp => 
-        bp.id === editingBlueprint.id 
+      setBlueprints(blueprints.map(bp =>
+        bp.id === editingBlueprint.id
           ? { ...bp, title: newBlueprintName.trim(), content: updatedContent }
           : bp
       ));
@@ -356,21 +356,18 @@ const ClassDetails = () => {
   if (!classData) return null;
 
   return (
-    <div 
+    <div
       className="min-h-screen bg-transparent flex text-outline relative"
     >
-      
-      {/* Global Sidebar - Collapsed */}
-      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-30 hidden lg:block w-20">
-        <Sidebar collapsed={true} />
-      </div>
+
+
 
       {/* Class Sidebar */}
-      <div className="fixed top-20 left-20 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
+      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
         <ClassSidebar />
       </div>
 
-      <div className="flex-1 min-w-0 lg:ml-[304px] relative z-10">
+      <div className="flex-1 min-w-0 lg:ml-[224px] relative z-10">
         <ConfirmDialog
           isOpen={confirmDialog.isOpen}
           onClose={() => setConfirmDialog({ isOpen: false, type: '', itemId: null, itemPath: null })}
@@ -381,7 +378,7 @@ const ClassDetails = () => {
           cancelText="No"
           type="danger"
         />
-        
+
         <div className="pt-8 pb-12 px-6 lg:px-12 max-w-7xl mx-auto space-y-12">
 
           {/* Edit Blueprint Name Modal */}
@@ -436,36 +433,34 @@ const ClassDetails = () => {
 
           {/* Header */}
           <div className="flex flex-col gap-6 mb-8">
-             <div className="text-left">
-                <h1 className="text-4xl font-normal text-[#2A2B2A] dark:text-stone-100 tracking-tight">{classData.name}</h1>
-                <p className="text-stone-500 dark:text-stone-400 text-lg">{classData.professor}</p>
-             </div>
+            <div className="text-left">
+              <h1 className="text-4xl font-normal text-[#2A2B2A] dark:text-stone-100 tracking-tight">{classData.name}</h1>
+              <p className="text-stone-500 dark:text-stone-400 text-lg">{classData.professor}</p>
+            </div>
 
-             {/* Navigation Toggle */}
-             <div className="self-center bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg inline-flex items-center border border-stone-200 dark:border-stone-700">
-                <button 
-                  onClick={() => setActiveTab('blueprints')}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    activeTab === 'blueprints' 
-                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600' 
-                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
+            {/* Navigation Toggle */}
+            <div className="self-center bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg inline-flex items-center border border-stone-200 dark:border-stone-700">
+              <button
+                onClick={() => setActiveTab('blueprints')}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'blueprints'
+                    ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
+                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
                   }`}
-                >
-                  Blueprints
-                </button>
-                <button 
-                  onClick={() => setActiveTab('documents')}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    activeTab === 'documents' 
-                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600' 
-                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
+              >
+                Blueprints
+              </button>
+              <button
+                onClick={() => setActiveTab('documents')}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'documents'
+                    ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
+                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
                   }`}
-                >
-                  Documents
-                </button>
-             </div>
+              >
+                Documents
+              </button>
+            </div>
           </div>
-  
+
           {/* Content Area */}
           <div className="min-h-[400px]">
             {activeTab === 'documents' && (
@@ -475,15 +470,15 @@ const ClassDetails = () => {
                     <div className="flex justify-between items-center">
                       <h3 className="text-xl font-normal text-stone-900 dark:text-stone-100">Your Documents</h3>
                       <div>
-                        <input 
+                        <input
                           ref={fileInputRef}
-                          type="file" 
+                          type="file"
                           onChange={handleDocumentUpload}
                           accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
                           className="hidden"
                           id="document-upload"
                         />
-                        <label 
+                        <label
                           htmlFor="document-upload"
                           className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 cursor-pointer shadow-sm ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
@@ -501,10 +496,10 @@ const ClassDetails = () => {
                         </label>
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {documents.map((doc) => (
-                        <div 
+                        <div
                           key={doc.id}
                           className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-xl p-6 shadow-sm hover:shadow-md transition-all group relative flex flex-col h-full"
                         >
@@ -512,7 +507,7 @@ const ClassDetails = () => {
                             <div className="w-10 h-10 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg flex items-center justify-center text-stone-500 dark:text-stone-400">
                               <FileText className="w-5 h-5" />
                             </div>
-                            
+
                             <div className="relative">
                               <button
                                 onClick={(e) => toggleDropdown(e, doc.id)}
@@ -520,7 +515,7 @@ const ClassDetails = () => {
                               >
                                 <MoreVertical className="w-5 h-5" />
                               </button>
-                              
+
                               {openDropdownId === doc.id && (
                                 <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 py-1 z-10 animate-fade-in">
                                   <button
@@ -550,7 +545,7 @@ const ClassDetails = () => {
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="mb-6">
                             <h4 className="text-xl font-normal text-stone-900 dark:text-stone-100 mb-1 truncate" title={doc.name}>
                               {doc.name}
@@ -559,14 +554,14 @@ const ClassDetails = () => {
                               {(doc.file_size / 1024).toFixed(1)} KB
                             </p>
                           </div>
-                          
+
                           <div className="mt-auto pt-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs text-stone-400 dark:text-stone-500">
                             <div className="flex items-center gap-1.5">
                               <span>Created</span>
                               <span className="text-stone-500 dark:text-stone-400">{new Date(doc.created_at).toLocaleDateString()}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                               <span>{new Date(doc.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span>{new Date(doc.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                           </div>
                         </div>
@@ -582,15 +577,15 @@ const ClassDetails = () => {
                     <p className="text-stone-500 dark:text-stone-400 mb-8 max-w-md mx-auto">
                       Store your syllabus, assignments, and lecture notes here to keep everything organized.
                     </p>
-                    <input 
+                    <input
                       ref={fileInputRef}
-                      type="file" 
+                      type="file"
                       onChange={handleDocumentUpload}
                       accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
                       className="hidden"
                       id="document-upload-empty"
                     />
-                    <label 
+                    <label
                       htmlFor="document-upload-empty"
                       className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 cursor-pointer shadow-sm ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
@@ -610,14 +605,14 @@ const ClassDetails = () => {
                 )}
               </div>
             )}
-  
+
             {activeTab === 'blueprints' && (
               <div className="min-h-[300px]">
                 {blueprints.length > 0 ? (
                   <div className="space-y-6">
                     <div className="flex justify-between items-center">
                       <h3 className="text-xl font-normal text-stone-900 dark:text-stone-100">Your Blueprints</h3>
-                      <button 
+                      <button
                         onClick={() => navigate('/create', { state: { initialClassId: id } })}
                         className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 shadow-sm"
                       >
@@ -625,10 +620,10 @@ const ClassDetails = () => {
                         <span className="font-medium text-sm">New Blueprint</span>
                       </button>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {blueprints.map((blueprint) => (
-                        <div 
+                        <div
                           key={blueprint.id}
                           onClick={() => navigate(`/blueprint/${blueprint.id}`)}
                           className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all group relative flex flex-col h-full"
@@ -637,7 +632,7 @@ const ClassDetails = () => {
                             <div className="w-10 h-10 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg flex items-center justify-center text-stone-500 dark:text-stone-400">
                               <PenTool className="w-5 h-5" />
                             </div>
-                            
+
                             <div className="relative">
                               <button
                                 onClick={(e) => toggleDropdown(e, blueprint.id)}
@@ -645,7 +640,7 @@ const ClassDetails = () => {
                               >
                                 <MoreVertical className="w-5 h-5" />
                               </button>
-                              
+
                               {openDropdownId === blueprint.id && (
                                 <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 py-1 z-10 animate-fade-in">
                                   <button
@@ -666,7 +661,7 @@ const ClassDetails = () => {
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="mb-6">
                             <h4 className="text-xl font-normal text-stone-900 dark:text-stone-100 mb-1 truncate" title={blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}>
                               {blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}
@@ -675,14 +670,14 @@ const ClassDetails = () => {
                               {blueprint.task_type}
                             </p>
                           </div>
-                          
+
                           <div className="mt-auto pt-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs text-stone-400 dark:text-stone-500">
-                             <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5">
                               <span>Created</span>
                               <span className="text-stone-500 dark:text-stone-400">{new Date(blueprint.created_at).toLocaleDateString()}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                               <span>{new Date(blueprint.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span>{new Date(blueprint.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                           </div>
                         </div>
@@ -698,7 +693,7 @@ const ClassDetails = () => {
                     <p className="text-stone-500 dark:text-stone-400 mb-8 max-w-md mx-auto">
                       Create and manage your engineering blueprints and diagrams for this class.
                     </p>
-                    <button 
+                    <button
                       onClick={() => navigate('/create', { state: { initialClassId: id } })}
                       className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 shadow-sm"
                     >
