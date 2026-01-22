@@ -3410,7 +3410,13 @@ const Blueprint = () => {
                 {currentUnits.filter(u => u.unit_type !== 'solution').map((unit, index) => {
                   const unitEquations = topicEquations[unit.unit_id] || [];
                   const unitResources = topicResources[unit.unit_id] || [];
-                  const primaryVideo = unitResources.find(r => r.type === 'video' || r.type === 'youtube');
+                  // Find primary video - check type OR if URL contains youtube/youtu.be
+                  const primaryVideo = unitResources.find(r =>
+                    r.type === 'video' ||
+                    r.type === 'youtube' ||
+                    r.url?.includes('youtube.com') ||
+                    r.url?.includes('youtu.be')
+                  );
 
                   return (
                     <div key={unit.unit_id} className="relative group">
@@ -3446,15 +3452,48 @@ const Blueprint = () => {
                           </div>
                         </div>
 
-                        {/* Video Module */}
+                        {/* Video Module - Horizontal Layout */}
                         {primaryVideo ? (
-                          <div className="rounded-2xl overflow-hidden bg-black aspect-video shadow-2xl ring-1 ring-stone-900/10">
-                            <iframe
-                              src={primaryVideo.url.replace('watch?v=', 'embed/').split('&')[0]}
-                              className="w-full h-full"
-                              title={primaryVideo.title}
-                              allowFullScreen
-                            />
+                          <div className="grid md:grid-cols-5 gap-8 items-start">
+                            {/* Left: Video Player */}
+                            <div className="md:col-span-3 rounded-xl overflow-hidden bg-black aspect-video shadow-lg ring-1 ring-stone-900/10">
+                              <iframe
+                                src={primaryVideo.url.replace('watch?v=', 'embed/').split('&')[0]}
+                                className="w-full h-full"
+                                title={primaryVideo.title}
+                                allowFullScreen
+                              />
+                            </div>
+
+                            {/* Right: Metadata & Controls */}
+                            <div className="md:col-span-2 space-y-4">
+                              <div>
+                                <h4 className="text-lg font-bold text-stone-900 dark:text-stone-100 leading-tight mb-2">
+                                  {primaryVideo.title}
+                                </h4>
+                                {primaryVideo.resource_explanation && (
+                                  <div className="text-sm text-stone-600 dark:text-stone-400 prose prose-sm dark:prose-invert">
+                                    <p className="font-medium text-stone-900 dark:text-stone-200 mb-1">Why this helps:</p>
+                                    <p>{primaryVideo.resource_explanation}</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="pt-4 border-t border-stone-200 dark:border-stone-800 flex flex-col gap-3">
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm("Find a different video for this topic?")) {
+                                      handleGenerateBlueprint(unit, 'database');
+                                    }
+                                  }}
+                                  disabled={searchingTopics.has(unit.unit_id)}
+                                  className="w-full px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-sm font-medium hover:bg-stone-50 hover:text-[#FF4A1C] transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                  {searchingTopics.has(unit.unit_id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                  Find Alternative Video
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         ) : (
                           <div className="rounded-2xl border-2 border-dashed border-stone-200 dark:border-stone-800 aspect-video flex flex-col items-center justify-center p-8 text-center space-y-6 bg-stone-50/50 dark:bg-stone-900/50 group-hover:border-[#FF4A1C]/30 transition-colors">
@@ -3463,40 +3502,23 @@ const Blueprint = () => {
                             </div>
                             <div className="space-y-2">
                               <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100">No Video Available</h3>
-                              <p className="text-stone-500 dark:text-stone-400 text-sm max-w-sm mx-auto">
+                              <p className="text-xl text-stone-500 dark:text-stone-400 text-sm max-w-sm mx-auto">
                                 We couldn't find a curated video for this topic.
                               </p>
                             </div>
                             <div className="flex flex-wrap gap-3 justify-center">
                               <button
-                                onClick={async () => {
-                                  const confirmSearch = window.confirm(`Search database for "${unit.topic}"?`);
-                                  if (!confirmSearch) return;
-
-                                  try {
-                                    // Trigger webhook or backend search for this unit
-                                    const { error } = await supabase.functions.invoke('generate-learning-content', {
-                                      body: {
-                                        action: 'search_resources',
-                                        blueprintId: id,
-                                        unitIds: [unit.unit_id]
-                                      }
-                                    });
-                                    if (error) throw error;
-                                    alert('Resource search started! Please refresh in a few moments.');
-                                    // Ideally trigger a re-fetch or live update here
-                                  } catch (e) {
-                                    console.error("Search failed:", e);
-                                    alert("Failed to start search. Please try again.");
-                                  }
-                                }}
-                                className="px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-sm font-medium hover:bg-stone-50 hover:text-[#FF4A1C] transition-colors shadow-sm flex items-center gap-2">
-                                <Search className="w-4 h-4" />
+                                onClick={() => handleGenerateBlueprint(unit, 'database')}
+                                disabled={searchingTopics.has(unit.unit_id)}
+                                className="px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-sm font-medium hover:bg-stone-50 hover:text-[#FF4A1C] transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                {searchingTopics.has(unit.unit_id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                                 Search Database
                               </button>
-                              <button onClick={() => alert('Webhook Triggered')} className="px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border border-transparent rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shadow-sm flex items-center gap-2">
+                              <button
+                                onClick={() => handleTriggerWebhook(unit)}
+                                className="px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border border-transparent rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shadow-sm flex items-center gap-2">
                                 <Zap className="w-4 h-4" />
-                                Generate Resource
+                                Activate Webhook
                               </button>
                             </div>
                           </div>
