@@ -3569,23 +3569,25 @@ const Blueprint = () => {
       </div>
 
       {/* 2. Secondary "Floating" Navigation - Fixed Next to Sidebar */}
-      <div className="fixed top-80 left-60 z-10 hidden lg:block w-48 pointer-events-none">
-        <div className="space-y-2 pointer-events-auto">
-          {tabs.map((tab, idx) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-3 border ${activeTab === tab.id
-                ? 'bg-white/80 dark:bg-stone-800/80 text-[#FF4A1C] border-stone-200 dark:border-stone-700 shadow-sm'
-                : 'bg-transparent text-stone-500 dark:text-stone-400 border-transparent hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-100/50 dark:hover:bg-stone-800/50'
-                }`}
-            >
-              <span className="truncate leading-tight">{tab.label}</span>
-            </button>
-          ))}
+      <div className="fixed top-96 left-64 z-10 hidden lg:block w-48 pointer-events-none">
+        <div className="bg-white/60 dark:bg-stone-900/60 rounded-xl p-3 shadow-sm border-2 border-stone-200/60 dark:border-stone-700/60 pointer-events-auto">
+          <div className="space-y-1.5">
+            {tabs.map((tab, idx) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className={`w-full text-left px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-3 border ${activeTab === tab.id
+                  ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600 shadow-sm'
+                  : 'bg-white/40 dark:bg-stone-800/40 text-stone-600 dark:text-stone-400 border-stone-300/50 dark:border-stone-600/50 hover:bg-white/60 dark:hover:bg-stone-800/60 hover:border-stone-300 dark:hover:border-stone-600'
+                  }`}
+              >
+                <span className="truncate leading-tight">{tab.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -3766,20 +3768,21 @@ const Blueprint = () => {
           {/* Structure Content - TEXT THREAD LAYOUT */}
           {structure && (
             <div className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
-              {/* 1. Problem Header (Active Section) */}
-              <div className="space-y-6 mb-16">
-                <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
-                  {currentSectionTitle}
-                </h2>
-                {currentSectionTitle === 'Prerequisites' && (
-                  <p className="text-xl text-stone-500 italic max-w-2xl font-light">
-                    You must be comfortable with the following topics before moving forward.
-                  </p>
-                )}
-              </div>
-
-              {/* 2. Concepts Loop (Sequential) */}
+              {/* Container wrapping header and content */}
               <div className="bg-white/50 dark:bg-stone-900/50 rounded-3xl p-8 md:p-12 shadow-sm">
+                {/* 1. Problem Header (Active Section) */}
+                <div className="space-y-6 mb-16">
+                  <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
+                    {currentSectionTitle}
+                  </h2>
+                  {currentSectionTitle === 'Prerequisites' && (
+                    <p className="text-xl text-stone-500 italic max-w-2xl font-light">
+                      You must be comfortable with the following topics before moving forward.
+                    </p>
+                  )}
+                </div>
+
+                {/* 2. Concepts Loop (Sequential) */}
                 <div className="space-y-24 relative transition-all">
                   {currentUnits.filter(u => u.unit_type !== 'solution').map((unit, index) => {
                     const unitEquations = topicEquations[unit.unit_id] || [];
