@@ -27,13 +27,14 @@ const EquationDisplay = ({ equations }) => {
     <div className="space-y-4">
 
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 grid-flow-row-dense">
+      <div className="flex flex-wrap justify-center gap-6">
         {equations.map((equation, idx) => (
-          <EquationCard
-            key={equation.name || idx}
-            equation={equation}
-            index={idx + 1}
-          />
+          <div key={equation.name || idx} className="w-full md:w-[calc(50%-12px)] max-w-2xl min-w-[300px]">
+            <EquationCard
+              equation={equation}
+              index={idx + 1}
+            />
+          </div>
         ))}
       </div>
     </div>
