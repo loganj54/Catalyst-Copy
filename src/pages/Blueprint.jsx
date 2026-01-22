@@ -2754,7 +2754,13 @@ const Blueprint = () => {
   };
 
   const handleViewDocument = async () => {
-    // Get document from blueprint.document (linked via document_id) or file_metadata (embedded)
+    // 1. Text Input Check
+    if (blueprint.content?.text) {
+      setShowInputPopover(true);
+      return;
+    }
+
+    // 2. Document / Link Check
     const doc = blueprint.document || (blueprint.file_metadata ? {
       ...blueprint.file_metadata,
       file_url: blueprint.file_metadata.url
@@ -3585,39 +3591,50 @@ const Blueprint = () => {
 
       {/* Main Content Area - Shifted Right to clear both sidebars */}
       <div className={`min-w-0 lg:ml-56 transition-all duration-300 ease-in-out ${isChatOpen ? 'mr-0 md:mr-[450px]' : ''}`}>
-        <div className="sticky top-20 z-50 min-h-[auto] pointer-events-none">
+        <div className="sticky top-20 z-30 min-h-[auto] pointer-events-none">
           {/* Visual Wrapper - Handles background and transitions */}
-          <div className={`w-full transition-all duration-300 ease-in-out pointer-events-auto ${isScrolled ? 'bg-white/80 dark:bg-stone-900/80 backdrop-blur-xl border-b border-stone-200 dark:border-stone-800' : 'bg-transparent'}`}>
+          <div className={`w-full transition-all duration-500 ease-in-out pointer-events-auto ${isScrolled ? 'bg-white/90 dark:bg-stone-900/90 backdrop-blur-xl' : 'bg-transparent'}`}>
             <div className="py-4">
               <div className="px-8 w-full max-w-5xl mx-auto">
                 <div className={`transition-all duration-300 ease-in-out relative mb-0`}>
                   {/* Quick Controls Row */}
-                  <div className="flex justify-between items-center gap-6">
-                    <button
-                      onClick={() => {
-                        if (blueprint.class_id) {
-                          navigate(`/class/${blueprint.class_id}?tab=blueprints`);
-                        } else {
-                          navigate('/dashboard');
-                        }
-                      }}
-                      className="flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors duration-200 text-sm font-medium bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-transparent hover:border-stone-200 dark:hover:border-stone-700"
-                    >
-                      <ArrowLeft className="w-4 h-4" />
-                      <span className="hidden sm:inline">{blueprint.class?.name || 'Back to Class'}</span>
-                    </button>
+                  <div className="flex justify-between items-center gap-6 relative">
+                    <div className="flex items-center gap-4 z-10">
+                      <button
+                        onClick={() => {
+                          if (blueprint.class_id) {
+                            navigate(`/class/${blueprint.class_id}?tab=blueprints`);
+                          } else {
+                            navigate('/dashboard');
+                          }
+                        }}
+                        className="shrink-0 flex items-center gap-2 text-stone-500 hover:text-[#FF4A1C] transition-colors duration-200 text-sm font-medium bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-transparent hover:border-stone-200 dark:hover:border-stone-700"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span className="hidden sm:inline">{blueprint.class?.name || 'Back to Class'}</span>
+                      </button>
+                    </div>
+
+                    {/* Sticky Title - Appears on scroll - Centered Absolutely */}
+                    <div className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden transition-all duration-500 ease-in-out flex justify-center ${isScrolled ? 'max-w-lg opacity-100' : 'max-w-0 opacity-0'}`}>
+                      <h2 className="text-sm font-normal text-stone-900 dark:text-stone-100 whitespace-nowrap truncate">
+                        {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
+                      </h2>
+                    </div>
 
                     {/* Right side: Controls (Chat, Doc, etc) */}
                     <div className="flex items-center gap-2">
                       {/* View Document Button */}
-                      {(doc || blueprint.url) && (
+                      {(doc || blueprint.url || content.text) && (
                         <button
                           onClick={handleViewDocument}
                           className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-xs font-medium transition-colors shadow-sm"
-                          title={doc?.name || "View Document"}
+                          title={content.text ? "View Text Input" : (doc?.name || "View Document")}
                         >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">Source</span>
+                          {content.text ? <FileText className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          <span className="hidden sm:inline">
+                            {content.text ? 'Text Input' : 'View Document'}
+                          </span>
                         </button>
                       )}
 
@@ -3645,7 +3662,7 @@ const Blueprint = () => {
 
           {/* Blueprint Title (Once per page, centered at top of content flow) */}
           <div className="text-center space-y-4 pt-8 pb-12 border-b border-stone-100 dark:border-stone-800">
-            <h1 className="text-5xl md:text-6xl font-normal tracking-tight text-stone-900 dark:text-stone-100">
+            <h1 className="text-6xl md:text-7xl font-normal tracking-tight text-stone-900 dark:text-stone-100">
               {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
             </h1>
             {blueprint.description && (
@@ -3751,7 +3768,7 @@ const Blueprint = () => {
             <div className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
               {/* 1. Problem Header (Active Section) */}
               <div className="space-y-6 mb-16">
-                <h2 className="text-6xl md:text-7xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
+                <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
                   {currentSectionTitle}
                 </h2>
                 {currentSectionTitle === 'Prerequisites' && (
@@ -3762,279 +3779,320 @@ const Blueprint = () => {
               </div>
 
               {/* 2. Concepts Loop (Sequential) */}
-              <div className="space-y-24 relative pl-6 transition-all">
-                {currentUnits.filter(u => u.unit_type !== 'solution').map((unit, index) => {
-                  const unitEquations = topicEquations[unit.unit_id] || [];
-                  const unitResources = topicResources[unit.unit_id] || [];
+              <div className="bg-white/50 dark:bg-stone-900/50 rounded-3xl p-8 md:p-12 shadow-sm">
+                <div className="space-y-24 relative transition-all">
+                  {currentUnits.filter(u => u.unit_type !== 'solution').map((unit, index) => {
+                    const unitEquations = topicEquations[unit.unit_id] || [];
+                    const unitResources = topicResources[unit.unit_id] || [];
 
-                  // Find primary video - most recent non-hidden YouTube video
-                  // This ensures the re-rolled video persists correctly
-                  const visibleVideos = unitResources
-                    .filter(r => !r.is_hidden && (
-                      r.type === 'video' ||
-                      r.type === 'youtube' ||
-                      r.url?.includes('youtube.com') ||
-                      r.url?.includes('youtu.be')
-                    ))
-                    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+                    // Find primary video - most recent non-hidden YouTube video
+                    // This ensures the re-rolled video persists correctly
+                    const visibleVideos = unitResources
+                      .filter(r => !r.is_hidden && (
+                        r.type === 'video' ||
+                        r.type === 'youtube' ||
+                        r.url?.includes('youtube.com') ||
+                        r.url?.includes('youtu.be')
+                      ))
+                      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
-                  const primaryVideo = visibleVideos[0];
-                  const hasMoreVideos = visibleVideos.length > 1;
+                    const primaryVideo = visibleVideos[0];
+                    const hasMoreVideos = visibleVideos.length > 1;
 
-                  return (
-                    <div key={unit.unit_id} className="relative group">
+                    return (
+                      <div key={unit.unit_id} className="relative group">
 
-                      <div className="space-y-8">
-                        {/* Concept Header & Text Content */}
-                        <div>
+                        <div className="space-y-8">
+                          {/* Concept Header & Text Content */}
+                          <div>
+                            <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
+                              {unit.topic}
+                            </h3>
+
+                            <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none space-y-6">
+                              {/* Render Tutor Guidance if available */}
+                              {unit.tutor_guidance && (
+                                <div className="mb-4 whitespace-pre-wrap">
+                                  <LatexText text={unit.tutor_guidance} />
+                                </div>
+                              )}
+
+                              {/* Render Concept Summary */}
+                              {unit.concept_summary && (
+                                <div className="whitespace-pre-wrap">
+                                  <LatexText text={unit.concept_summary} />
+                                </div>
+                              )}
+
+                              {/* Fallback to description if no specific fields */}
+                              {!unit.tutor_guidance && !unit.concept_summary && unit.description && (
+                                <div className="whitespace-pre-wrap">
+                                  <LatexText text={unit.description} />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Video Module - Horizontal Layout */}
+                          {primaryVideo ? (
+                            <div
+                              onClick={() => window.open(primaryVideo.url, '_blank')}
+                              className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer group/card"
+                            >
+                              {/* Card Header: Title & Re-roll */}
+                              <div className="px-5 py-4 border-b border-stone-100 dark:border-stone-800 flex items-start justify-between gap-4">
+                                <h4 className="text-lg font-medium text-stone-900 dark:text-stone-100 line-clamp-1 group-hover/card:text-[#FF4A1C] transition-colors">
+                                  {primaryVideo.title}
+                                </h4>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRerollVideo(unit.unit_id, unitResources);
+                                  }}
+                                  disabled={rerollingUnits.has(unit.unit_id) || !hasMoreVideos}
+                                  className={`transition-colors p-1 ${hasMoreVideos ? 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300' : 'text-stone-300 cursor-not-allowed'}`}
+                                  title={hasMoreVideos ? "Show next video" : "No more videos available"}
+                                >
+                                  <RefreshCw className={`w-4 h-4 ${rerollingUnits.has(unit.unit_id) ? 'animate-spin' : ''}`} />
+                                </button>
+                              </div>
+
+                              {/* Card Body: Split Layout */}
+                              <div className="p-5 flex flex-col md:flex-row gap-6">
+                                {/* Left: Thumbnail & Rating */}
+                                <div className="flex-shrink-0 w-full md:w-48 space-y-3">
+                                  <div className="relative aspect-video rounded-lg overflow-hidden bg-black group/video shadow-sm">
+                                    <img
+                                      src={`https://img.youtube.com/vi/${primaryVideo.url.split('v=')[1]?.split('&')[0]}/mqdefault.jpg`}
+                                      alt={primaryVideo.title}
+                                      className="w-full h-full object-cover opacity-90 group-hover/card:opacity-100 transition-opacity"
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/card:bg-black/10 transition-colors">
+                                      <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white">
+                                        <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                                      </div>
+                                    </div>
+                                    {/* Initial duration placeholder if not available */}
+                                    <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/70 text-white text-[10px] font-medium rounded">
+                                      12:55
+                                    </div>
+                                  </div>
+
+                                  {/* Interactive Star Rating */}
+                                  <div
+                                    className="flex items-center justify-center gap-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {[1, 2, 3, 4, 5].map((star) => {
+                                      const rating = resourceRatings[primaryVideo.id || primaryVideo.url] || 0;
+                                      return (
+                                        <button
+                                          key={star}
+                                          onClick={() => setResourceRatings(prev => ({ ...prev, [primaryVideo.id || primaryVideo.url]: star }))}
+                                          className="focus:outline-none transition-transform hover:scale-110"
+                                        >
+                                          <Star
+                                            className={`w-4 h-4 ${star <= rating ? 'fill-orange-400 text-orange-400' : 'text-stone-300 dark:text-stone-600'}`}
+                                          />
+                                        </button>
+                                      );
+                                    })}
+                                    <span className="text-xs text-stone-400 ml-1">
+                                      {(resourceRatings[primaryVideo.id || primaryVideo.url] || 0).toFixed(1)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Right: Description & Meta */}
+                                <div className="flex-1 flex flex-col justify-between min-w-0">
+                                  <div className="space-y-3">
+                                    {primaryVideo.resource_explanation ? (
+                                      <p className="text-sm text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-3">
+                                        {primaryVideo.resource_explanation}
+                                      </p>
+                                    ) : (
+                                      <p className="text-sm text-stone-500 italic">No explanation available for this resource.</p>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center justify-between pt-4 mt-2">
+                                    <span className="px-2 py-1 bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 text-[10px] font-bold uppercase tracking-wider rounded">
+                                      YOUTUBE
+                                    </span>
+
+                                    <span className="flex items-center gap-1.5 text-xs font-bold text-[#FF4A1C] group-hover/card:text-[#e0390c] transition-colors uppercase tracking-wide">
+                                      OPEN
+                                      <ExternalLink className="w-3 h-3" />
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="rounded-2xl border-2 border-dashed border-stone-200 dark:border-stone-800 aspect-video flex flex-col items-center justify-center p-8 text-center space-y-6 bg-stone-50/50 dark:bg-stone-900/50 group-hover:border-[#FF4A1C]/30 transition-colors">
+                              <div className="w-16 h-16 rounded-full bg-white dark:bg-stone-800 shadow-sm flex items-center justify-center">
+                                <Play className="w-6 h-6 text-stone-300 dark:text-stone-600 ml-1" />
+                              </div>
+                              <div className="space-y-2">
+                                <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100">No Video Available</h3>
+                                <p className="text-xl text-stone-500 dark:text-stone-400 text-sm max-w-sm mx-auto">
+                                  We couldn't find a curated video for this topic.
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap gap-3 justify-center">
+                                <button
+                                  onClick={() => handleGenerateBlueprint(unit, 'database')}
+                                  disabled={searchingTopics.has(unit.unit_id)}
+                                  className="px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-sm font-medium hover:bg-stone-50 hover:text-[#FF4A1C] transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                  {searchingTopics.has(unit.unit_id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                                  Search Database
+                                </button>
+                                <button
+                                  onClick={() => handleTriggerWebhook(unit)}
+                                  className="px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border border-transparent rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shadow-sm flex items-center gap-2">
+                                  <Zap className="w-4 h-4" />
+                                  Activate Webhook
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Equations Module */}
+                          {unitEquations.length > 0 && (
+                            <div className="w-full flex justify-center py-6">
+                              <EquationDisplay equations={unitEquations} />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 3. Solution Section (If available) */}
+                {(() => {
+                  // Extract solution info again for this Scope
+                  const solutionUnit = currentUnits.find(u => u.unit_type === 'solution');
+                  if (solutionUnit && solutionUnit.solutionData) {
+                    return (
+                      <div className="mt-24 pt-12 border-t border-stone-200 dark:border-stone-800">
+                        {/* Solution Steps */}
+                        <div className="mb-20">
                           <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
-                            {unit.topic}
+                            Solution Approach
                           </h3>
-
-                          <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none space-y-6">
-                            {/* Render Tutor Guidance if available */}
-                            {unit.tutor_guidance && (
-                              <div className="mb-4 whitespace-pre-wrap">
-                                <LatexText text={unit.tutor_guidance} />
+                          <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                            {Array.isArray(solutionUnit.solutionData.approach) ? (
+                              <div className="space-y-6">
+                                {solutionUnit.solutionData.approach.map((step, i) => (
+                                  <div key={i} className="flex gap-4 items-start">
+                                    <span className="text-[#FF4A1C] shrink-0 select-none">
+                                      {i + 1}.
+                                    </span>
+                                    <div className="whitespace-pre-wrap">
+                                      <LatexText text={step} />
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                            )}
-
-                            {/* Render Concept Summary */}
-                            {unit.concept_summary && (
+                            ) : (
                               <div className="whitespace-pre-wrap">
-                                <LatexText text={unit.concept_summary} />
-                              </div>
-                            )}
-
-                            {/* Fallback to description if no specific fields */}
-                            {!unit.tutor_guidance && !unit.concept_summary && unit.description && (
-                              <div className="whitespace-pre-wrap">
-                                <LatexText text={unit.description} />
+                                <LatexText text={String(solutionUnit.solutionData.approach || '')} />
                               </div>
                             )}
                           </div>
                         </div>
 
-                        {/* Video Module - Horizontal Layout */}
-                        {primaryVideo ? (
-                          <div
-                            onClick={() => window.open(primaryVideo.url, '_blank')}
-                            className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer group/card"
-                          >
-                            {/* Card Header: Title & Re-roll */}
-                            <div className="px-5 py-4 border-b border-stone-100 dark:border-stone-800 flex items-start justify-between gap-4">
-                              <h4 className="text-lg font-medium text-stone-900 dark:text-stone-100 line-clamp-1 group-hover/card:text-[#FF4A1C] transition-colors">
-                                {primaryVideo.title}
-                              </h4>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRerollVideo(unit.unit_id, unitResources);
-                                }}
-                                disabled={rerollingUnits.has(unit.unit_id) || !hasMoreVideos}
-                                className={`transition-colors p-1 ${hasMoreVideos ? 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300' : 'text-stone-300 cursor-not-allowed'}`}
-                                title={hasMoreVideos ? "Show next video" : "No more videos available"}
-                              >
-                                <RefreshCw className={`w-4 h-4 ${rerollingUnits.has(unit.unit_id) ? 'animate-spin' : ''}`} />
-                              </button>
-                            </div>
-
-                            {/* Card Body: Split Layout */}
-                            <div className="p-5 flex flex-col md:flex-row gap-6">
-                              {/* Left: Thumbnail & Rating */}
-                              <div className="flex-shrink-0 w-full md:w-48 space-y-3">
-                                <div className="relative aspect-video rounded-lg overflow-hidden bg-black group/video shadow-sm">
-                                  <img
-                                    src={`https://img.youtube.com/vi/${primaryVideo.url.split('v=')[1]?.split('&')[0]}/mqdefault.jpg`}
-                                    alt={primaryVideo.title}
-                                    className="w-full h-full object-cover opacity-90 group-hover/card:opacity-100 transition-opacity"
-                                  />
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/card:bg-black/10 transition-colors">
-                                    <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white">
-                                      <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
-                                    </div>
-                                  </div>
-                                  {/* Initial duration placeholder if not available */}
-                                  <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/70 text-white text-[10px] font-medium rounded">
-                                    12:55
-                                  </div>
-                                </div>
-
-                                {/* Interactive Star Rating */}
-                                <div
-                                  className="flex items-center justify-center gap-1"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {[1, 2, 3, 4, 5].map((star) => {
-                                    const rating = resourceRatings[primaryVideo.id || primaryVideo.url] || 0;
-                                    return (
-                                      <button
-                                        key={star}
-                                        onClick={() => setResourceRatings(prev => ({ ...prev, [primaryVideo.id || primaryVideo.url]: star }))}
-                                        className="focus:outline-none transition-transform hover:scale-110"
-                                      >
-                                        <Star
-                                          className={`w-4 h-4 ${star <= rating ? 'fill-orange-400 text-orange-400' : 'text-stone-300 dark:text-stone-600'}`}
-                                        />
-                                      </button>
-                                    );
-                                  })}
-                                  <span className="text-xs text-stone-400 ml-1">
-                                    {(resourceRatings[primaryVideo.id || primaryVideo.url] || 0).toFixed(1)}
+                        {/* Common Mistakes */}
+                        {/* Common Mistakes */}
+                        <div className="mb-20">
+                          <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
+                            Common Mistakes
+                          </h3>
+                          <ul className="space-y-6">
+                            {solutionUnit.solutionData.mistakes.map((mistake, idx) => (
+                              <li key={idx} className="flex gap-4 items-start">
+                                <div className="shrink-0 mt-3 w-2 h-2 rounded-full bg-red-500" />
+                                <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed">
+                                  <span>
+                                    "{mistake.mistake || mistake}"
                                   </span>
-                                </div>
-                              </div>
-
-                              {/* Right: Description & Meta */}
-                              <div className="flex-1 flex flex-col justify-between min-w-0">
-                                <div className="space-y-3">
-                                  {primaryVideo.resource_explanation ? (
-                                    <p className="text-sm text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-3">
-                                      {primaryVideo.resource_explanation}
-                                    </p>
-                                  ) : (
-                                    <p className="text-sm text-stone-500 italic">No explanation available for this resource.</p>
+                                  {mistake.correction && (
+                                    <span> — {mistake.correction}</span>
                                   )}
                                 </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
-                                <div className="flex items-center justify-between pt-4 mt-2">
-                                  <span className="px-2 py-1 bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 text-[10px] font-bold uppercase tracking-wider rounded">
-                                    YOUTUBE
-                                  </span>
+                {/* 4. Practice Problems Section */}
+                {(() => {
+                  const representativeUnit = currentUnits.find(u => u.unit_type !== 'solution');
+                  if (!representativeUnit) return null;
 
-                                  <span className="flex items-center gap-1.5 text-xs font-bold text-[#FF4A1C] group-hover/card:text-[#e0390c] transition-colors uppercase tracking-wide">
-                                    OPEN
-                                    <ExternalLink className="w-3 h-3" />
-                                  </span>
+                  const problems = practiceProblems[representativeUnit.unit_id] || [];
+
+                  return (
+                    <div className="mt-24 pt-12 border-t border-stone-200 dark:border-stone-800">
+                      <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
+                        Ready to Practice?
+                      </h3>
+
+                      <div>
+                        {problems.length > 0 ? (
+                          <div className="space-y-6">
+                            {problems.map((prob, pIdx) => (
+                              <div key={pIdx} className="bg-white dark:bg-stone-800 p-6 rounded-xl shadow-sm">
+                                <h5 className="font-bold text-stone-900 dark:text-stone-100 mb-2">Practice Problem {pIdx + 1}</h5>
+                                <div className="prose dark:prose-invert max-w-none">
+                                  <LatexText text={prob.practice_problem} />
                                 </div>
                               </div>
+                            ))}
+                            <div className="pt-4 flex justify-center border-t border-stone-200 dark:border-stone-800">
+                              <button
+                                onClick={() => handleGeneratePracticeProblem(representativeUnit)}
+                                disabled={generatingPractice.has(representativeUnit.unit_id)}
+                                className="px-6 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg text-sm font-bold hover:scale-105 transition-transform disabled:opacity-50"
+                              >
+                                {generatingPractice.has(representativeUnit.unit_id) ? (
+                                  <span className="flex items-center gap-2"><Loader2 className="animate-spin w-4 h-4" /> Generating...</span>
+                                ) : (
+                                  "Generate Another Problem"
+                                )}
+                              </button>
                             </div>
                           </div>
                         ) : (
-                          <div className="rounded-2xl border-2 border-dashed border-stone-200 dark:border-stone-800 aspect-video flex flex-col items-center justify-center p-8 text-center space-y-6 bg-stone-50/50 dark:bg-stone-900/50 group-hover:border-[#FF4A1C]/30 transition-colors">
-                            <div className="w-16 h-16 rounded-full bg-white dark:bg-stone-800 shadow-sm flex items-center justify-center">
-                              <Play className="w-6 h-6 text-stone-300 dark:text-stone-600 ml-1" />
-                            </div>
-                            <div className="space-y-2">
-                              <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100">No Video Available</h3>
-                              <p className="text-xl text-stone-500 dark:text-stone-400 text-sm max-w-sm mx-auto">
-                                We couldn't find a curated video for this topic.
-                              </p>
-                            </div>
-                            <div className="flex flex-wrap gap-3 justify-center">
-                              <button
-                                onClick={() => handleGenerateBlueprint(unit, 'database')}
-                                disabled={searchingTopics.has(unit.unit_id)}
-                                className="px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-sm font-medium hover:bg-stone-50 hover:text-[#FF4A1C] transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                                {searchingTopics.has(unit.unit_id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                                Search Database
-                              </button>
-                              <button
-                                onClick={() => handleTriggerWebhook(unit)}
-                                className="px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border border-transparent rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shadow-sm flex items-center gap-2">
-                                <Zap className="w-4 h-4" />
-                                Activate Webhook
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Equations Module */}
-                        {unitEquations.length > 0 && (
-                          <div className="w-full flex justify-center py-6">
-                            <EquationDisplay equations={unitEquations} />
+                          <div className="text-center py-8">
+                            <p className="text-stone-500 dark:text-stone-400 mb-6 max-w-lg mx-auto">
+                              Generate a similar practice problem based on the concepts in this section to test your understanding.
+                            </p>
+                            <button
+                              onClick={() => handleGeneratePracticeProblem(representativeUnit)}
+                              disabled={generatingPractice.has(representativeUnit.unit_id)}
+                              className="px-6 py-3 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-bold hover:scale-105 transition-transform disabled:opacity-50"
+                            >
+                              {generatingPractice.has(representativeUnit.unit_id) ? (
+                                <span className="flex items-center gap-2"><Loader2 className="animate-spin" /> Generating...</span>
+                              ) : (
+                                "Generate Practice Problem"
+                              )}
+                            </button>
                           </div>
                         )}
                       </div>
                     </div>
                   );
-                })}
+                })()}
+
               </div>
-
-              {/* 3. Solution Section (If available) */}
-              {(() => {
-                // Extract solution info again for this Scope
-                const solutionUnit = currentUnits.find(u => u.unit_type === 'solution');
-                if (solutionUnit && solutionUnit.solutionData) {
-                  return (
-                    <div className="mt-24 pt-12 border-t border-stone-200 dark:border-stone-800">
-                      {/* Solution Steps */}
-                      <div className="mb-20">
-                        <h3 className="text-3xl font-bold tracking-tight text-stone-900 dark:text-stone-100 mb-8 flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
-                            <Check className="w-5 h-5" />
-                          </div>
-                          Solution Approach
-                        </h3>
-                        <div className="prose prose-lg dark:prose-invert max-w-none bg-white dark:bg-stone-900 p-8 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm">
-                          <ReactMarkdown>{
-                            Array.isArray(solutionUnit.solutionData.approach)
-                              ? solutionUnit.solutionData.approach.map((step, i) => `${i + 1}. ${step}`).join('\n')
-                              : String(solutionUnit.solutionData.approach || '')
-                          }</ReactMarkdown>
-                        </div>
-                      </div>
-
-                      {/* Common Mistakes */}
-                      <div className="mb-20">
-                        <h3 className="text-5xl md:text-6xl font-normal tracking-tight text-[#FF4A1C] mb-8">
-                          Common Mistakes
-                        </h3>
-                        <div className="grid gap-6 md:grid-cols-2">
-                          {solutionUnit.solutionData.mistakes.map((mistake, idx) => (
-                            <div key={idx} className="bg-red-50 dark:bg-red-900/10 p-6 rounded-xl border-l-4 border-red-500">
-                              <p className="text-lg font-medium text-red-800 dark:text-red-200 mb-2">"{mistake.mistake || mistake}"</p>
-                              <p className="text-stone-600 dark:text-stone-400">{mistake.correction || "Avoid this by double checking your units."}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-
-              {/* 4. Practice Problems Section */}
-              <div className="mt-24 pt-12 border-t border-stone-200 dark:border-stone-800">
-                <h3 className="text-3xl font-bold text-stone-900 dark:text-stone-100 mb-8">
-                  Ready to Practice?
-                </h3>
-
-                {currentUnits.filter(u => u.unit_type !== 'solution').map((unit, idx) => (
-                  <div key={`practice-${unit.unit_id}`} className="mb-12">
-                    <h4 className="text-lg font-medium text-stone-500 mb-4">Practice for: {unit.topic}</h4>
-
-                    <div className="bg-stone-100 dark:bg-stone-900 rounded-2xl p-8">
-                      {practiceProblems[unit.unit_id]?.length > 0 ? (
-                        <div className="space-y-6">
-                          {practiceProblems[unit.unit_id].map((prob, pIdx) => (
-                            <div key={pIdx} className="bg-white dark:bg-stone-800 p-6 rounded-xl shadow-sm">
-                              <h5 className="font-bold text-stone-900 dark:text-stone-100 mb-2">Problem {pIdx + 1}</h5>
-                              <ReactMarkdown className="prose dark:prose-invert">{prob.practice_problem}</ReactMarkdown>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-8">
-                          <button
-                            onClick={() => handleGeneratePracticeProblem(unit)}
-                            disabled={generatingPractice.has(unit.unit_id)}
-                            className="px-6 py-3 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-bold hover:scale-105 transition-transform disabled:opacity-50"
-                          >
-                            {generatingPractice.has(unit.unit_id) ? (
-                              <span className="flex items-center gap-2"><Loader2 className="animate-spin" /> Generating...</span>
-                            ) : (
-                              "Generate Practice Problem"
-                            )}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
             </div>
           )}
         </div>
@@ -4058,6 +4116,41 @@ const Blueprint = () => {
         contextTitle={doc ? (blueprint?.document?.name || "Uploaded Document") : "AI Assistant"}
         hasDocument={!!doc}
       />
+
+      {/* Text Input Popover */}
+      {showInputPopover && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-stone-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 flex flex-col max-h-[85vh] animate-scale-in">
+            <div className="flex items-center justify-between p-6 border-b border-stone-100 dark:border-stone-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-lg">
+                  <FileText className="w-5 h-5 text-stone-600 dark:text-stone-400" />
+                </div>
+                <h3 className="text-xl font-bold text-stone-900 dark:text-stone-100">Text Input</h3>
+              </div>
+              <button
+                onClick={() => setShowInputPopover(false)}
+                className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors text-stone-500"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto custom-scrollbar">
+              <div className="prose dark:prose-invert max-w-none text-stone-600 dark:text-stone-300 whitespace-pre-wrap leading-relaxed">
+                {blueprint.content?.text}
+              </div>
+            </div>
+            <div className="p-4 border-t border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/50 rounded-b-2xl flex justify-end">
+              <button
+                onClick={() => setShowInputPopover(false)}
+                className="px-6 py-2.5 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-medium shadow-sm hover:shadow-md transition-all active:scale-95"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div >
   );
 };

@@ -435,7 +435,7 @@ const ChatDrawer = ({
             className={`fixed inset-y-0 right-0 z-[100] w-full md:w-[450px] bg-white dark:bg-stone-900 shadow-2xl transform transition-transform duration-300 ease-in-out border-l border-stone-200 dark:border-stone-800 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
         >
             {/* Header */}
-            <div className="h-[84px] flex items-center justify-between px-4 border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10 transition-all">
+            <div className="h-[88px] flex items-center justify-between px-4 border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10 transition-all">
                 <h3 className="font-normal tracking-tight text-stone-900 dark:text-stone-100 truncate flex-1 mr-4">
                     {view === 'list' ? 'Conversations' : (threads.find(t => t.id === activeThreadId)?.title || contextTitle)}
                 </h3>
