@@ -903,7 +903,7 @@ const TopicListItem = ({
                     <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 shadow-sm transition-all duration-300">
 
                       <p className="text-stone-700 dark:text-stone-300 text-base leading-relaxed">
-                        {unit.tutor_guidance}
+                        <LatexText text={unit.tutor_guidance} />
                       </p>
                     </div>
                   )}

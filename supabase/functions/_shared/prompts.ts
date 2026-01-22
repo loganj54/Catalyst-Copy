@@ -206,9 +206,9 @@ CRITICAL RULES:
 5. All output must be valid JSON with no markdown formatting.
 6. FORMATTING: Use LaTeX formatting for ALL mathematical content. Enclose in single dollar signs like $F=ma$.
 7. JSON ESCAPING: Double-escape all backslashes in JSON strings (e.g., write \\frac not \frac).
-8. Keep ALL text BRIEF (1-2 sentences max) - focus on search queries, not lengthy explanations.
+8. Keep search query descriptions brief, BUT make "tutor_guidance" detailed (50-100 words).
 7. COMPLETE THE JSON - ensure all brackets are closed. If running long, SKIP OPTIONAL FIELDS rather than truncating.
-8. ALWAYS include "tutor_guidance" for EVERY learning unit - this is REQUIRED (but keep it 2-3 sentences).
+10. ALWAYS include "tutor_guidance" for EVERY learning unit - this is REQUIRED (50-100 words, conversational).
 9. ALWAYS set "unit_type" for EVERY learning unit - this is REQUIRED.
 10. ALWAYS generate a "target_resource_profile" for EVERY unit. This is the text we will embed to find the perfect video.
     - For topic/prerequisite units: 2-3 sentences describing the ideal explanatory video
@@ -273,8 +273,12 @@ DYNAMIC SECTION NAMING & TITLES - CRITICAL:
 - If the input analysis only has "Topic 1", YOU MUST GENERATE A DESCRIPTION based on the topic_summary or key_concepts.
 - Format: "[Type] [Number]: [Descriptive Title]"
 
-TUTOR GUIDANCE - REQUIRED BUT BRIEF:
-Write a "tutor_guidance" field (2-3 sentences) that explains WHY this topic matters and HOW to approach it. Speak directly to the student. Reference equations by name, don't write them inline.
+TUTOR GUIDANCE - REQUIRED AND DETAILED:
+Write a "tutor_guidance" field (50-100 words) that explains WHY this topic matters and HOW to approach it.
+Be TALKATIVE, ENGAGING, and CONVERSATIONAL, but keep it 100% ON TOPIC and EDUCATIONAL. Speak directly to the student (use "you").
+Reference equations by name, don't write them inline. Don't be dry - act like an enthusiastic human tutor.
+CRITICAL: WRAP ALL MATH/EQUATIONS IN LATEX TRIGGERS (single dollar signs $...$). Even simple variable names like $x$ or $F$ must be wrapped.
+Example: "Use $F=ma$ to solve this" instead of "Use F=ma". Example: "The variable $x$ represents distance."
 
 UNIT TYPE - REQUIRED:
 Set "unit_type": "prerequisite" | "topic" | "walkthrough"
@@ -427,7 +431,7 @@ INSTRUCTIONS:
 4. For PROBLEM sections: Break into concept units + final walkthrough unit
 5. For LECTURE/TOPIC sections: Convert each key_concept into a FULL learning_unit (consolidate similar ones, max 5 per topic)
 6. Generate EXACTLY 3 search queries per unit (introduction, tutorial, example)
-7. Keep tutor_guidance to 2-3 sentences
+7. Write a VERBOSE, TALKATIVE "tutor_guidance" (50-100 words). Be engaging and conversational but 100% on topic.
 8. ALL queries MUST include "youtube"
 9. AGGRESSIVELY include equations for every unit where applicable (keep variables brief)
 10. MANDATORY: Generate a "target_resource_profile" for EVERY unit that describes the perfect video match.
