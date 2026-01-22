@@ -20,8 +20,10 @@ import {
   createSupabaseClientWithAuth,
   callClaudeJSON,
   callClaudeWithPDFAndText,
+  callClaudeWithImage,
   arrayBufferToBase64,
   PdfDocument,
+  ImageDocument,
 } from '../_shared/supabase-client.ts';
 import { PROMPTS } from '../_shared/prompts.ts';
 import { generateEmbedding, generateEmbedding1536 } from '../_shared/embeddings.ts';
@@ -629,6 +631,42 @@ serve(async (req) => {
 
             partialAnalyses.push(partAnalysis);
             console.log(`[analyze-document] Part ${partNum} analysis complete.`);
+
+          } else if (contentType.includes('image/')) {
+            // Handle image files (PNG, JPEG, GIF, WEBP)
+            console.log(`[analyze-document] Image Part detected: ${contentType}`);
+            const imageBase64 = arrayBufferToBase64(buffer);
+
+            // Determine the correct media type for Claude
+            let mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' = 'image/png';
+            if (contentType.includes('jpeg') || contentType.includes('jpg')) {
+              mediaType = 'image/jpeg';
+            } else if (contentType.includes('gif')) {
+              mediaType = 'image/gif';
+            } else if (contentType.includes('webp')) {
+              mediaType = 'image/webp';
+            }
+
+            const imageDoc = {
+              base64Data: imageBase64,
+              mediaType: mediaType,
+              filename: `Image_${partNum}_of_${totalParts}`,
+            } as ImageDocument;
+
+            const userPrompt = `Analyze this image. It appears to be a screenshot or photo of educational material such as homework problems, lecture notes, or textbook content. Extract all visible text, equations, diagrams, and their meanings.`;
+
+            console.log(`[analyze-document] Calling Claude for Image Part ${partNum}...`);
+
+            const partAnalysis = await callClaudeWithImage<AnalysisResult>(
+              PROMPTS.documentAnalysis.system,
+              PROMPTS.documentAnalysis.user(userPrompt, blueprint.task_type),
+              imageDoc,
+              textContent || null,
+              { temperature: 0.3, maxTokens: 16384 }
+            );
+
+            partialAnalyses.push(partAnalysis);
+            console.log(`[analyze-document] Image Part ${partNum} analysis complete.`);
 
           } else {
             // Handle text files (rare for chunks but possible if single file)

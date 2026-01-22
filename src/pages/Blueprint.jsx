@@ -765,12 +765,7 @@ const TopicListItem = ({
                     </span>
                   </h5>
 
-                  {/* Unit Description Context */}
-                  <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 shadow-sm transition-all duration-300">
-                    <p className="text-stone-700 dark:text-stone-200 text-base leading-relaxed">
-                      {unit.description}
-                    </p>
-                  </div>
+
 
                   {/* Practice Problem Generator - Generate Button */}
                   <button
@@ -1191,6 +1186,72 @@ const BlueprintSkeleton = () => {
 // ============================================================================
 // MAIN BLUEPRINT COMPONENT
 // ============================================================================
+
+// ============================================================================
+// DEBUG OBJECT DISPLAY
+// ============================================================================
+const DebugObjectDisplay = ({ data, title }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!data) return null;
+
+  // Syntax highlighting for JSON
+  const syntaxHighlight = (json) => {
+    if (typeof json !== 'string') {
+      json = JSON.stringify(json, null, 2);
+    }
+
+    // HTML entity escaping to prevent injection content issues
+    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+      let cls = 'text-orange-600 dark:text-orange-400'; // Default value (number, etc.)
+
+      if (/^"/.test(match)) {
+        if (/:$/.test(match)) {
+          cls = 'text-blue-600 dark:text-blue-400 font-bold'; // Key
+        } else {
+          cls = 'text-amber-600 dark:text-amber-400'; // String
+        }
+      } else if (/true|false/.test(match)) {
+        cls = 'text-purple-600 dark:text-purple-400 font-semibold'; // Boolean
+      } else if (/null/.test(match)) {
+        cls = 'text-stone-500 dark:text-stone-500 italic'; // Null
+      } else {
+        cls = 'text-emerald-600 dark:text-emerald-400'; // Number
+      }
+      return '<span class="' + cls + '">' + match + '</span>';
+    });
+  };
+
+  return (
+    <div className="w-full mt-12 rounded-2xl border border-stone-200 dark:border-stone-800 overflow-hidden bg-white dark:bg-stone-950 shadow-sm">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-900/50 hover:bg-stone-100 dark:hover:bg-stone-900 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-stone-200 dark:bg-stone-800 rounded-lg">
+            <Bug className="w-4 h-4 text-stone-600 dark:text-stone-400" />
+          </div>
+          <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100 font-mono tracking-tight">{title}</h3>
+        </div>
+        {isOpen ? <ChevronUp className="w-5 h-5 text-stone-400" /> : <ChevronDown className="w-5 h-5 text-stone-400" />}
+      </button>
+
+      {isOpen && (
+        <div className="relative group">
+          <div className="p-6 overflow-x-auto bg-stone-50 dark:bg-[#0d1117] border-t border-stone-200 dark:border-stone-800 max-h-[800px] overflow-y-auto custom-scrollbar">
+            <pre
+              className="font-mono text-xs sm:text-sm leading-relaxed text-stone-500 dark:text-stone-400 whitespace-pre-wrap break-all"
+              dangerouslySetInnerHTML={{ __html: syntaxHighlight(data) }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Blueprint = () => {
   const { id } = useParams();
@@ -3816,6 +3877,12 @@ const Blueprint = () => {
       {/* Floating Chat Toggle Button */}
       {/* Floating Chat Toggle Button - Always rendered */}
 
+
+      {/* Debug Data Views */}
+      <div className="max-w-7xl mx-auto px-6 lg:px-12 pb-12">
+        <DebugObjectDisplay data={documentAnalysis} title="Analysis Object Dump" />
+        <DebugObjectDisplay data={learningStructure} title="Blueprint Structure Dump" />
+      </div>
 
       {/* Chat Drawer */}
       <ChatDrawer
