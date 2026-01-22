@@ -1400,7 +1400,7 @@ serve(async (req) => {
       structure = await callGrokJSON<LearningStructure>(
         PROMPTS.generateStructure.system,
         PROMPTS.generateStructure.user(analysisData, inputType),
-        { temperature: 0.5, maxTokens: 16384, model: GROK_MODEL_REASONING }
+        { temperature: 0.5, maxTokens: 65000, model: GROK_MODEL_REASONING }
       );
 
       console.log('[generate-structure] Structure generated:');

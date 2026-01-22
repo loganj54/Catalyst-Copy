@@ -2839,10 +2839,18 @@ const Blueprint = () => {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
+      // Extract file URL to ensure we analyze the correct document (prioritizing explicit URLs)
+      const singleFileUrl = blueprint.document?.file_url ||
+        blueprint.file_metadata?.url ||
+        blueprint.content?.fileUpload?.file_urls?.[0];
+
       const response = await fetch(`${supabaseUrl}/functions/v1/analyze-document-grok`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blueprint_id: id }),
+        body: JSON.stringify({
+          blueprint_id: id,
+          file_url: singleFileUrl // Explicitly pass the URL to prioritize it
+        }),
       });
       const data = await response.json();
       if (!data.success) throw new Error(data.error);

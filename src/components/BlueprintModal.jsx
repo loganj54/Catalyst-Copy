@@ -44,7 +44,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
+
       const docs = data || [];
       setExistingDocuments(docs);
     } catch (error) {
@@ -82,7 +82,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
     e.stopPropagation();
     setIsDragging(false);
     dragCounter.current = 0;
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
       handleFileSelection(file);
@@ -98,7 +98,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
         return;
       }
       setUploadedFile(file);
-      setFormData(prev => ({...prev, fileUpload: file}));
+      setFormData(prev => ({ ...prev, fileUpload: file }));
       setSelectedDocument(null); // Clear any selected existing document
     }
   };
@@ -111,7 +111,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
 
   const removeFile = () => {
     setUploadedFile(null);
-    setFormData(prev => ({...prev, fileUpload: null}));
+    setFormData(prev => ({ ...prev, fileUpload: null }));
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -120,19 +120,21 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
   const handleSelectDocument = (doc) => {
     setSelectedDocument(doc);
     // Create a virtual file object from the existing document
-    setFormData(prev => ({...prev, fileUpload: {
-      name: doc.name,
-      size: doc.file_size,
-      type: doc.file_type,
-      url: doc.file_url,
-      isExisting: true
-    }}));
+    setFormData(prev => ({
+      ...prev, fileUpload: {
+        name: doc.name,
+        size: doc.file_size,
+        type: doc.file_type,
+        url: doc.file_url,
+        isExisting: true
+      }
+    }));
     setUploadedFile(null); // Clear any uploaded file
   };
 
   const removeSelectedDocument = () => {
     setSelectedDocument(null);
-    setFormData(prev => ({...prev, fileUpload: null}));
+    setFormData(prev => ({ ...prev, fileUpload: null }));
   };
 
   const handleSubmit = async () => {
@@ -180,7 +182,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
       // Upload file to Supabase Storage if present (only if it's a new upload, not existing document)
       let fileUrl = null;
       let documentId = null; // Track the class_document ID for linking
-      
+
       if (formData.fileUpload) {
         // Check if this is an existing document (already has a URL)
         if (formData.fileUpload.isExisting) {
@@ -193,31 +195,34 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
           }
         } else {
           // Check for duplicate document in this class (by filename and size)
-          console.log('Checking for duplicate document...');
-          const { data: existingDocs, error: checkError } = await supabase
-            .from('class_documents')
-            .select('*')
-            .eq('class_id', finalClassId)
-            .eq('user_id', user.id)
-            .eq('name', formData.fileUpload.name)
-            .eq('file_size', formData.fileUpload.size);
+          // console.log('Checking for duplicate document...');
+          // const { data: existingDocs, error: checkError } = await supabase
+          //   .from('class_documents')
+          //   .select('*')
+          //   .eq('class_id', finalClassId)
+          //   .eq('user_id', user.id)
+          //   .eq('name', formData.fileUpload.name)
+          //   .eq('file_size', formData.fileUpload.size);
 
-          if (checkError) {
-            console.error('Error checking for duplicates:', checkError);
-          } else if (existingDocs && existingDocs.length > 0) {
-            // Found duplicate - use existing file instead of uploading again
-            console.log('✅ Duplicate found - reusing existing document');
-            const existingDoc = existingDocs[0];
-            fileUrl = existingDoc.file_url;
-            documentId = existingDoc.id; // Get the document ID for linking
-            console.log('Reusing existing document ID:', documentId);
-            
-            alert(
-              `ℹ️ This document already exists in the class!\n\n` +
-              `"${formData.fileUpload.name}"\n\n` +
-              `We'll reuse the existing file instead of uploading a duplicate.`
-            );
-          }
+          // Force new upload every time to avoid stale file reuse
+          const existingDocs = [];
+
+          // if (checkError) {
+          //   console.error('Error checking for duplicates:', checkError);
+          // } else if (existingDocs && existingDocs.length > 0) {
+          //   // Found duplicate - use existing file instead of uploading again
+          //   console.log('✅ Duplicate found - reusing existing document');
+          //   const existingDoc = existingDocs[0];
+          //   fileUrl = existingDoc.file_url;
+          //   documentId = existingDoc.id; // Get the document ID for linking
+          //   console.log('Reusing existing document ID:', documentId);
+
+          //   alert(
+          //     `ℹ️ This document already exists in the class!\n\n` +
+          //     `"${formData.fileUpload.name}"\n\n` +
+          //     `We'll reuse the existing file instead of uploading a duplicate.`
+          //   );
+          // }
 
           // Only upload if no duplicate was found
           if (!fileUrl) {
@@ -225,7 +230,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
             const fileExt = formData.fileUpload.name.split('.').pop();
             // Use finalClassId in the path
             const fileName = `${user.id}/${finalClassId}/${Date.now()}.${fileExt}`;
-            
+
             const { data: uploadData, error: uploadError } = await supabase.storage
               .from('class-documents')
               .upload(fileName, formData.fileUpload);
@@ -255,7 +260,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
                 }])
                 .select()
                 .single();
-                
+
               if (docError) {
                 console.error('Error saving document metadata:', docError);
                 // We don't stop the blueprint creation if this fails, but it's good to log
@@ -323,7 +328,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in">
         <div className="sticky top-0 right-0 p-4 flex justify-end bg-white/80 backdrop-blur-md z-10">
-          <button 
+          <button
             onClick={onClose}
             className="p-2 hover:bg-stone-100 rounded-full transition-colors"
           >
@@ -339,20 +344,20 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-stone-600">Class name?</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={formData.className}
-                  onChange={(e) => setFormData({...formData, className: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, className: e.target.value })}
                   className="w-full p-3 rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
                   placeholder="e.g. Calculus I"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-stone-600">Professor name?</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={formData.professorName}
-                  onChange={(e) => setFormData({...formData, professorName: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, professorName: e.target.value })}
                   className="w-full p-3 rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
                   placeholder="e.g. Dr. Smith"
                 />
@@ -363,10 +368,10 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
           {/* Blueprint Name */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-stone-600">Name this Blueprint?</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={formData.blueprintName}
-              onChange={(e) => setFormData({...formData, blueprintName: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, blueprintName: e.target.value })}
               className="w-full p-3 rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all"
               placeholder="e.g. Midterm Prep"
             />
@@ -375,10 +380,10 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
           {/* Document Upload Section */}
           <div className="space-y-4 pt-4 border-t border-stone-100">
             <label className="block text-center text-sm font-medium text-stone-600">Show me what you're looking at.</label>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* File Upload or Select Container */}
-              <div 
+              <div
                 className="relative h-full min-h-[160px] flex flex-col"
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
@@ -388,15 +393,15 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
                 {/* Drag Overlay */}
                 {isDragging && (
                   <div className="absolute inset-0 z-20 bg-[#FF4A1C]/10 border-2 border-[#FF4A1C] border-dashed rounded-xl flex flex-col items-center justify-center backdrop-blur-sm animate-fade-in pointer-events-none">
-                     <Upload className="w-10 h-10 text-[#FF4A1C] mb-2" />
-                     <p className="font-bold text-[#FF4A1C]">Drop to upload</p>
+                    <Upload className="w-10 h-10 text-[#FF4A1C] mb-2" />
+                    <p className="font-bold text-[#FF4A1C]">Drop to upload</p>
                   </div>
                 )}
 
                 {/* Hidden File Input */}
-                <input 
+                <input
                   ref={fileInputRef}
-                  type="file" 
+                  type="file"
                   onChange={handleFileUpload}
                   accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
                   className="hidden"
@@ -404,11 +409,10 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
                 />
 
                 {/* Content Area */}
-                <div className={`flex-1 flex flex-col border-2 rounded-xl transition-all h-full ${
-                  (uploadedFile || selectedDocument) ? 'border-[#FF4A1C] bg-[#FF4A1C]/5' : 
-                  'border-stone-300 bg-white'
-                }`}>
-                  
+                <div className={`flex-1 flex flex-col border-2 rounded-xl transition-all h-full ${(uploadedFile || selectedDocument) ? 'border-[#FF4A1C] bg-[#FF4A1C]/5' :
+                    'border-stone-300 bg-white'
+                  }`}>
+
                   {/* Case 1: File Selected (Uploaded or Existing) */}
                   {(uploadedFile || selectedDocument) ? (
                     <div className="p-4 flex flex-col h-full justify-center">
@@ -491,7 +495,7 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
                           </div>
                         ) : (
                           /* Upload View (Default when no docs) */
-                          <div 
+                          <div
                             onClick={() => fileInputRef.current?.click()}
                             className="h-full flex flex-col items-center justify-center p-6 text-center cursor-pointer hover:bg-stone-50 transition-colors"
                           >
@@ -511,11 +515,11 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
                   )}
                 </div>
               </div>
-              
+
               {/* Text Input - Optional context */}
-              <textarea 
+              <textarea
                 value={formData.textInput}
-                onChange={(e) => setFormData({...formData, textInput: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, textInput: e.target.value })}
                 className="w-full h-full min-h-[160px] p-3 rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] transition-all resize-none text-sm"
                 placeholder="Optional: Paste problem text, add notes, or describe what you're trying to learn..."
               />
@@ -523,9 +527,9 @@ const BlueprintModal = ({ isOpen, onClose, classId = null, className = '', profe
           </div>
 
           {/* Goal Dropdown */}
-          
 
-          <button 
+
+          <button
             onClick={handleSubmit}
             disabled={loading}
             className="w-full py-4 bg-[#FF4A1C] hover:bg-black text-white rounded-xl font-medium transition-all shadow-lg hover:shadow-xl mt-4 disabled:opacity-50 disabled:cursor-not-allowed"

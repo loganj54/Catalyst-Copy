@@ -285,7 +285,6 @@ serve(async (req) => {
     blueprint_id = body.blueprint_id;
     const forceReanalyze = body.force_reanalyze || false;
     const analysisMode = body.analysis_mode || 'full';
-    const singleFileUrl = body.file_url;
     const partialAnalyses = body.partial_analyses || [];
 
     if (!blueprint_id) {
