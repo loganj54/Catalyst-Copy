@@ -2774,6 +2774,119 @@ const Blueprint = () => {
     }
   };
 
+  // Manual trigger: Analyze Document (Legacy)
+  const handleAnalyzeDocumentLegacy = async () => {
+    if (!session?.access_token) return;
+    setGenerating(true);
+    setGenerationError(null);
+    setGenerationStatus('analyzing');
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/analyze-document-legacy`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blueprint_id: id }),
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error);
+      setDocumentAnalysis(data);
+      setGenerationStatus('analyzed');
+    } catch (error) {
+      setGenerationError(error.message);
+      setGenerationStatus('failed');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // Manual trigger: Generate Structure (Legacy)
+  const handleGenerateStructureLegacy = async () => {
+    if (!session?.access_token) return;
+    setGenerating(true);
+    setGenerationError(null);
+    setGenerationStatus('generating');
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/generate-structure-legacy`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blueprint_id: id }),
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error);
+      setStructureGenerationResult(data);
+
+      await fetchBlueprint();
+    } catch (error) {
+      setGenerationError(error.message);
+      setGenerationStatus('failed');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // Manual trigger: Analyze Document (Grok 4.1)
+  const handleAnalyzeDocumentGrok = async () => {
+    if (!session?.access_token) return;
+    setGenerating(true);
+    setGenerationError(null);
+    setGenerationStatus('analyzing');
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/analyze-document-grok`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blueprint_id: id }),
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error);
+      setDocumentAnalysis(data);
+      setGenerationStatus('analyzed');
+      alert(`Analysis Complete (Grok 4.1)! Found ${data.analysis.sections.length} sections.`);
+    } catch (error) {
+      setGenerationError(error.message);
+      setGenerationStatus('failed');
+      alert(`Analysis Failed: ${error.message}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // Manual trigger: Generate Structure (Grok 4.1)
+  const handleGenerateStructureGrok = async () => {
+    if (!session?.access_token) return;
+    setGenerating(true);
+    setGenerationError(null);
+    setGenerationStatus('generating');
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/generate-structure-grok`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blueprint_id: id }),
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error);
+      setStructureGenerationResult(data);
+      setGenerationStatus('structure_complete');
+      alert(`Structure Generated (Grok 4.1)! Created ${data.structure.content_sections.length} sections.`);
+    } catch (error) {
+      setGenerationError(error.message);
+      setGenerationStatus('failed');
+      alert(`Structure Generation Failed: ${error.message}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const runAllSteps = async () => {
     if (!session?.access_token) return;
     setGenerating(true);
@@ -3569,10 +3682,59 @@ const Blueprint = () => {
           {/* No Structure State */}
           {!structure && (
             <div className="text-center py-20">
-              <h2 className="text-2xl font-bold text-stone-900 dark:text-stone-100">No content structure yet.</h2>
-              <button onClick={runAllSteps} className="mt-4 px-6 py-2 bg-[#FF4A1C] text-white rounded-lg hover:bg-[#FF4A1C]/90">
-                Generate Blueprint
-              </button>
+              <h2 className="text-2xl font-bold text-stone-900 dark:text-stone-100 mb-2">No content structure yet.</h2>
+              <p className="text-stone-500 max-w-md mx-auto mb-8">
+                Start by analyzing your document, then generate the blueprint structure.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button
+                  onClick={handleAnalyzeDocumentLegacy}
+                  disabled={generating}
+                  className="px-6 py-3 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-stone-700 rounded-xl font-medium hover:bg-stone-50 dark:hover:bg-stone-700 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+                >
+                  {generating && generationStatus === 'analyzing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  Start Document Analysis
+                </button>
+
+                <button
+                  onClick={handleGenerateStructureLegacy}
+                  disabled={generating}
+                  className="px-6 py-3 bg-[#FF4A1C] text-white rounded-xl font-bold hover:bg-[#FF4A1C]/90 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none disabled:shadow-none flex items-center gap-2"
+                >
+                  {generating && generationStatus === 'generating' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  Start Blueprint Structure Generation
+                </button>
+              </div>
+
+              {/* GROK BUTTONS ROW */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-4">
+                <button
+                  onClick={handleAnalyzeDocumentGrok}
+                  disabled={generating}
+                  className="px-6 py-3 bg-stone-100 dark:bg-stone-900 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-stone-700 rounded-xl font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+                >
+                  {generating && generationStatus === 'analyzing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-blue-500" />}
+                  Analyze (Grok 4.1)
+                </button>
+
+                <button
+                  onClick={handleGenerateStructureGrok}
+                  disabled={generating}
+                  className="px-6 py-3 bg-stone-100 dark:bg-stone-900 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-stone-700 rounded-xl font-medium hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+                >
+                  {generating && generationStatus === 'generating' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 text-orange-500" />}
+                  Generate Structure (Grok 4.1)
+                </button>
+              </div>
+
+              {/* Status Indicator if analysis exists but structure doesn't */}
+              {documentAnalysis && (
+                <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-sm font-medium animate-fade-in">
+                  <Check className="w-4 h-4" />
+                  Document Analysis Complete
+                </div>
+              )}
             </div>
           )}
 
