@@ -580,9 +580,11 @@ const TopicListItem = ({
 
     if (!resourceToHide) return;
 
-    // 2. Optimistic Update: Update UI immediately
-    if (resourceQueue.length > 0) {
-      const nextResource = resourceQueue[0];
+    // 2. Get the next resource from the queue (we'll need it for persistence)
+    const nextResource = resourceQueue.length > 0 ? resourceQueue[0] : null;
+
+    // 3. Optimistic Update: Update UI immediately
+    if (nextResource) {
       const newActive = [...activeResources];
       newActive[indexToSwap] = nextResource;
       setActiveResources(newActive);
@@ -593,21 +595,38 @@ const TopicListItem = ({
       setActiveResources(newActive);
     }
 
-    // 3. Persist to Database (mark as is_hidden)
+    // 4. Persist to Database
     // We check for session and valid ID. `link_id` is the junction ID.
-    if (session?.access_token && resourceToHide.link_id) {
+    if (session?.access_token) {
       try {
-        console.log(`[Blueprint] Hiding resource link ${resourceToHide.link_id}`);
-        const { error } = await supabase
-          .from('blueprint_topic_resources')
-          .update({ is_hidden: true })
-          .eq('id', resourceToHide.link_id);
+        // 4a. Mark the old resource as hidden
+        if (resourceToHide.link_id) {
+          console.log(`[Blueprint] Hiding resource link ${resourceToHide.link_id}`);
+          const { error: hideError } = await supabase
+            .from('blueprint_topic_resources')
+            .update({ is_hidden: true })
+            .eq('id', resourceToHide.link_id);
 
-        if (error) {
-          console.error('Failed to hide resource from DB:', error);
+          if (hideError) {
+            console.error('Failed to hide resource from DB:', hideError);
+          }
+        }
+
+        // 4b. Update the new active resource's created_at to NOW
+        // This ensures it becomes the "most recent" resource on page refresh
+        if (nextResource?.link_id) {
+          console.log(`[Blueprint] Setting resource link ${nextResource.link_id} as most recent`);
+          const { error: activateError } = await supabase
+            .from('blueprint_topic_resources')
+            .update({ created_at: new Date().toISOString() })
+            .eq('id', nextResource.link_id);
+
+          if (activateError) {
+            console.error('Failed to update new active resource timestamp:', activateError);
+          }
         }
       } catch (err) {
-        console.error('Error hiding resource:', err);
+        console.error('Error persisting resource swap:', err);
       }
     }
   };
@@ -1358,6 +1377,119 @@ const Blueprint = () => {
   const [generationStatus, setGenerationStatus] = useState('pending');
   const [generationError, setGenerationError] = useState(null);
   const [searchingTopics, setSearchingTopics] = useState(new Set());
+  const [resourceRatings, setResourceRatings] = useState({}); // { [resourceId]: rating }
+  const [rerollingUnits, setRerollingUnits] = useState(new Set()); // Track which units are being rerolled
+
+  // Handle Re-rolling a Video (swap to next video in queue, persist selection)
+  const handleRerollVideo = async (unitId, unitResources) => {
+    if (!session?.access_token || !unitResources || unitResources.length === 0) return;
+
+    setRerollingUnits(prev => new Set([...prev, unitId]));
+
+    try {
+      // Find current visible videos (not hidden), sorted by created_at descending (most recent first)
+      const visibleVideos = unitResources
+        .filter(r => !r.is_hidden && (
+          r.type === 'video' ||
+          r.type === 'youtube' ||
+          r.url?.includes('youtube.com') ||
+          r.url?.includes('youtu.be')
+        ))
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+      if (visibleVideos.length < 2) {
+        console.log('[Blueprint] No more videos in queue to re-roll to');
+        alert('No more alternative videos available. Try searching for new resources.');
+        return;
+      }
+
+      const currentVideo = visibleVideos[0]; // Most recent = currently displayed
+      const nextVideo = visibleVideos[1];    // Second most recent = next in queue
+
+      console.log(`[Blueprint] Re-rolling video:`, {
+        current: currentVideo.title,
+        next: nextVideo.title,
+        currentLinkId: currentVideo.link_id,
+        nextLinkId: nextVideo.link_id
+      });
+
+      // 1. Hide the current video
+      if (currentVideo.link_id) {
+        const { error: hideError } = await supabase
+          .from('blueprint_topic_resources')
+          .update({ is_hidden: true })
+          .eq('id', currentVideo.link_id);
+
+        if (hideError) {
+          console.error('[Blueprint] Failed to hide current video:', hideError);
+        } else {
+          console.log(`[Blueprint] Hidden video: ${currentVideo.title}`);
+        }
+      }
+
+      // 2. Update next video's created_at to NOW (makes it "most recent")
+      if (nextVideo.link_id) {
+        const { error: updateError } = await supabase
+          .from('blueprint_topic_resources')
+          .update({ created_at: new Date().toISOString() })
+          .eq('id', nextVideo.link_id);
+
+        if (updateError) {
+          console.error('[Blueprint] Failed to update next video timestamp:', updateError);
+        } else {
+          console.log(`[Blueprint] Set ${nextVideo.title} as most recent`);
+        }
+      }
+
+      // 3. Update local state to reflect the change immediately
+      // Match by link_id first, fall back to url if link_id is missing
+      console.log('[Blueprint] Updating local state...', {
+        currentUrl: currentVideo.url,
+        nextUrl: nextVideo.url,
+        allResources: unitResources.map(r => ({ title: r.title, link_id: r.link_id, is_hidden: r.is_hidden, created_at: r.created_at }))
+      });
+
+      setTopicResources(prev => {
+        const updated = { ...prev };
+        if (updated[unitId]) {
+          updated[unitId] = updated[unitId].map(r => {
+            // Match current video to hide
+            const isCurrentVideo = currentVideo.link_id
+              ? r.link_id === currentVideo.link_id
+              : r.url === currentVideo.url;
+
+            if (isCurrentVideo) {
+              console.log(`[Blueprint] Hiding video: ${r.title}`);
+              return { ...r, is_hidden: true };
+            }
+
+            // Match next video to update timestamp
+            const isNextVideo = nextVideo.link_id
+              ? r.link_id === nextVideo.link_id
+              : r.url === nextVideo.url;
+
+            if (isNextVideo) {
+              console.log(`[Blueprint] Setting as most recent: ${r.title}`);
+              return { ...r, created_at: new Date().toISOString() };
+            }
+            return r;
+          });
+        }
+        return updated;
+      });
+
+      console.log(`[Blueprint] Re-roll complete! Now showing: ${nextVideo.title}`);
+
+    } catch (error) {
+      console.error('[Blueprint] Error re-rolling video:', error);
+    } finally {
+      setRerollingUnits(prev => {
+        const next = new Set(prev);
+        next.delete(unitId);
+        return next;
+      });
+    }
+  };
 
   // Handle Practice Problem Generation (With Caching & Multi-Model Verification)
   const handleGeneratePracticeProblem = async (unit) => {
@@ -1699,21 +1831,39 @@ const Blueprint = () => {
               explanation.includes('does not contain relevant content') ||
               explanation.includes('not actually relevant to');
 
-            if (!isExplicitlyIrrelevant) {
+            if (!isExplicitlyIrrelevant && !r.is_hidden) {
               resourcesMap[r.unit_id].push({
                 ...r.resources_from_make,
                 relevance_score: r.relevance_score,
                 from_cache: r.from_cache,
                 resource_explanation: r.resource_explanation,
                 is_hidden: r.is_hidden,
-                link_id: r.id // Link ID for updates
+                link_id: r.id, // Link ID for updates
+                created_at: r.created_at // Track when it was added
               });
               count++;
             }
           }
         });
 
-        console.log(`[Blueprint] Loaded ${count} resources in parallel`);
+        // NOTE: We no longer filter to just one resource per unit.
+        // The display logic (line ~3580) picks the most recent non-hidden video.
+        // This preserves the full queue for re-rolling.
+        // 
+        // Sort resources by created_at so the display logic sees them in order
+        for (const [unitId, resources] of Object.entries(resourcesMap)) {
+          if (resources.length > 1) {
+            // Sort by created_at descending (most recent first)
+            resources.sort((a, b) => {
+              const dateA = new Date(a.created_at || 0);
+              const dateB = new Date(b.created_at || 0);
+              return dateB - dateA;
+            });
+            console.log(`[Blueprint] Unit ${unitId}: Loaded ${resources.length} resources (sorted by recency)`);
+          }
+        }
+
+        console.log(`[Blueprint] Loaded ${count} resources in parallel (showing most recent per unit)`);
 
         // Intelligent Merge: Don't overwrite what might be loading
         setTopicResources(prev => {
@@ -2190,6 +2340,28 @@ const Blueprint = () => {
     setSearchingTopics(prev => new Set([...prev, unitId]));
 
     try {
+      // First, hide any currently displayed video for this unit
+      // This ensures the old video won't reappear on page refresh
+      const currentResources = topicResources[unitId] || [];
+      const currentVideo = currentResources.find(r =>
+        r.type === 'video' ||
+        r.type === 'youtube' ||
+        r.url?.includes('youtube.com') ||
+        r.url?.includes('youtu.be')
+      );
+
+      if (currentVideo?.link_id) {
+        console.log(`[Blueprint] Hiding current video (link_id: ${currentVideo.link_id}) before searching for alternatives`);
+        const { error: hideError } = await supabase
+          .from('blueprint_topic_resources')
+          .update({ is_hidden: true })
+          .eq('id', currentVideo.link_id);
+
+        if (hideError) {
+          console.error('[Blueprint] Failed to hide current video:', hideError);
+        }
+      }
+
       let foundResources = [];
 
       if (searchMethod === 'database') {
@@ -2197,6 +2369,15 @@ const Blueprint = () => {
 
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const targetResourceProfile = unit.target_resource_profile;
+
+        // Debug: log what we're sending
+        console.log(`[Blueprint] Database search request:`, {
+          unit_id: unitId,
+          topic: unit.topic,
+          target_resource_profile: targetResourceProfile?.substring(0, 100) + '...',
+          has_embedding: !!unit.target_resource_embedding,
+          blueprint_id: id
+        });
 
         const response = await fetch(`${supabaseUrl}/functions/v1/search-resources-database`, {
           method: 'POST',
@@ -2213,6 +2394,11 @@ const Blueprint = () => {
         });
 
         const data = await response.json();
+        console.log(`[Blueprint] Database search raw response:`, data);
+        console.log(`[Blueprint] Database search response status:`, response.status);
+        console.log(`[Blueprint] Database search success:`, data.success);
+        console.log(`[Blueprint] Database search resources count:`, data.resources?.length);
+
         if (!data.success) throw new Error(data.error || 'Database search failed');
 
         foundResources = data.resources || [];
@@ -3410,13 +3596,20 @@ const Blueprint = () => {
                 {currentUnits.filter(u => u.unit_type !== 'solution').map((unit, index) => {
                   const unitEquations = topicEquations[unit.unit_id] || [];
                   const unitResources = topicResources[unit.unit_id] || [];
-                  // Find primary video - check type OR if URL contains youtube/youtu.be
-                  const primaryVideo = unitResources.find(r =>
-                    r.type === 'video' ||
-                    r.type === 'youtube' ||
-                    r.url?.includes('youtube.com') ||
-                    r.url?.includes('youtu.be')
-                  );
+
+                  // Find primary video - most recent non-hidden YouTube video
+                  // This ensures the re-rolled video persists correctly
+                  const visibleVideos = unitResources
+                    .filter(r => !r.is_hidden && (
+                      r.type === 'video' ||
+                      r.type === 'youtube' ||
+                      r.url?.includes('youtube.com') ||
+                      r.url?.includes('youtu.be')
+                    ))
+                    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+                  const primaryVideo = visibleVideos[0];
+                  const hasMoreVideos = visibleVideos.length > 1;
 
                   return (
                     <div key={unit.unit_id} className="relative group">
@@ -3454,44 +3647,96 @@ const Blueprint = () => {
 
                         {/* Video Module - Horizontal Layout */}
                         {primaryVideo ? (
-                          <div className="grid md:grid-cols-5 gap-8 items-start">
-                            {/* Left: Video Player */}
-                            <div className="md:col-span-3 rounded-xl overflow-hidden bg-black aspect-video shadow-lg ring-1 ring-stone-900/10">
-                              <iframe
-                                src={primaryVideo.url.replace('watch?v=', 'embed/').split('&')[0]}
-                                className="w-full h-full"
-                                title={primaryVideo.title}
-                                allowFullScreen
-                              />
+                          <div
+                            onClick={() => window.open(primaryVideo.url, '_blank')}
+                            className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer group/card"
+                          >
+                            {/* Card Header: Title & Re-roll */}
+                            <div className="px-5 py-4 border-b border-stone-100 dark:border-stone-800 flex items-start justify-between gap-4">
+                              <h4 className="text-lg font-medium text-stone-900 dark:text-stone-100 line-clamp-1 group-hover/card:text-[#FF4A1C] transition-colors">
+                                {primaryVideo.title}
+                              </h4>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRerollVideo(unit.unit_id, unitResources);
+                                }}
+                                disabled={rerollingUnits.has(unit.unit_id) || !hasMoreVideos}
+                                className={`transition-colors p-1 ${hasMoreVideos ? 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300' : 'text-stone-300 cursor-not-allowed'}`}
+                                title={hasMoreVideos ? "Show next video" : "No more videos available"}
+                              >
+                                <RefreshCw className={`w-4 h-4 ${rerollingUnits.has(unit.unit_id) ? 'animate-spin' : ''}`} />
+                              </button>
                             </div>
 
-                            {/* Right: Metadata & Controls */}
-                            <div className="md:col-span-2 space-y-4">
-                              <div>
-                                <h4 className="text-lg font-bold text-stone-900 dark:text-stone-100 leading-tight mb-2">
-                                  {primaryVideo.title}
-                                </h4>
-                                {primaryVideo.resource_explanation && (
-                                  <div className="text-sm text-stone-600 dark:text-stone-400 prose prose-sm dark:prose-invert">
-                                    <p className="font-medium text-stone-900 dark:text-stone-200 mb-1">Why this helps:</p>
-                                    <p>{primaryVideo.resource_explanation}</p>
+                            {/* Card Body: Split Layout */}
+                            <div className="p-5 flex flex-col md:flex-row gap-6">
+                              {/* Left: Thumbnail & Rating */}
+                              <div className="flex-shrink-0 w-full md:w-48 space-y-3">
+                                <div className="relative aspect-video rounded-lg overflow-hidden bg-black group/video shadow-sm">
+                                  <img
+                                    src={`https://img.youtube.com/vi/${primaryVideo.url.split('v=')[1]?.split('&')[0]}/mqdefault.jpg`}
+                                    alt={primaryVideo.title}
+                                    className="w-full h-full object-cover opacity-90 group-hover/card:opacity-100 transition-opacity"
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/card:bg-black/10 transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white">
+                                      <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                                    </div>
                                   </div>
-                                )}
+                                  {/* Initial duration placeholder if not available */}
+                                  <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/70 text-white text-[10px] font-medium rounded">
+                                    12:55
+                                  </div>
+                                </div>
+
+                                {/* Interactive Star Rating */}
+                                <div
+                                  className="flex items-center justify-center gap-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {[1, 2, 3, 4, 5].map((star) => {
+                                    const rating = resourceRatings[primaryVideo.id || primaryVideo.url] || 0;
+                                    return (
+                                      <button
+                                        key={star}
+                                        onClick={() => setResourceRatings(prev => ({ ...prev, [primaryVideo.id || primaryVideo.url]: star }))}
+                                        className="focus:outline-none transition-transform hover:scale-110"
+                                      >
+                                        <Star
+                                          className={`w-4 h-4 ${star <= rating ? 'fill-orange-400 text-orange-400' : 'text-stone-300 dark:text-stone-600'}`}
+                                        />
+                                      </button>
+                                    );
+                                  })}
+                                  <span className="text-xs text-stone-400 ml-1">
+                                    {(resourceRatings[primaryVideo.id || primaryVideo.url] || 0).toFixed(1)}
+                                  </span>
+                                </div>
                               </div>
 
-                              <div className="pt-4 border-t border-stone-200 dark:border-stone-800 flex flex-col gap-3">
-                                <button
-                                  onClick={() => {
-                                    if (window.confirm("Find a different video for this topic?")) {
-                                      handleGenerateBlueprint(unit, 'database');
-                                    }
-                                  }}
-                                  disabled={searchingTopics.has(unit.unit_id)}
-                                  className="w-full px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-sm font-medium hover:bg-stone-50 hover:text-[#FF4A1C] transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                                >
-                                  {searchingTopics.has(unit.unit_id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                                  Find Alternative Video
-                                </button>
+                              {/* Right: Description & Meta */}
+                              <div className="flex-1 flex flex-col justify-between min-w-0">
+                                <div className="space-y-3">
+                                  {primaryVideo.resource_explanation ? (
+                                    <p className="text-sm text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-3">
+                                      {primaryVideo.resource_explanation}
+                                    </p>
+                                  ) : (
+                                    <p className="text-sm text-stone-500 italic">No explanation available for this resource.</p>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center justify-between pt-4 mt-2">
+                                  <span className="px-2 py-1 bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 text-[10px] font-bold uppercase tracking-wider rounded">
+                                    YOUTUBE
+                                  </span>
+
+                                  <span className="flex items-center gap-1.5 text-xs font-bold text-[#FF4A1C] group-hover/card:text-[#e0390c] transition-colors uppercase tracking-wide">
+                                    OPEN
+                                    <ExternalLink className="w-3 h-3" />
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>

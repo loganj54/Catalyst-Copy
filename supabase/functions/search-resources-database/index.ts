@@ -205,23 +205,37 @@ serve(async (req: Request) => {
         return null;
       };
 
-      for (const resource of resources) {
+      for (let i = 0; i < resources.length; i++) {
+        const resource = resources[i];
+        const isFirstResource = i === 0;
+
         try {
           // Link directly to blueprint_topic_resources using resources_from_make.id
-          const linkData = {
+          // Set is_hidden to false to unhide previously hidden resources
+          // CRITICAL: Set created_at for ALL resources to ensure proper ordering
+          // - First resource gets NOW (will be the "most recent")
+          // - Subsequent resources get progressively older timestamps to ensure ordering
+          const now = new Date();
+          const resourceTimestamp = new Date(now.getTime() - (i * 1000)); // Each subsequent resource is 1 second older
+
+          const linkData: Record<string, any> = {
             blueprint_id,
             unit_id,
             resource_id: resource.id, // Use the ID from resources_from_make table
             relevance_score: 0.95, // High confidence for DB matches
             query_type: 'database',
             from_cache: true,
-            resource_explanation: resource.summary // Use summary as explanation
+            resource_explanation: resource.summary, // Use summary as explanation
+            is_hidden: false, // Ensure the resource is visible (unhide if previously hidden)
+            created_at: resourceTimestamp.toISOString() // Set explicit timestamp for ordering
           };
 
           console.log(`[search-resources-database] Linking resource to blueprint:`, {
             resource_id: resource.id,
             unit_id,
-            has_explanation: !!resource.summary
+            has_explanation: !!resource.summary,
+            is_primary: isFirstResource,
+            created_at: linkData.created_at
           });
 
           const { error: linkError } = await supabase
@@ -233,7 +247,7 @@ serve(async (req: Request) => {
           if (linkError) {
             console.error(`[search-resources-database] ❌ Error linking resource: ${linkError.message}`);
           } else {
-            console.log(`[search-resources-database] ✅ Successfully linked resource ${resource.id} to blueprint with explanation`);
+            console.log(`[search-resources-database] ✅ Successfully linked resource ${resource.id} to blueprint${isFirstResource ? ' (PRIMARY - most recent)' : ''}`);
           }
         } catch (err) {
           console.error(`[search-resources-database] Error processing resource ${resource.id}:`, err);

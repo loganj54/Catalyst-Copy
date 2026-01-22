@@ -19,24 +19,24 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
-import { 
-  createSupabaseClient, 
+import {
+  createSupabaseClient,
   createSupabaseClientWithAuth,
 } from '../_shared/supabase-client.ts';
-import { 
-  generateEmbedding, 
+import {
+  generateEmbedding,
   createTopicEmbeddingText,
   createRichSignatureText,
   createNeedEmbeddingText,
   formatVectorForPostgres,
 } from '../_shared/embeddings.ts';
-import { 
-  fetchTranscript, 
+import {
+  fetchTranscript,
   extractVideoId,
   truncateTranscript,
 } from '../_shared/transcript.ts';
-import { 
-  analyzeTranscript, 
+import {
+  analyzeTranscript,
   analyzeMetadata,
   generateRichSignature,
   type ContentAnalysis,
@@ -113,22 +113,22 @@ function simplifyTopicForSearch(topic: string): string {
     'optimization', 'numerical', 'computational', 'advanced', 'detailed',
     'comprehensive', 'and', '&', 'using', 'with', 'for', 'in'
   ];
-  
+
   let simplified = topic;
-  
+
   // Remove problematic words
   const removePattern = new RegExp(`\\b(${wordsToRemove.join('|')})\\b`, 'gi');
   simplified = simplified.replace(removePattern, ' ');
-  
+
   // Clean up multiple spaces
   simplified = simplified.replace(/\s+/g, ' ').trim();
-  
+
   // If still too long (>6 words), take first 4 words
   const words = simplified.split(' ');
   if (words.length > 6) {
     simplified = words.slice(0, 4).join(' ');
   }
-  
+
   // Common term replacements for better searchability
   const replacements: Record<string, string> = {
     'spectral radiance': 'blackbody radiation',
@@ -139,13 +139,13 @@ function simplifyTopicForSearch(topic: string): string {
     'computational fluid dynamics': 'CFD',
     'effectiveness-ntu': 'NTU method',
   };
-  
+
   // Apply replacements (case-insensitive)
   for (const [complex, simple] of Object.entries(replacements)) {
     const regex = new RegExp(complex, 'gi');
     simplified = simplified.replace(regex, simple);
   }
-  
+
   return simplified;
 }
 
@@ -173,13 +173,13 @@ async function searchYouTube(
 ): Promise<YouTubeSearchResult> {
   if (!YOUTUBE_API_KEY) {
     console.log('[search-resources] No YouTube API key, falling back to Claude web search');
-    return { 
-      resources: [], 
-      searchMetadata: { 
-        queries_used: [], 
+    return {
+      resources: [],
+      searchMetadata: {
+        queries_used: [],
         search_method: 'youtube_api',
-        total_api_results: 0 
-      } 
+        total_api_results: 0
+      }
     };
   }
 
@@ -190,7 +190,7 @@ async function searchYouTube(
 
   // Build smart search queries with progressive simplification
   const queriesToTry: string[] = [];
-  
+
   // PRIORITY 1: Use AI-generated queries (these should be well-crafted)
   if (searchQueries && searchQueries.length > 0) {
     searchQueries
@@ -198,11 +198,11 @@ async function searchYouTube(
       .slice(0, 3)
       .forEach(q => queriesToTry.push(q.query));
   }
-  
+
   // PRIORITY 2: Simplified topic-based queries (fallback if AI queries fail)
   // Extract core concepts from the topic by removing complex modifiers
   const simplifiedTopic = simplifyTopicForSearch(topic);
-  
+
   if (queriesToTry.length < 3) {
     queriesToTry.push(`${simplifiedTopic} tutorial youtube`);
   }
@@ -231,9 +231,9 @@ async function searchYouTube(
 
       console.log(`[search-resources] YouTube search: "${query}"`);
       queriesActuallyUsed.push(query);
-      
+
       const response = await fetch(searchUrl.toString());
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[search-resources] YouTube API error:', response.status, errorText);
@@ -241,21 +241,21 @@ async function searchYouTube(
       }
 
       const data = await response.json();
-      
+
       if (data.items && data.items.length > 0) {
         console.log(`[search-resources] Found ${data.items.length} YouTube results for "${query}"`);
         totalApiResults += data.items.length;
-        
+
         for (const item of data.items) {
           if (results.length >= MAX_SEARCH_RESULTS) break;
-          
+
           const videoId = item.id?.videoId;
           if (!videoId || seenVideoIds.has(videoId)) continue;
-          
+
           seenVideoIds.add(videoId);
-          
+
           const snippet = item.snippet || {};
-          
+
           results.push({
             url: `https://www.youtube.com/watch?v=${videoId}`,
             title: snippet.title || 'YouTube Video',
@@ -272,7 +272,7 @@ async function searchYouTube(
             from_cache: false,
             query_used: query, // Track which query found this video
           });
-          
+
           console.log(`[search-resources] Added video: ${snippet.title}`);
         }
       } else {
@@ -369,11 +369,11 @@ For each video, generate a topic_signature (2-3 sentences) describing what it te
 
   // Simplify the topic for better search results
   const simplifiedTopic = simplifyTopicForSearch(topic);
-  
+
   // Extract core concept (first 2-3 meaningful words)
   const words = simplifiedTopic.split(' ').filter(w => w.length > 2);
   const coreConcept = words.slice(0, 3).join(' ');
-  
+
   const userPrompt = `Find ${MAX_SEARCH_RESULTS} YouTube videos for this educational topic:
 
 TOPIC: ${topic}
@@ -485,21 +485,21 @@ If you cannot find ANY YouTube videos after multiple search attempts, explain wh
   // We need to extract URLs from the web search results and any JSON from text blocks
 
   const results: ResourceResult[] = [];
-  
+
   // First, try to extract from web_search_tool_result blocks
-  const webSearchResults = data.content?.filter((block: any) => 
-    block.type === 'web_search_tool_result' || 
+  const webSearchResults = data.content?.filter((block: any) =>
+    block.type === 'web_search_tool_result' ||
     block.type === 'tool_result' ||
     block.type === 'tool_use'
   );
-  
+
   if (webSearchResults && webSearchResults.length > 0) {
     console.log('[search-resources] Found web search result blocks:', webSearchResults.length);
-    
+
     for (const searchResult of webSearchResults) {
       // Handle different possible structures
       const searchContent = searchResult.content || searchResult.search_results || [];
-      
+
       if (Array.isArray(searchContent)) {
         for (const item of searchContent) {
           if (item.url) {
@@ -526,18 +526,18 @@ If you cannot find ANY YouTube videos after multiple search attempts, explain wh
 
   // Also check text blocks for any JSON arrays with resources
   const textBlocks = data.content?.filter((block: any) => block.type === 'text') || [];
-  
+
   for (const textBlock of textBlocks) {
     let text = textBlock.text || '';
     console.log('[search-resources] Processing text block, length:', text.length);
-    
+
     // Try to extract JSON from code blocks first (```json ... ```)
     const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (codeBlockMatch) {
       text = codeBlockMatch[1].trim();
       console.log('[search-resources] Found JSON code block, extracted length:', text.length);
     }
-    
+
     // Try to find JSON array in the text
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
@@ -559,12 +559,12 @@ If you cannot find ANY YouTube videos after multiple search attempts, explain wh
                 thumbnail_url: r.thumbnail_url || r.thumbnail || generateYouTubeThumbnail(r.url),
                 duration_seconds: r.duration_seconds || r.duration || null,
                 topic_signature: r.topic_signature || r.signature || `Educational resource about ${topic}`,
-                concepts_covered: Array.isArray(r.concepts_covered) 
-                  ? r.concepts_covered 
+                concepts_covered: Array.isArray(r.concepts_covered)
+                  ? r.concepts_covered
                   : (r.concepts ? r.concepts : [topic]),
                 difficulty_level: r.difficulty_level || r.difficulty || 'intermediate',
-                quality_score: typeof r.quality_score === 'number' 
-                  ? r.quality_score 
+                quality_score: typeof r.quality_score === 'number'
+                  ? r.quality_score
                   : (typeof r.quality === 'number' ? r.quality : 0.7),
                 from_cache: false,
               });
@@ -579,7 +579,7 @@ If you cannot find ANY YouTube videos after multiple search attempts, explain wh
     } else {
       console.log('[search-resources] No JSON array found in text block');
     }
-    
+
     // Also try to extract URLs directly from text using regex
     const urlMatches = text.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[^\s\)\"]+/g);
     if (urlMatches) {
@@ -607,9 +607,9 @@ If you cannot find ANY YouTube videos after multiple search attempts, explain wh
   }
 
   console.log('[search-resources] Extracted resources:', results.length);
-  
+
   // Deduplicate by URL
-  const uniqueResults = results.filter((r, idx) => 
+  const uniqueResults = results.filter((r, idx) =>
     results.findIndex(x => x.url === r.url) === idx
   );
 
@@ -633,7 +633,7 @@ function detectPlatform(url: string): string {
  */
 function generateYouTubeThumbnail(url: string): string | null {
   if (!url) return null;
-  
+
   // Match youtube.com/watch?v=VIDEO_ID or youtu.be/VIDEO_ID
   const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
   if (match && match[1]) {
@@ -764,13 +764,13 @@ Output valid JSON only, no markdown.`;
     }
 
     const data = await response.json();
-    
+
     // Extract text content from response
     const textContent = data.content?.find((block: any) => block.type === 'text')?.text || '';
-    
+
     // Parse JSON from response
     let explanations: Array<{ url: string; is_relevant?: boolean; explanation: string }> = [];
-    
+
     // Try to extract JSON from the response
     const jsonMatch = textContent.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -786,29 +786,29 @@ Output valid JSON only, no markdown.`;
     // Filter out ONLY explicitly irrelevant resources and map explanations back
     const relevantResources: ResourceResult[] = [];
     let filteredCount = 0;
-    
+
     for (const resource of resources) {
       const matchingExplanation = explanations.find(e => e.url === resource.url);
-      
+
       // Only filter if EXPLICITLY marked as not relevant
       // Be conservative - when in doubt, keep the resource
       if (matchingExplanation) {
         const explanation = matchingExplanation.explanation || '';
-        const isExplicitlyIrrelevant = 
-          matchingExplanation.is_relevant === false && 
-          (explanation === 'NOT_RELEVANT' || 
-           explanation.toLowerCase().includes('does not contain relevant content') ||
-           explanation.toLowerCase().includes('not actually relevant'));
-        
+        const isExplicitlyIrrelevant =
+          matchingExplanation.is_relevant === false &&
+          (explanation === 'NOT_RELEVANT' ||
+            explanation.toLowerCase().includes('does not contain relevant content') ||
+            explanation.toLowerCase().includes('not actually relevant'));
+
         if (isExplicitlyIrrelevant) {
           console.log(`[search-resources] Filtering out explicitly irrelevant resource: ${resource.title}`);
           filteredCount++;
           continue; // Skip this resource
         }
-        
+
         resource.resource_explanation = matchingExplanation.explanation;
       }
-      
+
       relevantResources.push(resource);
     }
 
@@ -816,7 +816,7 @@ Output valid JSON only, no markdown.`;
       console.log(`[search-resources] Filtered out ${filteredCount} explicitly irrelevant resource(s)`);
     }
     console.log(`[search-resources] ${relevantResources.length} relevant resources remaining`);
-    
+
     return relevantResources;
 
   } catch (error) {
@@ -832,9 +832,9 @@ Output valid JSON only, no markdown.`;
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
+    return new Response(null, {
       status: 204,
-      headers: corsHeaders 
+      headers: corsHeaders
     });
   }
 
@@ -849,7 +849,7 @@ serve(async (req) => {
 
     const authClient = createSupabaseClientWithAuth(authHeader);
     const { data: { user }, error: userError } = await authClient.auth.getUser();
-    
+
     if (userError || !user) {
       throw new Error('Could not verify user');
     }
@@ -874,10 +874,10 @@ serve(async (req) => {
     // =========================================================================
     // STEP 1: Generate embedding for the topic (using need-based format)
     // =========================================================================
-    
+
     // Use the semantic search phrase if available (PREFERRED), otherwise fall back to constructed text
     let queryText = semantic_search_phrase;
-    
+
     if (!queryText) {
       // Use the new need-based embedding text that matches against rich resource signatures
       queryText = createNeedEmbeddingText(
@@ -890,7 +890,7 @@ serve(async (req) => {
     } else {
       console.log('[search-resources] Using generated semantic search phrase for embedding');
     }
-    
+
     console.log('[search-resources] Generating query embedding...');
     console.log(`  - Query text length: ${queryText.length} chars`);
     const { embedding: queryEmbedding } = await generateEmbedding(queryText);
@@ -899,9 +899,9 @@ serve(async (req) => {
     // =========================================================================
     // STEP 2: Search for similar cached resources
     // =========================================================================
-    
+
     console.log('[search-resources] Searching cache with vector similarity...');
-    
+
     const { data: cachedResources, error: searchError } = await supabase.rpc(
       'search_similar_resources',
       {
@@ -931,7 +931,7 @@ serve(async (req) => {
     // =========================================================================
     // STEP 3: Check if we have enough cached results
     // =========================================================================
-    
+
     if (cachedResources && cachedResources.length >= 1) {
       console.log(`[search-resources] Cache HIT! Found ${cachedResources.length} resources`);
       cacheHit = true;
@@ -970,19 +970,19 @@ serve(async (req) => {
       // =========================================================================
       // STEP 4: Cache miss - search for videos
       // =========================================================================
-      
+
       console.log('[search-resources] Cache MISS - searching for videos...');
-      
+
       // Try YouTube API first (more reliable), then fall back to Claude web search
       let webResults: ResourceResult[] = [];
-      
+
       if (YOUTUBE_API_KEY) {
         console.log('[search-resources] Using YouTube Data API...');
         const youtubeResult = await searchYouTube(topic, search_queries || []);
         webResults = youtubeResult.resources;
         searchMetadata = youtubeResult.searchMetadata;
       }
-      
+
       // Fall back to Claude web search if YouTube didn't return results
       if (webResults.length === 0) {
         console.log('[search-resources] Falling back to Claude web search...');
@@ -1023,13 +1023,13 @@ serve(async (req) => {
               resource.content_analysis = existingResource.content_analysis;
               resource.analysis_confidence = existingResource.analysis_confidence;
               resource.transcript_analyzed = true;
-              
+
               // Update times_served
               await supabase
                 .from('curated_resources')
                 .update({ times_served: supabase.rpc('increment_times_served', { resource_id: existingResource.id }) })
                 .eq('id', existingResource.id);
-              
+
               results.push(resource);
               continue;
             }
@@ -1038,7 +1038,7 @@ serve(async (req) => {
             // STEP 4b: Fetch and analyze transcript (if not cached)
             // =========================================================
             console.log(`[search-resources] Analyzing new resource: ${resource.title}`);
-            
+
             let transcriptText: string | null = null;
             let transcriptSource: 'auto_generated' | 'manual' | 'metadata_only' | 'failed' = 'failed';
             let contentAnalysis: ContentAnalysis | null = null;
@@ -1050,12 +1050,12 @@ serve(async (req) => {
               if (videoId) {
                 console.log(`[search-resources] Fetching transcript for video: ${videoId}`);
                 const transcriptResult = await fetchTranscript(videoId);
-                
+
                 if (transcriptResult.success && transcriptResult.transcript) {
                   transcriptText = truncateTranscript(transcriptResult.transcript, 15000);
                   transcriptSource = transcriptResult.source;
                   console.log(`[search-resources] Got transcript: ${transcriptResult.wordCount} words (${transcriptSource})`);
-                  
+
                   // Analyze with GPT-5-nano
                   const analysisResult = await analyzeTranscript(transcriptText, {
                     title: resource.title,
@@ -1063,7 +1063,7 @@ serve(async (req) => {
                     channelName: resource.channel_name,
                     duration_seconds: resource.duration_seconds,
                   });
-                  
+
                   if (analysisResult.success && analysisResult.analysis) {
                     contentAnalysis = analysisResult.analysis;
                     analysisConfidence = analysisResult.confidence;
@@ -1081,14 +1081,14 @@ serve(async (req) => {
             if (!contentAnalysis) {
               console.log(`[search-resources] Using metadata-only analysis for: ${resource.title}`);
               transcriptSource = 'metadata_only';
-              
+
               const metadataResult = await analyzeMetadata({
                 title: resource.title,
                 description: resource.description,
                 channelName: resource.channel_name,
                 duration_seconds: resource.duration_seconds,
               });
-              
+
               if (metadataResult.success && metadataResult.analysis) {
                 contentAnalysis = metadataResult.analysis;
                 analysisConfidence = metadataResult.confidence; // Lower confidence (0.5 or 0.2)
@@ -1107,13 +1107,13 @@ serve(async (req) => {
                 title: resource.title,
                 channelName: resource.channel_name,
               });
-              
+
               // Update resource with analysis data
               resource.topic_signature = richSignature;
               resource.content_analysis = contentAnalysis;
               resource.concepts_covered = contentAnalysis.concepts_taught;
               resource.difficulty_level = contentAnalysis.difficulty_assessment;
-              
+
               console.log(`[search-resources] Generated rich signature (${richSignature.length} chars)`);
             }
 
@@ -1152,7 +1152,7 @@ serve(async (req) => {
               analysis_confidence: analysisConfidence,
               analyzed_at: new Date().toISOString(),
             };
-            
+
             // Only include embedding if we have one
             if (resourceVector) {
               upsertData.topic_embedding = resourceVector;
@@ -1170,14 +1170,14 @@ serve(async (req) => {
             if (insertError) {
               console.error('[search-resources] Error storing resource:', insertError);
               console.error('[search-resources] Insert error details:', JSON.stringify(insertError));
-              
+
               // If upsert failed, try to fetch existing resource by URL
               const { data: existingRes } = await supabase
                 .from('curated_resources')
                 .select('id')
                 .eq('url', resource.url)
                 .single();
-              
+
               if (existingRes) {
                 resource.id = existingRes.id;
                 console.log(`[search-resources] Found existing resource: ${resource.id}`);
@@ -1188,7 +1188,7 @@ serve(async (req) => {
               resource.id = insertedResource?.id;
               console.log(`[search-resources] Stored analyzed resource: ${resource.title}, ID: ${resource.id}, confidence: ${analysisConfidence}`);
             }
-            
+
             // Add analysis metadata to resource for response
             resource.transcript_analyzed = true;
             resource.transcript_source = transcriptSource;
@@ -1211,17 +1211,27 @@ serve(async (req) => {
     // =========================================================================
     // STEP 5: Link resources to blueprint via junction table
     // =========================================================================
-    
+
     console.log(`[search-resources] Linking ${results.length} resources to blueprint...`);
-    
-    for (const resource of results) {
+
+    for (let i = 0; i < results.length; i++) {
+      const resource = results[i];
+      const isFirstResource = i === 0;
+
       console.log(`[search-resources] Linking resource: ${resource.title}`);
       console.log(`[search-resources]   - ID: ${resource.id}`);
       console.log(`[search-resources]   - URL: ${resource.url}`);
       console.log(`[search-resources]   - Has explanation: ${!!resource.resource_explanation}`);
-      
+      console.log(`[search-resources]   - Is primary: ${isFirstResource}`);
+
       if (resource.id) {
-        const linkPayload = {
+        // CRITICAL: Set created_at for ALL resources to ensure proper ordering
+        // - First resource gets NOW (will be the "most recent")
+        // - Subsequent resources get progressively older timestamps to ensure ordering
+        const now = new Date();
+        const resourceTimestamp = new Date(now.getTime() - (i * 1000)); // Each subsequent resource is 1 second older
+
+        const linkPayload: Record<string, any> = {
           blueprint_id,
           unit_id,
           resource_id: resource.id,
@@ -1230,8 +1240,12 @@ serve(async (req) => {
           from_cache: resource.from_cache,
           // Include explanation if available at this stage
           resource_explanation: resource.resource_explanation || null,
+          // Ensure the resource is visible (unhide if previously hidden)
+          is_hidden: false,
+          // Set explicit timestamp for ordering
+          created_at: resourceTimestamp.toISOString(),
         };
-        
+
         const { data: linkData, error: linkError } = await supabase
           .from('blueprint_topic_resources')
           .upsert(linkPayload, {
@@ -1243,7 +1257,7 @@ serve(async (req) => {
           console.error('[search-resources] ❌ Error linking resource:', linkError);
           console.error('[search-resources] Link error details:', JSON.stringify(linkError));
         } else {
-          console.log(`[search-resources] ✅ Successfully linked resource ${resource.id} to blueprint`);
+          console.log(`[search-resources] ✅ Successfully linked resource ${resource.id} to blueprint${isFirstResource ? ' (PRIMARY - most recent)' : ''}`);
         }
       } else {
         console.warn(`[search-resources] ⚠️ Resource missing ID, cannot link: ${resource.url}`);
@@ -1253,7 +1267,7 @@ serve(async (req) => {
     // =========================================================================
     // STEP 6: Update topic_responses to mark as searched
     // =========================================================================
-    
+
     await supabase
       .from('topic_responses')
       .upsert({
@@ -1269,22 +1283,22 @@ serve(async (req) => {
     // =========================================================================
     // STEP 7: Generate contextual explanations for resources (batch AI call)
     // =========================================================================
-    
+
     if (results.length > 0) {
       console.log(`[search-resources] Generating explanations for ${results.length} resources...`);
       const beforeCount = results.length;
       const resultsBeforeFiltering = [...results]; // Keep a copy
-      
+
       results = await generateResourceExplanations(
         topic,
         description,
         body.learning_objective,
         results
       );
-      
+
       const afterCount = results.length;
       console.log(`[search-resources] After explanation generation: ${afterCount} resources (filtered ${beforeCount - afterCount})`);
-      
+
       // If ALL resources were filtered out, that's a problem - return the original results
       if (afterCount === 0 && beforeCount > 0) {
         console.error('[search-resources] ⚠️ ALL resources were filtered as irrelevant! This is likely an error.');
@@ -1302,7 +1316,7 @@ serve(async (req) => {
               .eq('blueprint_id', blueprint_id)
               .eq('unit_id', unit_id)
               .eq('resource_id', resource.id);
-            
+
             if (updateError) {
               console.error(`[search-resources] ❌ Error updating explanation:`, updateError);
             } else {
@@ -1317,8 +1331,8 @@ serve(async (req) => {
     // Calculate analysis stats
     const analyzedCount = results.filter(r => r.transcript_analyzed).length;
     const transcriptCount = results.filter(r => r.transcript_source === 'auto_generated' || r.transcript_source === 'manual').length;
-    const avgConfidence = results.length > 0 
-      ? results.reduce((sum, r) => sum + (r.analysis_confidence || 0), 0) / results.length 
+    const avgConfidence = results.length > 0
+      ? results.reduce((sum, r) => sum + (r.analysis_confidence || 0), 0) / results.length
       : 0;
 
     console.log('[search-resources] Complete!');
@@ -1333,8 +1347,8 @@ serve(async (req) => {
         success: true,
         resources: results,
         cache_hit: cacheHit,
-        cache_similarity: cacheHit && results[0]?.similarity 
-          ? results[0].similarity 
+        cache_similarity: cacheHit && results[0]?.similarity
+          ? results[0].similarity
           : null,
         total_count: results.length,
         // Search metadata for UI display
