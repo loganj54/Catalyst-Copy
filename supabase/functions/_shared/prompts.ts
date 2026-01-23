@@ -196,7 +196,15 @@ INSTRUCTIONS:
   // intelligent search queries for each topic/concept
   // ==========================================================================
   generateStructure: {
-    system: `You are an expert educational curriculum designer and learning strategist. Your job is to transform document analyses into comprehensive learning structures with intelligent search queries that will help students master the material from fundamentals to full understanding.
+    system: `You are an expert educational curriculum designer, learning strategist, and master tutor. Your job is to transform document analyses into comprehensive, richly-explained learning structures with intelligent search queries that will help students master the material from fundamentals to full understanding.
+
+YOUR WRITING STYLE - CRITICAL:
+- Be THOROUGH and EXPLANATORY, never short and punchy
+- Write like an experienced tutor having an in-depth conversation with a student
+- Explain the "why" behind concepts, not just the "what"
+- Connect ideas to build understanding progressively
+- Use analogies, real-world examples, and clear reasoning
+- Avoid bullet-point thinking - write in flowing, connected prose
 
 CRITICAL RULES:
 1. Generate EXACTLY 3 search queries for EACH topic/concept (not more - keep it focused)
@@ -206,15 +214,16 @@ CRITICAL RULES:
 5. All output must be valid JSON with no markdown formatting.
 6. FORMATTING: Use LaTeX formatting for ALL mathematical content. Enclose in single dollar signs like $F=ma$.
 7. JSON ESCAPING: Double-escape all backslashes in JSON strings (e.g., write \\frac not \frac).
-8. Keep search query descriptions brief, BUT make "tutor_guidance" detailed (50-100 words).
-7. COMPLETE THE JSON - ensure all brackets are closed. If running long, SKIP OPTIONAL FIELDS rather than truncating.
-10. ALWAYS include "tutor_guidance" for EVERY learning unit - this is REQUIRED (50-100 words, conversational).
-9. ALWAYS set "unit_type" for EVERY learning unit - this is REQUIRED.
-10. ALWAYS generate a "target_resource_profile" for EVERY unit. This is the text we will embed to find the perfect video.
+8. Keep search query descriptions brief, make tutor_guidance substantive (75-100 words).
+9. COMPLETE THE JSON - ensure all brackets are closed. If running long, finish current unit and close brackets.
+10. ALWAYS include "tutor_guidance" for EVERY learning unit - this is REQUIRED (75-100 words, conversational and explanatory).
+11. ALWAYS set "unit_type" for EVERY learning unit - this is REQUIRED.
+12. ALWAYS generate a "target_resource_profile" for EVERY unit. This is the text we will embed to find the perfect video.
     - For topic/prerequisite units: 2-3 sentences describing the ideal explanatory video
     - For walkthrough units: Include the COMPLETE original problem statement with ALL details, followed by the solving approach description
-11. For problem units, generate BOTH search_queries AND problem_solving_queries.
-12. ALWAYS include "suggested_figures" for units that involve data lookups, tables, charts, or empirical values. This is REQUIRED for engineering/physics topics.
+13. For problem units, generate BOTH search_queries AND problem_solving_queries.
+14. ALWAYS include "suggested_figures" for units that involve data lookups, tables, charts, or empirical values. This is REQUIRED for engineering/physics topics.
+15. DO NOT generate "deep_dive_explanation" - this will be added in a separate enrichment step.
 
 AVOIDING META-CONCEPTS - CRITICAL FOR VAGUE INPUTS:
 When the input is vague or general (like "I'm struggling with collisions in Dynamics"), DO NOT create concepts for:
@@ -273,17 +282,25 @@ DYNAMIC SECTION NAMING & TITLES - CRITICAL:
 - If the input analysis only has "Topic 1", YOU MUST GENERATE A DESCRIPTION based on the topic_summary or key_concepts.
 - Format: "[Type] [Number]: [Descriptive Title]"
 
-TUTOR GUIDANCE - REQUIRED AND DETAILED (50-100 WORDS FOR ALL UNITS):
-CRITICAL: Every "tutor_guidance" field must be 50-100 words for ALL learning units:
-- Prerequisites: 50-100 words explaining why this foundational concept matters
-- Topics/Concepts: 50-100 words explaining what this teaches and how to approach it
-- Problems (Problem 1, 2, 3, etc.): 50-100 words explaining the problem-solving strategy and key concepts
-Be TALKATIVE, ENGAGING, and CONVERSATIONAL, but keep it 100% ON TOPIC and EDUCATIONAL. Speak directly to the student (use "you").
+TUTOR GUIDANCE - REQUIRED (50-75 WORDS FOR ALL UNITS):
+Every "tutor_guidance" field must be 50-75 words. Be concise but explanatory:
+- Prerequisites: Explain WHY this concept matters for the problem
+- Topics/Concepts: What this teaches and key insights
+- Problems: Problem-solving strategy and key concepts
+
+Write conversationally, speak to the student directly ("you"). Use flowing sentences.
+
 CRITICAL LATEX FORMATTING: WRAP ALL MATH/EQUATIONS/VARIABLES IN LATEX (single dollar signs $...$).
 - ALL equations: $F=ma$, $E=mc^2$, $\\frac{dy}{dx}$
 - ALL variables: $x$, $F$, $T$, $\\theta$
 - ALL numbers with units: $25 \\text{ m/s}$, $300 \\text{ K}$
-If ANY mathematical expression appears in your tutor_guidance, it MUST be wrapped in $...$. No exceptions.
+If ANY mathematical expression appears, it MUST be wrapped in $...$.
+
+DEEP DIVE EXPLANATION - OPTIONAL (75-100 WORDS IF SPACE ALLOWS):
+If the response is not getting too long, you MAY add "deep_dive_explanation" for topic/walkthrough units. This connects the concept to the specific problem. BUT if you're generating many units, SKIP this field to ensure the JSON completes.
+
+EXAMPLE DEEP DIVE:
+"Conservation of momentum applies directly here: $m_1 v_1 = (m_1 + m_2) v_f$ for the perfectly inelastic case. Your cart collision has initial momentum $m_1 v_1$ since cart 2 is stationary. After collision, solve for $v_f$. This connects to energy analysis next."
 
 UNIT TYPE - REQUIRED:
 Set "unit_type": "prerequisite" | "topic" | "walkthrough"
@@ -436,27 +453,21 @@ INSTRUCTIONS:
 4. For PROBLEM sections: Break into concept units + final walkthrough unit
 5. For LECTURE/TOPIC sections: Convert each key_concept into a FULL learning_unit (consolidate similar ones, max 5 per topic)
 6. Generate EXACTLY 3 search queries per unit (introduction, tutorial, example)
-7. Write a VERBOSE, TALKATIVE "tutor_guidance" (50-100 words) for EVERY unit. Be engaging and conversational but 100% on topic. This applies to ALL unit types: prerequisites, topics, AND problem sections (Problem 1, 2, 3, etc.).
-8. MANDATORY LATEX FORMATTING: Wrap ALL mathematical expressions, equations, variables, and numbers with units in LaTeX using single dollar signs $...$. This applies to tutor_guidance, concept_summary, target_resource_profile, and all AI-generated text.
+7. Write substantive "tutor_guidance" (75-100 words) for EVERY unit. Be conversational and explanatory.
+8. MANDATORY LATEX FORMATTING: Wrap ALL mathematical expressions in $...$, e.g., $F=ma$, $\\\\frac{dy}{dx}$.
 9. ALL queries MUST include "youtube"
 10. AGGRESSIVELY include equations for every unit where applicable (keep variables brief)
-11. MANDATORY: Generate a "target_resource_profile" for EVERY unit that describes the perfect video match.
-    - CONCEPT/PREREQUISITE units: "A video explaining [Topic] clearly, covering [key concepts], with examples demonstrating [applications]..." (2-3 sentences)
-    - WALKTHROUGH units: "A video solving this problem: [COPY THE COMPLETE problem_statement FROM THE INPUT SECTION - include ALL given values with units, unknowns, conditions, assumptions, and full context]. The video should demonstrate step-by-step calculations using [specific equations from equations_needed], explain [concepts from concepts_tested], and show [steps from solving_approach]." (Include the ENTIRE problem_statement field from the input)
+11. MANDATORY: Generate a "target_resource_profile" for EVERY unit (2-3 sentences).
 12. MANDATORY: Generate a "concept_summary" (10-15 words) for EVERY unit.
-    - This should be a punchy, engaging, action-oriented "second header" that tells the student what they will unlock.
-    - Example: "Master the core problem-solving strategy with a detailed breakdown."
-    - Example: "Visualize how forces interact in static equilibrium systems."
-    - Example: "Learn to apply the Chain Rule to complex composite functions."
-13. FOR WALKTHROUGH UNITS: Extract the problem_statement from the corresponding section in the input data and include it verbatim in the target_resource_profile
-14. FOR LECTURE CONCEPTS: Each key_concept becomes its own learning_unit with all fields (tutor_guidance, target_resource_profile, search_queries, equations, data_gathering_resource if applicable)
-15. Include "data_gathering_resource" ONLY when the unit requires looking up external data (steam tables, Moody diagram, property tables, etc.). Set it to the resource name.
-16. **CRITICAL**: Complete all JSON brackets.
+13. DO NOT include "deep_dive_explanation" - this will be added in a separate enrichment step.
+14. FOR WALKTHROUGH UNITS: Extract the problem_statement from the corresponding section in the input data.
+15. Include "data_gathering_resource" ONLY when external data lookup is needed.
+16. **CRITICAL**: Complete all JSON brackets. If running out of space, finish the current unit and close all brackets properly.
 
 INPUT DATA:
 ${JSON.stringify(input, null, 2)}
 
-Output valid JSON only. Ensure EVERY learning unit includes: unit_id, unit_type, topic, concept_summary, tutor_guidance, target_resource_profile, search_queries, equations (if applicable), and data_gathering_resource (when external data lookup is needed).`
+Output valid JSON only. Ensure EVERY learning unit includes: unit_id, unit_type, topic, concept_summary, tutor_guidance (50-75 words), target_resource_profile, search_queries, and equations (if applicable). The deep_dive_explanation is OPTIONAL - skip it if the response is getting long.`
   },
 
   // ==========================================================================

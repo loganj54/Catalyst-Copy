@@ -6,14 +6,14 @@ import Footer from '../components/Footer';
 
 const Home = () => {
   return (
-    <div 
-      className="min-h-screen bg-transparent font-sans text-stone-900 selection:bg-[#FF4A1C]/20 relative"
+    <div
+      className="min-h-screen bg-transparent font-sans text-stone-900 relative"
     >
-      
+
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 overflow-hidden">
         <div className="relative max-w-7xl mx-auto px-6 lg:px-8 text-center">
-          
+
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-stone-100 dark:bg-stone-900 border border-stone-300 dark:border-stone-800 text-sm font-medium text-stone-600 dark:text-stone-400 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <span className="flex h-2 w-2 rounded-full bg-[#FF4A1C]"></span>
@@ -31,21 +31,21 @@ const Home = () => {
           {/* Subheadline */}
           <p className="text-xl text-stone-500 dark:text-stone-400 mb-10 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200 leading-relaxed">
             <span className="bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-4 py-2 rounded-2xl decoration-clone box-decoration-clone">
-              Catalyst is the modern learning platform for engineering students. 
+              Catalyst is the modern learning platform for engineering students.
               Create study blueprints, track your projects, and master your coursework with AI-powered guidance.
             </span>
           </p>
 
           {/* Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in fade-in slide-in-from-bottom-7 duration-700 delay-300">
-            <Link 
-              to="/auth" 
+            <Link
+              to="/auth"
               className="w-full sm:w-auto px-6 py-2.5 bg-white dark:bg-stone-900 text-stone-900 dark:text-white border border-stone-300 dark:border-stone-800 rounded-lg font-medium text-base hover:bg-stone-50 dark:hover:bg-stone-800 transition-all shadow-sm"
             >
               Start for free
             </Link>
-            <Link 
-              to="/classes" 
+            <Link
+              to="/classes"
               className="w-full sm:w-auto px-6 py-2.5 bg-white dark:bg-stone-900 text-stone-900 dark:text-white border border-stone-300 dark:border-stone-800 rounded-lg font-medium text-base hover:bg-stone-50 dark:hover:bg-stone-800 hover:border-stone-400 transition-all shadow-sm"
             >
               View Classes
@@ -58,17 +58,17 @@ const Home = () => {
               <div className="rounded-lg bg-white dark:bg-stone-800 overflow-hidden aspect-[16/9] border border-stone-200 dark:border-stone-700 relative group">
                 {/* Abstract UI Representation */}
                 <div className="absolute inset-0 bg-stone-50 dark:bg-stone-800 flex items-center justify-center">
-                   <div className="text-center p-8">
-                      <div className="w-16 h-16 bg-[#FF4A1C]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <Zap className="w-8 h-8 text-[#FF4A1C]" />
-                      </div>
-                      <h3 className="text-lg font-bold text-stone-900 dark:text-white">Your Engineering Dashboard</h3>
-                      <p className="text-stone-500 dark:text-stone-400 max-w-sm mx-auto mt-2">
-                        Visualize your progress, manage your blueprints, and ace your exams.
-                      </p>
-                   </div>
+                  <div className="text-center p-8">
+                    <div className="w-16 h-16 bg-[#FF4A1C]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <Zap className="w-8 h-8 text-[#FF4A1C]" />
+                    </div>
+                    <h3 className="text-lg font-bold text-stone-900 dark:text-white">Your Engineering Dashboard</h3>
+                    <p className="text-stone-500 dark:text-stone-400 max-w-sm mx-auto mt-2">
+                      Visualize your progress, manage your blueprints, and ace your exams.
+                    </p>
+                  </div>
                 </div>
-                
+
                 {/* Floating Elements (Visual Interest) */}
                 <div className="absolute top-10 left-10 w-64 p-4 bg-white dark:bg-stone-900 rounded-xl shadow-lg border border-stone-100 dark:border-stone-800 transform -rotate-2 hover:rotate-0 transition-transform duration-500">
                   <div className="flex items-center gap-3 mb-2">
@@ -166,8 +166,8 @@ const Home = () => {
             Join thousands of engineering students who are mastering their classes with Catalyst.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-             <Link 
-              to="/auth" 
+            <Link
+              to="/auth"
               className="px-6 py-2.5 bg-white dark:bg-stone-900 text-stone-900 dark:text-white border border-stone-300 dark:border-stone-800 rounded-lg font-medium hover:bg-stone-50 dark:hover:bg-stone-800 transition-all shadow-sm"
             >
               Get Started for Free

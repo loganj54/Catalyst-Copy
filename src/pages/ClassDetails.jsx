@@ -367,7 +367,7 @@ const ClassDetails = () => {
         <ClassSidebar />
       </div>
 
-      <div className="flex-1 min-w-0 lg:ml-[224px] relative z-10">
+      <div className="flex-1 min-w-0 relative z-10">
         <ConfirmDialog
           isOpen={confirmDialog.isOpen}
           onClose={() => setConfirmDialog({ isOpen: false, type: '', itemId: null, itemPath: null })}
@@ -443,8 +443,8 @@ const ClassDetails = () => {
               <button
                 onClick={() => setActiveTab('blueprints')}
                 className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'blueprints'
-                    ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
-                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
+                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
+                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
                   }`}
               >
                 Blueprints
@@ -452,8 +452,8 @@ const ClassDetails = () => {
               <button
                 onClick={() => setActiveTab('documents')}
                 className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'documents'
-                    ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
-                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
+                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
+                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
                   }`}
               >
                 Documents
@@ -501,7 +501,7 @@ const ClassDetails = () => {
                       {documents.map((doc) => (
                         <div
                           key={doc.id}
-                          className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-xl p-6 shadow-sm hover:shadow-md transition-all group relative flex flex-col h-full"
+                          className="bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl p-6 shadow-sm hover:shadow-md transition-all group relative flex flex-col h-full"
                         >
                           <div className="flex justify-between items-start mb-4">
                             <div className="w-10 h-10 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg flex items-center justify-center text-stone-500 dark:text-stone-400">
@@ -626,7 +626,7 @@ const ClassDetails = () => {
                         <div
                           key={blueprint.id}
                           onClick={() => navigate(`/blueprint/${blueprint.id}`)}
-                          className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all group relative flex flex-col h-full"
+                          className="bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all group relative flex flex-col h-full"
                         >
                           <div className="flex justify-between items-start mb-4">
                             <div className="w-10 h-10 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg flex items-center justify-center text-stone-500 dark:text-stone-400">

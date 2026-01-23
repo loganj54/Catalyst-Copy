@@ -238,7 +238,7 @@ const Dashboard = () => {
               </button>
             </div>
 
-            <div className="bg-white dark:bg-stone-900 rounded-lg border border-stone-300 dark:border-stone-600 overflow-hidden shadow-sm">
+            <div className="bg-white dark:bg-stone-800 rounded-lg border border-stone-300 dark:border-stone-600 overflow-hidden shadow-sm">
               {recentBlueprints.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -317,7 +317,7 @@ const Dashboard = () => {
                 <div
                   key={course.id}
                   onClick={() => navigate(`/class/${course.id}`)}
-                  className="aspect-square bg-white dark:bg-stone-900 rounded-xl p-6 shadow-sm hover:shadow-xl transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-stone-300 dark:border-stone-600 hover:border-stone-400 dark:hover:border-stone-500"
+                  className="aspect-square bg-white dark:bg-stone-800 rounded-xl p-6 shadow-sm hover:shadow-xl transition-all group relative flex flex-col justify-between overflow-hidden cursor-pointer border border-stone-300 dark:border-stone-600 hover:border-stone-400 dark:hover:border-stone-500"
                 >
                   {/* Card Header */}
                   <div className="flex justify-between items-start z-10 relative">

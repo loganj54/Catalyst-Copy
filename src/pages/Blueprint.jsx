@@ -776,7 +776,16 @@ const TopicListItem = ({
 
             {/* COLUMN 1: Content (Overview or Practice) */}
             <div className="space-y-8 xl:border-r border-stone-300 dark:border-stone-600 xl:pr-8">
-              {isWalkthrough ? (
+              {unit.unit_type === 'solution' ? (
+                /* SOLUTION LAYOUT - Display Step-by-Step Solution */
+                <div className="space-y-8">
+                  <StepByStepSolutionCard
+                    solutionApproach={unit.solutionData?.approach}
+                    commonMistakes={unit.solutionData?.mistakes}
+                    isFocusView={true}
+                  />
+                </div>
+              ) : isWalkthrough ? (
                 /* PRACTICE LAYOUT - LEFT COLUMN */
                 <div className="space-y-8">
                   <h5 className="flex items-center gap-2 w-fit">
@@ -3992,6 +4001,25 @@ const Blueprint = () => {
                                   <Zap className="w-4 h-4" />
                                   Activate Webhook
                                 </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Deep Dive Explanation - Cohesive narrative connecting concepts */}
+                          {unit.deep_dive_explanation && (
+                            <div className="mt-8 bg-gradient-to-br from-stone-50 to-stone-100/50 dark:from-stone-800/50 dark:to-stone-900/50 rounded-2xl p-6 md:p-8 border border-stone-200/60 dark:border-stone-700/60">
+                              <div className="flex items-center gap-3 mb-4">
+                                <div className="w-8 h-8 rounded-lg bg-[#FF4A1C]/10 flex items-center justify-center">
+                                  <BookOpen className="w-4 h-4 text-[#FF4A1C]" />
+                                </div>
+                                <h4 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+                                  Deep Dive: Applying This Concept
+                                </h4>
+                              </div>
+                              <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                                <div className="whitespace-pre-wrap">
+                                  <LatexText text={unit.deep_dive_explanation} />
+                                </div>
                               </div>
                             </div>
                           )}

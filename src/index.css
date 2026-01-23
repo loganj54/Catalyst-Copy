@@ -26,6 +26,10 @@
   #root {
     @apply w-full;
   }
+
+  ::selection {
+    background-color: rgba(255, 74, 28, 0.2);
+  }
 }
 
 /* Custom scrollbar hiding from the original HTML */
