@@ -5,13 +5,14 @@ import {
   ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp,
   ChevronRight, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
   Layout, Grid, Circle, Eye, Info, Database, ToggleLeft, ToggleRight, Timer,
-  AlignLeft, X, MessageSquare, ArrowUpRight, Search, ArrowRight, Calculator
+  AlignLeft, X, MessageSquare, ArrowUpRight, Search, ArrowRight, Calculator, Square
 } from 'lucide-react';
 import { InlineMath, BlockMath } from 'react-katex';
 import ReactMarkdown from 'react-markdown';
 import 'katex/dist/katex.min.css';
 import { useAuth } from '../context/AuthContext';
 import { useUiState } from '../context/UiStateContext';
+import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 import EquationDisplay from '../components/EquationDisplay';
 import FigureDisplay from '../components/FigureDisplay';
@@ -1278,6 +1279,7 @@ const Blueprint = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, session } = useAuth();
+  const { bgPattern, setBgPattern } = useTheme();
 
   // Sticky Header State
   const [isScrolled, setIsScrolled] = useState(false);
@@ -3592,7 +3594,7 @@ const Blueprint = () => {
       </div>
 
       {/* Main Content Area - Shifted Right to clear both sidebars */}
-      <div className={`min-w-0 lg:ml-56 transition-all duration-300 ease-in-out ${isChatOpen ? 'mr-0 md:mr-[450px]' : ''}`}>
+      <div className="min-w-0 transition-all duration-300 ease-in-out">
         <div className="sticky top-20 z-30 min-h-[auto] pointer-events-none">
           {/* Visual Wrapper - Handles background and transitions */}
           <div className={`w-full transition-all duration-500 ease-in-out pointer-events-auto ${isScrolled ? 'bg-white/90 dark:bg-stone-900/90 backdrop-blur-xl' : 'bg-transparent'}`}>
@@ -3626,6 +3628,40 @@ const Blueprint = () => {
 
                     {/* Right side: Controls (Chat, Doc, etc) */}
                     <div className="flex items-center gap-2">
+                      {/* Background Toggles */}
+                      <div className="hidden md:flex items-center gap-1 bg-white dark:bg-stone-800 p-1 rounded-lg border border-stone-200 dark:border-stone-700 mr-2 shadow-sm">
+                        <button
+                          onClick={() => setBgPattern('grid')}
+                          className={`p-1.5 rounded-md transition-all ${bgPattern === 'grid'
+                            ? 'bg-stone-100 dark:bg-stone-700 text-[#FF4A1C]'
+                            : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
+                            }`}
+                          title="Grid Background"
+                        >
+                          <Grid className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setBgPattern('dots')}
+                          className={`p-1.5 rounded-md transition-all ${bgPattern === 'dots'
+                            ? 'bg-stone-100 dark:bg-stone-700 text-[#FF4A1C]'
+                            : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
+                            }`}
+                          title="Dots Background"
+                        >
+                          <Circle className="w-3.5 h-3.5 fill-current" />
+                        </button>
+                        <button
+                          onClick={() => setBgPattern('white')}
+                          className={`p-1.5 rounded-md transition-all ${bgPattern === 'white' || bgPattern === 'none'
+                            ? 'bg-stone-100 dark:bg-stone-700 text-[#FF4A1C]'
+                            : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
+                            }`}
+                          title="Blank Background"
+                        >
+                          <Square className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
                       {/* View Document Button */}
                       {(doc || blueprint.url || content.text) && (
                         <button
@@ -3663,7 +3699,7 @@ const Blueprint = () => {
         <div className="pb-24 px-8 w-full max-w-5xl mx-auto space-y-12">
 
           {/* Blueprint Title (Once per page, centered at top of content flow) */}
-          <div className="text-center space-y-4 pt-8 pb-12 border-b border-stone-100 dark:border-stone-800">
+          <div className="text-center space-y-4 pt-8 pb-12">
             <h1 className="text-6xl md:text-7xl font-normal tracking-tight text-stone-900 dark:text-stone-100">
               {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
             </h1>

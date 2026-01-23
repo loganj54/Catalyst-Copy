@@ -273,12 +273,17 @@ DYNAMIC SECTION NAMING & TITLES - CRITICAL:
 - If the input analysis only has "Topic 1", YOU MUST GENERATE A DESCRIPTION based on the topic_summary or key_concepts.
 - Format: "[Type] [Number]: [Descriptive Title]"
 
-TUTOR GUIDANCE - REQUIRED AND DETAILED:
-Write a "tutor_guidance" field (50-100 words) that explains WHY this topic matters and HOW to approach it.
+TUTOR GUIDANCE - REQUIRED AND DETAILED (50-100 WORDS FOR ALL UNITS):
+CRITICAL: Every "tutor_guidance" field must be 50-100 words for ALL learning units:
+- Prerequisites: 50-100 words explaining why this foundational concept matters
+- Topics/Concepts: 50-100 words explaining what this teaches and how to approach it
+- Problems (Problem 1, 2, 3, etc.): 50-100 words explaining the problem-solving strategy and key concepts
 Be TALKATIVE, ENGAGING, and CONVERSATIONAL, but keep it 100% ON TOPIC and EDUCATIONAL. Speak directly to the student (use "you").
-Reference equations by name, don't write them inline. Don't be dry - act like an enthusiastic human tutor.
-CRITICAL: WRAP ALL MATH/EQUATIONS IN LATEX TRIGGERS (single dollar signs $...$). Even simple variable names like $x$ or $F$ must be wrapped.
-Example: "Use $F=ma$ to solve this" instead of "Use F=ma". Example: "The variable $x$ represents distance."
+CRITICAL LATEX FORMATTING: WRAP ALL MATH/EQUATIONS/VARIABLES IN LATEX (single dollar signs $...$).
+- ALL equations: $F=ma$, $E=mc^2$, $\\frac{dy}{dx}$
+- ALL variables: $x$, $F$, $T$, $\\theta$
+- ALL numbers with units: $25 \\text{ m/s}$, $300 \\text{ K}$
+If ANY mathematical expression appears in your tutor_guidance, it MUST be wrapped in $...$. No exceptions.
 
 UNIT TYPE - REQUIRED:
 Set "unit_type": "prerequisite" | "topic" | "walkthrough"
@@ -431,21 +436,22 @@ INSTRUCTIONS:
 4. For PROBLEM sections: Break into concept units + final walkthrough unit
 5. For LECTURE/TOPIC sections: Convert each key_concept into a FULL learning_unit (consolidate similar ones, max 5 per topic)
 6. Generate EXACTLY 3 search queries per unit (introduction, tutorial, example)
-7. Write a VERBOSE, TALKATIVE "tutor_guidance" (50-100 words). Be engaging and conversational but 100% on topic.
-8. ALL queries MUST include "youtube"
-9. AGGRESSIVELY include equations for every unit where applicable (keep variables brief)
-10. MANDATORY: Generate a "target_resource_profile" for EVERY unit that describes the perfect video match.
+7. Write a VERBOSE, TALKATIVE "tutor_guidance" (50-100 words) for EVERY unit. Be engaging and conversational but 100% on topic. This applies to ALL unit types: prerequisites, topics, AND problem sections (Problem 1, 2, 3, etc.).
+8. MANDATORY LATEX FORMATTING: Wrap ALL mathematical expressions, equations, variables, and numbers with units in LaTeX using single dollar signs $...$. This applies to tutor_guidance, concept_summary, target_resource_profile, and all AI-generated text.
+9. ALL queries MUST include "youtube"
+10. AGGRESSIVELY include equations for every unit where applicable (keep variables brief)
+11. MANDATORY: Generate a "target_resource_profile" for EVERY unit that describes the perfect video match.
     - CONCEPT/PREREQUISITE units: "A video explaining [Topic] clearly, covering [key concepts], with examples demonstrating [applications]..." (2-3 sentences)
     - WALKTHROUGH units: "A video solving this problem: [COPY THE COMPLETE problem_statement FROM THE INPUT SECTION - include ALL given values with units, unknowns, conditions, assumptions, and full context]. The video should demonstrate step-by-step calculations using [specific equations from equations_needed], explain [concepts from concepts_tested], and show [steps from solving_approach]." (Include the ENTIRE problem_statement field from the input)
-11. MANDATORY: Generate a "concept_summary" (10-15 words) for EVERY unit.
+12. MANDATORY: Generate a "concept_summary" (10-15 words) for EVERY unit.
     - This should be a punchy, engaging, action-oriented "second header" that tells the student what they will unlock.
     - Example: "Master the core problem-solving strategy with a detailed breakdown."
     - Example: "Visualize how forces interact in static equilibrium systems."
     - Example: "Learn to apply the Chain Rule to complex composite functions."
-12. FOR WALKTHROUGH UNITS: Extract the problem_statement from the corresponding section in the input data and include it verbatim in the target_resource_profile
-13. FOR LECTURE CONCEPTS: Each key_concept becomes its own learning_unit with all fields (tutor_guidance, target_resource_profile, search_queries, equations, data_gathering_resource if applicable)
-14. Include "data_gathering_resource" ONLY when the unit requires looking up external data (steam tables, Moody diagram, property tables, etc.). Set it to the resource name.
-15. **CRITICAL**: Complete all JSON brackets.
+13. FOR WALKTHROUGH UNITS: Extract the problem_statement from the corresponding section in the input data and include it verbatim in the target_resource_profile
+14. FOR LECTURE CONCEPTS: Each key_concept becomes its own learning_unit with all fields (tutor_guidance, target_resource_profile, search_queries, equations, data_gathering_resource if applicable)
+15. Include "data_gathering_resource" ONLY when the unit requires looking up external data (steam tables, Moody diagram, property tables, etc.). Set it to the resource name.
+16. **CRITICAL**: Complete all JSON brackets.
 
 INPUT DATA:
 ${JSON.stringify(input, null, 2)}
