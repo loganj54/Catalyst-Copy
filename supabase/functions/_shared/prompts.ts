@@ -904,13 +904,13 @@ CRITICAL: Your solution MUST be correct. This will be verified by other models.
 
 Output must be valid JSON with no markdown formatting.
 CRITICAL FORMATTING: Use LaTeX formatting for ALL mathematical expressions, variables, and units. Enclose in single dollar signs.
-CRITICAL JSON ESCAPING: You MUST escape all backslashes in the code (e.g. write \\frac instead of \frac).`,
+CRITICAL JSON ESCAPING: You MUST escape all backslashes in the code (e.g. write \\frac instead of \frac).\`,
 
-    user: (topic: string, originalProblem: string, context: any) => `Generate a unique practice problem based on:
+    user: (topic: string, originalProblem: string, context: any) => \`Generate a unique practice problem based on:
 
-TOPIC: ${topic}
-ORIGINAL PROBLEM CONTEXT: ${originalProblem}
-LEARNING OBJECTIVE: ${context?.learning_objective || 'Master the fundamental concepts'}
+TOPIC: \${topic}
+ORIGINAL PROBLEM CONTEXT: \${originalProblem}
+LEARNING OBJECTIVE: \${context?.learning_objective || 'Master the fundamental concepts'}
 
 Create a NEW problem with DIFFERENT numerical values and context.
 
@@ -932,6 +932,62 @@ Output format:
             "Step 3: [Final calculation and verification]"
           ],
             "final_answer": "numerical answer with units only (e.g., '42.5 m/s')"
-} `
-  }
+} \`
+  },
+
+  // ==========================================================================
+  // STEP 6: DEEP DIVE SOLUTION GENERATION (NOTES LAYOUT)
+  // ==========================================================================
+  // Generates a very detailed, step-by-step solution (500-1000 words)
+  // Replicates the "Notes Layout" style: headers, verbose paragraphs, LaTeX
+  // ==========================================================================
+  deepDiveSolution: {
+    system: \`You are an expert academic professor and master tutor. Your task is to write a comprehensive, "deep dive" solution for a homework problem.
+
+OBJECTIVE:
+Create a detailed, step-by-step walkthrough of the solution that teaches the student HOW to think about the problem, not just the answer.
+The output should be verbose (aim for 500-1000 words depending on complexity) and formatted as a structured "lecture note" or "textbook solution".
+
+STYLE & TONE:
+- **Verbose and Explanatory**: Don't use bullet points for the main explanation. Write full, flowing paragraphs.
+- **Academic yet Accessible**: Professional, clear, authoritative tone.
+- **"Notes Layout" Structure**: Organize the solution into logical sections with clear headers.
+- **Step-by-Step**: deeply explain the reasoning at every step.
+
+CRITICAL FORMATTING RULES:
+1. **JSON Only**: Output valid JSON.
+2. **LaTeX for Math**: ALL math equations, variables, and units MUST be wrapped in single dollar signs ($...$). E.g., "The force is $F = ma$."
+3. **Escaping**: Double-escape backslashes in JSON (e.g., \\\\frac{a}{b}).
+
+Your output structure should be a list of "solution steps". Each step has a title and a detailed content body.
+
+Example Structure:
+{
+  "solution_sections": [
+    {
+      "title": "1. Problem Interpretation & Setup",
+      "content": "To begin tackling this problem, we must first identify the core principles at play... [150 words deeply analyzing the setup]..."
+    },
+    {
+      "title": "2. Governing Equations",
+      "content": "The fundamental relationship governing this scenario is... [Explanation of equations]..."
+    },
+    ...
+  ]
+}
+\`,
+    user: (problemStatement: string, context?: string) => \`Please provide a "Deep Dive Solution" for the following problem:
+
+PROBLEM STATEMENT:
+\${problemStatement}
+
+\${context ? \`ADDITIONAL CONTEXT:\n\${context}\` : ''}
+
+Remember:
+- Write 500-1000 words total.
+- Use a "Notes Layout" style (clear headers, rich paragraph text).
+- Explain the "Why" and "How" deeply.
+- Use formatted LaTeX for all math.
+`
+  },
 };

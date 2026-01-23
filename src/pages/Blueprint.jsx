@@ -1348,6 +1348,8 @@ const Blueprint = () => {
   const [topicEquations, setTopicEquations] = useState({});
   const [topicFigures, setTopicFigures] = useState({});
   const [practiceProblems, setPracticeProblems] = useState({}); // { unitId: { problem, hints, answer } }
+  const [deepDiveSolutions, setDeepDiveSolutions] = useState({}); // { unitId: markdown string }
+  const [generatingDeepDive, setGeneratingDeepDive] = useState(new Set()); // Set of unitIds
 
   // Track resources that are currently being loaded to prevent overwrites
   const loadingResourcesRef = useRef(new Set());
@@ -1598,6 +1600,85 @@ const Blueprint = () => {
     }
   };
 
+  // Handle Deep Dive Solution Generation
+  const handleGenerateDeepDive = async (unit) => {
+    if (!session?.access_token) return;
+    const unitId = unit.unit_id;
+
+    setGeneratingDeepDive(prev => new Set([...prev, unitId]));
+
+    try {
+      console.log(`[Blueprint] Generating Deep Dive Solution for unit ${unitId}...`);
+
+      // Try to find the original problem statement
+      let problemStatement = unit.target_resource_profile || unit.description;
+
+      // If we can find the section in documentAnalysis, that's better
+      const sections = documentAnalysis?.raw_analysis?.sections || [];
+      const struct = learningStructure?.structure?.learning_structure || learningStructure?.structure;
+
+      if (struct) {
+        const currentSection = struct.content_sections?.find(s =>
+          s.learning_units?.some(u => u.unit_id === unitId || u.unit_id === unit.unit_id)
+        );
+
+        if (currentSection) {
+          // Try to find matching problem in analysis
+          // Check both direct ID and stripped ID (e.g. "Problem 1_walkthroughs" -> "Problem 1")
+          const analysisSection = sections.find(s =>
+            s.section_id === currentSection.section_id ||
+            s.section_id === currentSection.section_id.replace('_walkthroughs', '')
+          );
+
+          if (analysisSection && analysisSection.problem_statement) {
+            problemStatement = analysisSection.problem_statement;
+          }
+        }
+      }
+
+      if (!problemStatement) {
+        throw new Error("Could not identify problem statement for this unit.");
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/generate-blueprint-solution-with-notes-layout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          problemStatement: problemStatement,
+          context: `Topic: ${unit.topic}\nDescription: ${unit.description}\nUnit Type: ${unit.unit_type}`
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to generate solution');
+      }
+
+      // Save the solution markdown directly
+      setDeepDiveSolutions(prev => ({
+        ...prev,
+        [unitId]: data.solution
+      }));
+
+      // Optionally scroll or notify
+
+    } catch (error) {
+      console.error('[Blueprint] Error generating deep dive:', error);
+      alert(`Failed to generate deep dive solution: ${error.message}`);
+    } finally {
+      setGeneratingDeepDive(prev => {
+        const next = new Set(prev);
+        next.delete(unitId);
+        return next;
+      });
+    }
+  };
+
   // Debug State
   const [showDebug, setShowDebug] = useState(false);
   const [documentAnalysis, setDocumentAnalysis] = useState(null);
@@ -1606,6 +1687,8 @@ const Blueprint = () => {
   // Progress Panel State
   const [showProgressPanel, setShowProgressPanel] = useState(false);
   const [isGeneratingWithProgress, setIsGeneratingWithProgress] = useState(false);
+
+  console.log('[Blueprint] Render - generating:', generating, 'status:', generationStatus);
 
   // Chat State
   const { chatState, setChatOpen } = useUiState();
@@ -1631,9 +1714,9 @@ const Blueprint = () => {
       const { data: bp, error: bpError } = await supabase
         .from('blueprints')
         .select(`
-          *,
-          class:classes(id, name, professor)
-        `)
+        *,
+          class: classes(id, name, professor)
+            `)
         .eq('id', id)
         .eq('user_id', user.id)
         .single();
@@ -1712,7 +1795,7 @@ const Blueprint = () => {
       promises.push(
         supabase
           .from('blueprint_topic_resources')
-          .select(`*, resources_from_make (*)`)
+          .select(`*, resources_from_make(*)`)
           .eq('blueprint_id', id)
           .then(({ data }) => ({ type: 'resources', data }))
       );
@@ -1721,7 +1804,7 @@ const Blueprint = () => {
       promises.push(
         supabase
           .from('blueprint_unit_equations')
-          .select(`*, curated_equations (*)`)
+          .select(`*, curated_equations(*)`)
           .eq('blueprint_id', id)
           .order('display_index', { ascending: true })
           .then(({ data }) => ({ type: 'equations', data }))
@@ -1731,7 +1814,7 @@ const Blueprint = () => {
       promises.push(
         supabase
           .from('blueprint_unit_figures')
-          .select(`*, curated_figures (*)`)
+          .select(`*, curated_figures(*)`)
           .eq('blueprint_id', id)
           .order('display_index', { ascending: true })
           .then(({ data }) => ({ type: 'figures', data }))
@@ -1743,14 +1826,14 @@ const Blueprint = () => {
           .from('blueprint_practice_problems')
           .select(`
             unit_id,
-            cached_problem:practice_problems_cache(
-              problem_statement,
-              given_values,
-              hints,
-              solution_steps,
-              final_answer
-            )
-          `)
+          cached_problem: practice_problems_cache(
+            problem_statement,
+            given_values,
+            hints,
+            solution_steps,
+            final_answer
+          )
+            `)
           .eq('blueprint_id', id)
           .order('created_at', { ascending: true })
           .then(({ data }) => ({ type: 'practice_problems', data }))
@@ -1870,11 +1953,11 @@ const Blueprint = () => {
               const dateB = new Date(b.created_at || 0);
               return dateB - dateA;
             });
-            console.log(`[Blueprint] Unit ${unitId}: Loaded ${resources.length} resources (sorted by recency)`);
+            console.log(`[Blueprint] Unit ${unitId}: Loaded ${resources.length} resources(sorted by recency)`);
           }
         }
 
-        console.log(`[Blueprint] Loaded ${count} resources in parallel (showing most recent per unit)`);
+        console.log(`[Blueprint] Loaded ${count} resources in parallel(showing most recent per unit)`);
 
         // Intelligent Merge: Don't overwrite what might be loading
         setTopicResources(prev => {
@@ -1955,6 +2038,20 @@ const Blueprint = () => {
   useEffect(() => {
     if (user && id) fetchBlueprint();
   }, [user, id, fetchBlueprint]);
+
+  // SYNC GENERATED STRUCTURE TO DISPLAY STATE
+  useEffect(() => {
+    if (structureGenerationResult && structureGenerationResult.structure) {
+      console.log('[Blueprint] Syncing generated structure to display state');
+      setLearningStructure({ structure: structureGenerationResult.structure });
+
+      // Auto-switch to the first problem tab if nothing selected
+      if (!activeTab && structureGenerationResult.structure.content_sections?.length > 0) {
+        const firstSection = structureGenerationResult.structure.content_sections[0];
+        setActiveTab(firstSection.section_id);
+      }
+    }
+  }, [structureGenerationResult]);
 
   // Reset state when blueprint ID changes
   useEffect(() => {
@@ -2268,7 +2365,7 @@ const Blueprint = () => {
               // Ignore non-JSON response
             }
           } else {
-            console.error(`[Blueprint] Webhook failed for section "${payload.section_title}": ${response.status}`);
+            console.error(`[Blueprint] Webhook failed for section "${payload.section_title}": ${response.status} `);
           }
         } catch (err) {
           console.error('[Blueprint] Dev Mode: Webhook error', err);
@@ -2296,10 +2393,10 @@ const Blueprint = () => {
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/load-resources-database`, {
+      const response = await fetch(`${supabaseUrl} /functions/v1 / load - resources - database`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${session.access_token} `,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -2323,15 +2420,15 @@ const Blueprint = () => {
       const { total, successful, failed } = data.summary;
       alert(
         `✅ Resource loading complete!\n\n` +
-        `Total videos processed: ${total}\n` +
-        `Successfully loaded: ${successful}\n` +
-        `Failed: ${failed}\n\n` +
-        `Resources are now available in the database. Click "Search DB" to find them!`
+        `Total videos processed: ${total} \n` +
+        `Successfully loaded: ${successful} \n` +
+        `Failed: ${failed} \n\n` +
+        `Resources are now available in the database.Click "Search DB" to find them!`
       );
 
     } catch (error) {
       console.error('[Blueprint] Error loading resources to database:', error);
-      alert(`Failed to load resources to database: ${error.message}\n\nPlease try again or check the console for details.`);
+      alert(`Failed to load resources to database: ${error.message} \n\nPlease try again or check the console for details.`);
     } finally {
       setSearchingTopics(prev => {
         const next = new Set(prev);
@@ -2362,7 +2459,7 @@ const Blueprint = () => {
       );
 
       if (currentVideo?.link_id) {
-        console.log(`[Blueprint] Hiding current video (link_id: ${currentVideo.link_id}) before searching for alternatives`);
+        console.log(`[Blueprint] Hiding current video(link_id: ${currentVideo.link_id}) before searching for alternatives`);
         const { error: hideError } = await supabase
           .from('blueprint_topic_resources')
           .update({ is_hidden: true })
@@ -2382,7 +2479,7 @@ const Blueprint = () => {
         const targetResourceProfile = unit.target_resource_profile;
 
         // Debug: log what we're sending
-        console.log(`[Blueprint] Database search request:`, {
+        console.log(`[Blueprint] Database search request: `, {
           unit_id: unitId,
           topic: unit.topic,
           target_resource_profile: targetResourceProfile?.substring(0, 100) + '...',
@@ -2390,10 +2487,10 @@ const Blueprint = () => {
           blueprint_id: id
         });
 
-        const response = await fetch(`${supabaseUrl}/functions/v1/search-resources-database`, {
+        const response = await fetch(`${supabaseUrl} /functions/v1 / search - resources - database`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${session.access_token} `,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -2405,10 +2502,10 @@ const Blueprint = () => {
         });
 
         const data = await response.json();
-        console.log(`[Blueprint] Database search raw response:`, data);
-        console.log(`[Blueprint] Database search response status:`, response.status);
-        console.log(`[Blueprint] Database search success:`, data.success);
-        console.log(`[Blueprint] Database search resources count:`, data.resources?.length);
+        console.log(`[Blueprint] Database search raw response: `, data);
+        console.log(`[Blueprint] Database search response status: `, response.status);
+        console.log(`[Blueprint] Database search success: `, data.success);
+        console.log(`[Blueprint] Database search resources count: `, data.resources?.length);
 
         if (!data.success) throw new Error(data.error || 'Database search failed');
 
@@ -2422,10 +2519,10 @@ const Blueprint = () => {
           try {
             // Trigger explanation generation (non-blocking for UI, but updates in background)
             // We use a separate function call to keep the search fast
-            const explanationResponse = await fetch(`${supabaseUrl}/functions/v1/generate-resource-explanation`, {
+            const explanationResponse = await fetch(`${supabaseUrl} /functions/v1 / generate - resource - explanation`, {
               method: 'POST',
               headers: {
-                'Authorization': `Bearer ${session.access_token}`,
+                'Authorization': `Bearer ${session.access_token} `,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
@@ -2523,12 +2620,12 @@ const Blueprint = () => {
           // target_resource_embedding: REMOVED - now fetched from Pinecone by backend
         };
 
-        console.log(`[Blueprint] Fetching resources for unit ${unitId} (type: ${unit.unit_type}, method: ${searchMethod})...`);
+        console.log(`[Blueprint] Fetching resources for unit ${unitId}(type: ${unit.unit_type}, method: ${searchMethod})...`);
 
-        const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
+        const response = await fetch(`${supabaseUrl} /functions/v1 / ${endpoint} `, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${session.access_token} `,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(requestBody),
@@ -2584,9 +2681,9 @@ const Blueprint = () => {
           console.log(`[Blueprint] ✅ Updated topicResources for unit ${unitId} with ${uniqueResources.length} resources`);
           console.log(`[Blueprint] Resources have been saved to database and will persist across page refreshes`);
           uniqueResources.forEach((r, idx) => {
-            console.log(`  ${idx + 1}. ${r.title}`);
-            console.log(`     - Has explanation: ${!!r.resource_explanation}`);
-            console.log(`     - Has ID: ${!!r.id}`);
+            console.log(`  ${idx + 1}. ${r.title} `);
+            console.log(`     - Has explanation: ${!!r.resource_explanation} `);
+            console.log(`     - Has ID: ${!!r.id} `);
           });
           return updated;
         });
@@ -2658,10 +2755,10 @@ const Blueprint = () => {
 
         const targetResourceProfile = unit.target_resource_profile;
 
-        const response = await fetch(`${supabaseUrl}/functions/v1/search-resources-database`, {
+        const response = await fetch(`${supabaseUrl} /functions/v1 / search - resources - database`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${session.access_token} `,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -2699,24 +2796,24 @@ const Blueprint = () => {
         setDevModeProgress(prev => ({ ...prev, unitsSearched: searchedCount }));
 
       } catch (error) {
-        console.error(`[Blueprint] Dev Mode: Error searching for unit "${unit.topic}":`, error);
+        console.error(`[Blueprint] Dev Mode: Error searching for unit "${unit.topic}": `, error);
       }
     });
 
     // Wait for all searches to complete
     await Promise.all(searchPromises);
 
-    console.log(`[Blueprint] Dev Mode: Database search complete. Found resources for ${unitsWithResources.length} units.`);
+    console.log(`[Blueprint] Dev Mode: Database search complete.Found resources for ${unitsWithResources.length} units.`);
 
     // PHASE 2: Generate explanations for ALL units in ONE batched API call
     if (unitsWithResources.length > 0) {
       console.log(`[Blueprint] Dev Mode: Generating explanations for ${unitsWithResources.length} units in BATCH...`);
 
       try {
-        const batchResponse = await fetch(`${supabaseUrl}/functions/v1/batch-generate-explanations`, {
+        const batchResponse = await fetch(`${supabaseUrl} /functions/v1 / batch - generate - explanations`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${session.access_token} `,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -2803,7 +2900,7 @@ const Blueprint = () => {
 
       const response = await fetch(`${supabaseUrl}/functions/v1/analyze-document-legacy`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${session.access_token} `, 'Content-Type': 'application/json' },
         body: JSON.stringify({ blueprint_id: id }),
       });
       const data = await response.json();
@@ -2830,7 +2927,7 @@ const Blueprint = () => {
 
       const response = await fetch(`${supabaseUrl}/functions/v1/generate-structure-legacy`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${session.access_token} `, 'Content-Type': 'application/json' },
         body: JSON.stringify({ blueprint_id: id }),
       });
       const data = await response.json();
@@ -2848,7 +2945,11 @@ const Blueprint = () => {
 
   // Manual trigger: Analyze Document (Grok 4.1)
   const handleAnalyzeDocumentGrok = async () => {
-    if (!session?.access_token) return;
+    console.log('[Blueprint] Analyze button clicked');
+    if (!session?.access_token) {
+      console.log('[Blueprint] No access token');
+      return;
+    }
     setGenerating(true);
     setGenerationError(null);
     setGenerationStatus('analyzing');
@@ -2863,7 +2964,7 @@ const Blueprint = () => {
 
       const response = await fetch(`${supabaseUrl}/functions/v1/analyze-document-grok`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${session.access_token} `, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           blueprint_id: id,
           file_url: singleFileUrl // Explicitly pass the URL to prioritize it
@@ -2873,11 +2974,98 @@ const Blueprint = () => {
       if (!data.success) throw new Error(data.error);
       setDocumentAnalysis(data);
       setGenerationStatus('analyzed');
-      alert(`Analysis Complete (Grok 4.1)! Found ${data.analysis.sections.length} sections.`);
+      alert(`Analysis Complete(Grok 4.1)! Found ${data.analysis.sections.length} sections.`);
     } catch (error) {
       setGenerationError(error.message);
       setGenerationStatus('failed');
-      alert(`Analysis Failed: ${error.message}`);
+      alert(`Analysis Failed: ${error.message} `);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // Manual trigger: Deep Dive Guide (Analyze + Structure)
+  const handleGenerateDeepDiveGuide = async () => {
+    if (!session?.access_token) return;
+    setGenerating(true);
+    setGenerationError(null);
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+      // 1. Analyze Document (if not already done)
+      if (!documentAnalysis) {
+        setGenerationStatus('analyzing');
+        console.log('[Blueprint] Deep Dive: Starting Analysis...');
+
+        const singleFileUrl = blueprint.document?.file_url ||
+          blueprint.file_metadata?.url ||
+          blueprint.content?.fileUpload?.file_urls?.[0];
+
+        const analyzeResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-document-grok`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            blueprint_id: id,
+            file_url: singleFileUrl
+          }),
+        });
+
+        const analyzeData = await analyzeResponse.json();
+        if (!analyzeData.success) throw new Error(analyzeData.error || 'Analysis failed');
+
+        setDocumentAnalysis(analyzeData);
+        // We wait a bit to let the user see the progress
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      // 2. Generate Deep Dive Solution
+      setGenerationStatus('generating');
+      console.log('[Blueprint] Deep Dive: Generating Solution...');
+
+      // Extract problem statements from the analysis
+      const analysis = documentAnalysis?.raw_analysis || documentAnalysis?.analysis;
+      const sections = analysis?.sections || [];
+
+      // Build a combined problem statement from all problems in the document
+      const problemStatements = sections
+        .filter(s => s.problem_statement)
+        .map((s, i) => `**Problem ${i + 1}:** ${s.problem_statement}`)
+        .join('\n\n');
+
+      if (!problemStatements) {
+        throw new Error('No problems found in the document analysis');
+      }
+
+      // Call the simplified Deep Dive generator - ONE Claude call
+      const structureResponse = await fetch(`${supabaseUrl}/functions/v1/generate-blueprint-solution-with-notes-layout`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          problemStatement: problemStatements,
+          context: `Document: ${blueprint?.name || 'Homework'}\nSubject: ${analysis?.subject_area || 'Unknown'}`
+        }),
+      });
+
+      const structureData = await structureResponse.json();
+      if (!structureData.success) throw new Error(structureData.error || 'Solution generation failed');
+
+      console.log('[Blueprint] Deep Dive Solution generated successfully');
+
+      // Store the solution for the blueprint level (not per-unit)
+      setDeepDiveSolutions(prev => ({
+        ...prev,
+        ['__blueprint__']: structureData.solution
+      }));
+
+      setGenerationStatus('structure_complete');
+      alert('Deep Dive Guide Generated! Scroll down to see the solution walkthrough.');
+
+    } catch (error) {
+      console.error('[Blueprint] Deep Dive Error:', error);
+      setGenerationError(error.message);
+      setGenerationStatus('failed');
+      alert(`Deep Dive Generation Failed: ${error.message}`);
     } finally {
       setGenerating(false);
     }
@@ -2895,22 +3083,23 @@ const Blueprint = () => {
 
       const response = await fetch(`${supabaseUrl}/functions/v1/generate-structure-grok`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${session.access_token} `, 'Content-Type': 'application/json' },
         body: JSON.stringify({ blueprint_id: id }),
       });
       const data = await response.json();
       if (!data.success) throw new Error(data.error);
       setStructureGenerationResult(data);
       setGenerationStatus('structure_complete');
-      alert(`Structure Generated (Grok 4.1)! Created ${data.structure.content_sections.length} sections.`);
+      alert(`Structure Generated(Grok 4.1)! Created ${data.structure.content_sections.length} sections.`);
     } catch (error) {
       setGenerationError(error.message);
       setGenerationStatus('failed');
-      alert(`Structure Generation Failed: ${error.message}`);
+      alert(`Structure Generation Failed: ${error.message} `);
     } finally {
       setGenerating(false);
     }
   };
+
 
   const runAllSteps = async () => {
     if (!session?.access_token) return;
@@ -2924,7 +3113,7 @@ const Blueprint = () => {
       // Analyze
       let response = await fetch(`${supabaseUrl}/functions/v1/analyze-document`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${session.access_token} `, 'Content-Type': 'application/json' },
         body: JSON.stringify({ blueprint_id: id }),
       });
       let data = await response.json();
@@ -2935,7 +3124,7 @@ const Blueprint = () => {
       setGenerationStatus('generating');
       response = await fetch(`${supabaseUrl}/functions/v1/orchestrate-generate-structure`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${session.access_token} `, 'Content-Type': 'application/json' },
         body: JSON.stringify({ blueprint_id: id }),
       });
       data = await response.json();
@@ -2991,7 +3180,7 @@ const Blueprint = () => {
 
           // Provide helpful error message
           if (retryError.name === 'AbortError') {
-            throw new Error(`Request timed out after ${timeoutMs / 1000} seconds. Large PDFs may take several minutes to process. Please try again or contact support if the issue persists.`);
+            throw new Error(`Request timed out after ${timeoutMs / 1000} seconds.Large PDFs may take several minutes to process.Please try again or contact support if the issue persists.`);
           }
           throw retryError;
         }
@@ -2999,7 +3188,7 @@ const Blueprint = () => {
 
       // If it's an abort error, provide helpful message
       if (error.name === 'AbortError') {
-        throw new Error(`Request timed out after ${timeoutMs / 1000} seconds. Large PDFs may take several minutes to process. Please try again.`);
+        throw new Error(`Request timed out after ${timeoutMs / 1000} seconds.Large PDFs may take several minutes to process.Please try again.`);
       }
 
       throw error;
@@ -3800,6 +3989,22 @@ const Blueprint = () => {
                 </button>
               </div>
 
+              {/* Deep Dive Guide Button (Combined) */}
+              <div className="flex justify-center mt-4">
+                <button
+                  onClick={handleGenerateDeepDiveGuide}
+                  disabled={generating}
+                  className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none shadow-md flex items-center gap-3"
+                >
+                  {generating && (generationStatus === 'analyzing' || generationStatus === 'generating') ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <BookOpen className="w-5 h-5" />
+                  )}
+                  Generate Deep Dive Guide
+                </button>
+              </div>
+
               {/* Status Indicator if analysis exists but structure doesn't */}
               {documentAnalysis && (
                 <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-sm font-medium animate-fade-in">
@@ -3807,6 +4012,27 @@ const Blueprint = () => {
                   Document Analysis Complete
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Deep Dive Solution Display */}
+          {deepDiveSolutions['__blueprint__'] && (
+            <div className="w-full mt-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <div className="bg-white/50 dark:bg-stone-900/50 rounded-3xl p-8 md:p-12 shadow-sm">
+                <div className="space-y-6 mb-8">
+                  <h2 className="text-4xl md:text-5xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
+                    📚 Solution Walkthrough
+                  </h2>
+                  <p className="text-lg text-stone-500 dark:text-stone-400">
+                    Detailed step-by-step solution generated by AI
+                  </p>
+                </div>
+                <div className="prose prose-lg dark:prose-invert max-w-none text-stone-700 dark:text-stone-300">
+                  <div className="whitespace-pre-wrap">
+                    <LatexText text={deepDiveSolutions['__blueprint__']} />
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -4002,6 +4228,48 @@ const Blueprint = () => {
                                   Activate Webhook
                                 </button>
                               </div>
+                            </div>
+                          )}
+
+                          {/* Generated Deep Dive Solution */}
+                          {deepDiveSolutions[unit.unit_id] && (
+                            <div className="mt-8 bg-white dark:bg-stone-900 rounded-2xl p-6 border border-stone-200 dark:border-stone-800 shadow-sm animate-in fade-in slide-in-from-bottom-4">
+                              <div className="flex items-center gap-3 mb-6">
+                                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                                  <Sparkles className="w-4 h-4 text-blue-500" />
+                                </div>
+                                <h4 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+                                  Deep Dive Solution
+                                </h4>
+                              </div>
+                              <div className="space-y-8">
+                                {deepDiveSolutions[unit.unit_id].map((section, idx) => (
+                                  <div key={idx}>
+                                    <h5 className="text-md font-bold text-stone-800 dark:text-stone-200 mb-3">{section.title}</h5>
+                                    <div className="prose dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                                      <LatexText text={section.content} />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Generate Deep Dive Button (if not generated and is problem type) */}
+                          {unit.unit_type === 'problem' && !deepDiveSolutions[unit.unit_id] && !unit.deep_dive_explanation && (
+                            <div className="mt-8 flex justify-end">
+                              <button
+                                onClick={() => handleGenerateDeepDive(unit)}
+                                disabled={generatingDeepDive.has(unit.unit_id)}
+                                className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 flex items-center gap-2 transition-all disabled:opacity-50"
+                              >
+                                {generatingDeepDive.has(unit.unit_id) ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Sparkles className="w-4 h-4" />
+                                )}
+                                Generate Deep Dive Solution
+                              </button>
                             </div>
                           )}
 
