@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-    ChevronRight, FileText, Minimize2, Plus, ArrowLeft, Trash2, Clock, Folder, Library, Send, Loader2
+    ChevronRight, FileText, Minimize2, Plus, ArrowLeft, Trash2, Clock, Folder, Library, Send, Loader2, MessageSquare
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
