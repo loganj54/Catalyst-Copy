@@ -185,89 +185,8 @@ serve(async (req: Request) => {
 
     console.log(`[search-resources-database] Successfully retrieved ${resources.length} resources from database`);
 
-    // 6. Save resources to curated_resources and link to blueprint
-    if (resources.length > 0 && blueprint_id && unit_id) {
-      console.log(`[search-resources-database] Saving ${resources.length} resources to blueprint ${blueprint_id}...`);
-
-      const parseDuration = (input: any): number | null => {
-        if (typeof input === 'number') return input;
-        if (typeof input === 'string') {
-          // Try to parse "MM:SS" or "HH:MM:SS"
-          if (input.includes(':')) {
-            const parts = input.split(':').map(Number);
-            if (parts.length === 2) return parts[0] * 60 + parts[1];
-            if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-          }
-          // Try standard parse
-          const val = parseInt(input);
-          return isNaN(val) ? null : val;
-        }
-        return null;
-      };
-
-      for (let i = 0; i < resources.length; i++) {
-        const resource = resources[i];
-        const isFirstResource = i === 0;
-
-        try {
-          // Link directly to blueprint_topic_resources using resources_from_make.id
-          // Set is_hidden to false to unhide previously hidden resources
-          // CRITICAL: Set created_at for ALL resources to ensure proper ordering
-          // - First resource gets NOW (will be the "most recent")
-          // - Subsequent resources get progressively older timestamps to ensure ordering
-          const now = new Date();
-          const resourceTimestamp = new Date(now.getTime() - (i * 1000)); // Each subsequent resource is 1 second older
-
-          const linkData: Record<string, any> = {
-            blueprint_id,
-            unit_id,
-            resource_id: resource.id, // Use the ID from resources_from_make table
-            relevance_score: 0.95, // High confidence for DB matches
-            query_type: 'database',
-            from_cache: true,
-            resource_explanation: resource.summary, // Use summary as explanation
-            is_hidden: false, // Ensure the resource is visible (unhide if previously hidden)
-            created_at: resourceTimestamp.toISOString() // Set explicit timestamp for ordering
-          };
-
-          console.log(`[search-resources-database] Linking resource to blueprint:`, {
-            resource_id: resource.id,
-            unit_id,
-            has_explanation: !!resource.summary,
-            is_primary: isFirstResource,
-            created_at: linkData.created_at
-          });
-
-          const { error: linkError } = await supabase
-            .from('blueprint_topic_resources')
-            .upsert(linkData, {
-              onConflict: 'blueprint_id,unit_id,resource_id'
-            });
-
-          if (linkError) {
-            console.error(`[search-resources-database] ❌ Error linking resource: ${linkError.message}`);
-          } else {
-            console.log(`[search-resources-database] ✅ Successfully linked resource ${resource.id} to blueprint${isFirstResource ? ' (PRIMARY - most recent)' : ''}`);
-          }
-        } catch (err) {
-          console.error(`[search-resources-database] Error processing resource ${resource.id}:`, err);
-        }
-      }
-
-      // Update topic response to mark as searched
-      if (userId) {
-        await supabase
-          .from('topic_responses')
-          .upsert({
-            blueprint_id,
-            unit_id,
-            user_id: userId,
-            response: 'needs_help',
-            searched_at: new Date().toISOString(),
-          }, { onConflict: 'blueprint_id,unit_id' }); // user_id might be part of constraint too, but usually blueprint_id+unit_id implies user context if unique
-      }
-
-    }
+    // NOTE: Resource saving moved to AFTER sorting (see below)
+    // This ensures timestamps match the display order (sorted by rating)
 
     // 7. Format results and sort by average rating (highest first)
     const formattedResources = validMatches
@@ -315,6 +234,69 @@ serve(async (req: Request) => {
       .slice(0, 3);
 
     console.log(`[search-resources-database] Returning ${formattedResources.length} resources`);
+
+    // 7. Save resources to blueprint AFTER sorting
+    // This ensures timestamps match the display order (first resource = most recent)
+    if (formattedResources.length > 0 && blueprint_id && unit_id) {
+      console.log(`[search-resources-database] Saving ${formattedResources.length} resources to blueprint in display order...`);
+
+      for (let i = 0; i < formattedResources.length; i++) {
+        const resource = formattedResources[i];
+
+        try {
+          // Stagger timestamps: first resource = NOW, subsequent = progressively older
+          // This ensures database order matches display order on page refresh
+          const now = new Date();
+          const resourceTimestamp = new Date(now.getTime() - (i * 1000));
+
+          const linkData: Record<string, any> = {
+            blueprint_id,
+            unit_id,
+            resource_id: resource.id,
+            relevance_score: resource.relevance_score,
+            query_type: 'database',
+            from_cache: true,
+            resource_explanation: resource.resource_explanation,
+            is_hidden: false,
+            created_at: resourceTimestamp.toISOString()
+          };
+
+          console.log(`[search-resources-database] Linking resource ${i + 1}/${formattedResources.length}:`, {
+            resource_id: resource.id,
+            title: resource.title?.substring(0, 40),
+            created_at: linkData.created_at,
+            is_primary: i === 0
+          });
+
+          // Use ignoreDuplicates to skip existing resources (preserves user selections)
+          const { error: linkError } = await supabase
+            .from('blueprint_topic_resources')
+            .upsert(linkData, {
+              onConflict: 'blueprint_id,unit_id,resource_id',
+              ignoreDuplicates: true
+            });
+
+          if (linkError) {
+            console.error(`[search-resources-database] ❌ Error linking: ${linkError.message}`);
+          }
+        } catch (err) {
+          console.error(`[search-resources-database] Error:`, err);
+        }
+      }
+
+      // Update topic response
+      if (userId) {
+        await supabase
+          .from('topic_responses')
+          .upsert({
+            blueprint_id,
+            unit_id,
+            user_id: userId,
+            response: 'needs_help',
+            searched_at: new Date().toISOString(),
+          }, { onConflict: 'blueprint_id,unit_id' });
+      }
+    }
 
     return new Response(
       JSON.stringify({
