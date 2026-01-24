@@ -3914,7 +3914,7 @@ const Blueprint = () => {
           </div>
         </div>
 
-        <div className="pb-24 px-8 w-full max-w-5xl mx-auto space-y-12">
+        <div id="blueprint-content-column" className="pb-24 px-8 w-full max-w-5xl mx-auto space-y-12">
 
           {/* Blueprint Title (Once per page, centered at top of content flow) */}
           <div className="text-center space-y-4 pt-8 pb-12">

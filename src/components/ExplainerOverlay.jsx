@@ -13,11 +13,14 @@ import { X, Sparkles } from 'lucide-react';
 const ExplainerOverlay = () => {
     const { explainer, setExplainer } = useUiState();
     const [linePath, setLinePath] = useState('');
-    const [bubblePosition, setBubblePosition] = useState({ top: 0, right: 20 });
+    const [bubblePosition, setBubblePosition] = useState({ top: 0, left: 0 }); // Changed to use left positioning
     const [isVisible, setIsVisible] = useState(false);
 
     // Ref to the overlay container
     const containerRef = useRef(null);
+
+    // Ref to store the initial calculated gap so it stays fixed during resize
+    const fixedOffsetRef = useRef(null);
 
     // Config
     const BUBBLE_WIDTH = 350;
@@ -27,6 +30,7 @@ const ExplainerOverlay = () => {
         if (!explainer.isOpen) {
             setIsVisible(false);
             setLinePath('');
+            fixedOffsetRef.current = null; // Reset the fixed offset when closed
             return;
         }
 
@@ -55,16 +59,6 @@ const ExplainerOverlay = () => {
 
                 // Live Element: Use current viewport rects
                 startX = rect.left - parentRect.left + (rect.width / 2);
-                // Note: We use rect.bottom for startY. 
-                // But wait, if we are scrolling, AND this is absolute, we need (rect.bottom + window.scrollY) - (parentRect.top + window.scrollY).
-                // Actually, parentRect.top (viewport) and rect.bottom (viewport) work if we do:
-                // startY = rect.bottom - parentRect.top
-                // BUT this is only correct if the overlay is "fixed" or if we are calculating ONCE.
-                // We ARE calculating once (and on resize).
-                // If the user scrolls, parentRect.top changes AND rect.bottom changes by the same amount.
-                // So (rect.bottom - parentRect.top) remains CONSTANT relative to the parent container.
-                // This is correct for "Static Absolute".
-                startX = rect.left - parentRect.left + (rect.width / 2);
                 startY = rect.bottom - parentRect.top - 2;
             }
             else if (explainer.anchorRect) {
@@ -85,10 +79,66 @@ const ExplainerOverlay = () => {
 
             // Bubble Configuration
             const bubbleTop = startY - 60;
-            const endX = parentRect.width - (BUBBLE_WIDTH + RIGHT_MARGIN);
+
+            // --- NEW POSITIONING LOGIC ---
+            // Find the main text column to anchor against.
+            // We now have a guaranteed ID: #blueprint-content-column
+            const textColumn = document.getElementById('blueprint-content-column');
+
+            console.log('[ExplainerOverlay] Debug:', {
+                liveElement,
+                textColumnFound: !!textColumn,
+                windowWidth: window.innerWidth,
+                fixedOffset: fixedOffsetRef.current
+            });
+
+            let bubbleLeftPos = 0;
+
+            if (textColumn) {
+                const colRect = textColumn.getBoundingClientRect();
+                const rightEdge = colRect.right;
+                const windowRight = window.innerWidth;
+                const availableSpace = windowRight - rightEdge;
+
+                console.log('[ExplainerOverlay] Column metrics:', {
+                    colRight: rightEdge,
+                    parentLeft: parentRect.left,
+                    availableSpace,
+                    bubbleWidth: BUBBLE_WIDTH
+                });
+
+                // Calculate the fixed offset (GAP) if we haven't yet
+                if (fixedOffsetRef.current === null) {
+
+                    // Center the bubble in the available space
+                    // Gap = distance from Text Column Right to Bubble Left
+                    let gap = (availableSpace - BUBBLE_WIDTH) / 2;
+
+                    console.log('[ExplainerOverlay] Initial Gap Calc (pre-clamp):', gap);
+
+                    // Simple constraint: don't let it overlap the column (min gap 20px)
+                    if (gap < 20) gap = 20;
+
+                    console.log('[ExplainerOverlay] Final Gap:', gap);
+                    fixedOffsetRef.current = gap;
+                }
+
+                // bubbleLeft relative to parent = (colRect.right - parentRect.left) + fixedOffsetRef.current
+                bubbleLeftPos = (colRect.right - parentRect.left) + fixedOffsetRef.current;
+
+            } else {
+                console.warn('[ExplainerOverlay] #blueprint-content-column not found! Using fallback.');
+                // Fallback to original right-anchored logic if no text column found
+                const rightMargin = RIGHT_MARGIN;
+                bubbleLeftPos = parentRect.width - (BUBBLE_WIDTH + rightMargin);
+            }
+
+            const endX = bubbleLeftPos;
             const endY = bubbleTop + 40;
 
-            setBubblePosition({ top: bubbleTop, right: RIGHT_MARGIN });
+            setBubblePosition({ top: bubbleTop, left: bubbleLeftPos });
+
+            console.log('[ExplainerOverlay] Position Set:', { left: bubbleLeftPos, top: bubbleTop });
 
             // Generate Path
             const DROP_HEIGHT = 2;
@@ -184,7 +234,7 @@ const ExplainerOverlay = () => {
                 `}
                 style={{
                     top: bubblePosition.top,
-                    right: bubblePosition.right,
+                    left: bubblePosition.left,
                     width: BUBBLE_WIDTH
                 }}
             >
