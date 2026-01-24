@@ -20,9 +20,19 @@ export const UiStateProvider = ({ children }) => {
         setChatState(prev => ({ ...prev, isOpen }));
     };
 
+    const [explainer, setExplainer] = useState({
+        isOpen: false,
+        term: null,
+        anchorRect: null,
+        anchorElement: null, // Add anchorElement to track position on scroll
+        id: null
+    });
+
     const value = {
         chatState,
-        setChatOpen
+        setChatOpen,
+        explainer,
+        setExplainer
     };
 
     return (

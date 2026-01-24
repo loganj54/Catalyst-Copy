@@ -23,6 +23,7 @@ import ChatDrawer from '../components/ChatDrawer';
 import RelatedMaterialModule from '../components/RelatedMaterialModule';
 import TopicCard from '../components/TopicCard';
 import LatexText from '../components/LatexText';
+import ExplainerOverlay from '../components/ExplainerOverlay';
 
 // Generation status display configuration
 const STATUS_CONFIG = {
@@ -4609,6 +4610,7 @@ const Blueprint = () => {
           </div>
         </div>
       )}
+      <ExplainerOverlay />
     </div >
   );
 };
