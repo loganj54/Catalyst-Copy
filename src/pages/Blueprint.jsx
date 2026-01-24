@@ -3006,7 +3006,7 @@ const Blueprint = () => {
     }
   };
 
-  // Manual trigger: Deep Dive Guide (Analyze + Structure)
+  // Manual trigger: Deep Dive Guide (Analyze + Structure with Solution Walkthroughs)
   const handleGenerateDeepDiveGuide = async () => {
     if (!session?.access_token) return;
     setGenerating(true);
@@ -3024,66 +3024,61 @@ const Blueprint = () => {
           blueprint.file_metadata?.url ||
           blueprint.content?.fileUpload?.file_urls?.[0];
 
-        const analyzeResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-document-grok`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            blueprint_id: id,
-            file_url: singleFileUrl
-          }),
-        });
+        const analyzeResponse = await fetchWithTimeout(
+          `${supabaseUrl}/functions/v1/analyze-document-grok`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              blueprint_id: id,
+              file_url: singleFileUrl
+            }),
+          },
+          480000, // 8 minutes
+          true
+        );
 
         const analyzeData = await analyzeResponse.json();
         if (!analyzeData.success) throw new Error(analyzeData.error || 'Analysis failed');
 
         setDocumentAnalysis(analyzeData);
+        console.log('[Blueprint] Deep Dive: Analysis complete');
         // We wait a bit to let the user see the progress
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      // 2. Generate Deep Dive Solution
+      // 2. Generate Structure WITH Solution Walkthroughs
       setGenerationStatus('generating');
-      console.log('[Blueprint] Deep Dive: Generating Solution...');
+      console.log('[Blueprint] Deep Dive: Generating structure with solution walkthroughs (may take several minutes)...');
 
-      // Extract problem statements from the analysis
-      const analysis = documentAnalysis?.raw_analysis || documentAnalysis?.analysis;
-      const sections = analysis?.sections || [];
-
-      // Build a combined problem statement from all problems in the document
-      const problemStatements = sections
-        .filter(s => s.problem_statement)
-        .map((s, i) => `**Problem ${i + 1}:** ${s.problem_statement}`)
-        .join('\n\n');
-
-      if (!problemStatements) {
-        throw new Error('No problems found in the document analysis');
-      }
-
-      // Call the simplified Deep Dive generator - ONE Claude call
-      const structureResponse = await fetch(`${supabaseUrl}/functions/v1/generate-blueprint-solution-with-notes-layout`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          problemStatement: problemStatements,
-          context: `Document: ${blueprint?.name || 'Homework'}\nSubject: ${analysis?.subject_area || 'Unknown'}`,
-          blueprint_id: id,
-          unit_id: '__blueprint__' // Special ID for blueprint-level solutions
-        }),
-      });
+      // Call the new function - works like generate-structure-legacy but includes walkthroughs
+      const structureResponse = await fetchWithTimeout(
+        `${supabaseUrl}/functions/v1/generate-blueprint-solution-with-notes-layout`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            blueprint_id: id  // Just like generate-structure-legacy
+          }),
+        },
+        600000, // 10 minutes - generating walkthroughs takes time
+        true
+      );
 
       const structureData = await structureResponse.json();
-      if (!structureData.success) throw new Error(structureData.error || 'Solution generation failed');
+      if (!structureData.success) throw new Error(structureData.error || 'Structure generation with walkthroughs failed');
 
-      console.log('[Blueprint] Deep Dive Solution generated successfully');
+      console.log('[Blueprint] Deep Dive: Structure with walkthroughs generated successfully');
+      console.log(`[Blueprint] Generated ${structureData.metrics?.total_solution_walkthroughs || 0} solution walkthroughs`);
 
-      // Store the solution for the blueprint level (not per-unit)
-      setDeepDiveSolutions(prev => ({
-        ...prev,
-        ['__blueprint__']: structureData.solution
-      }));
-
+      // Store the structure result
+      setStructureGenerationResult(structureData);
       setGenerationStatus('structure_complete');
-      alert('Deep Dive Guide Generated! Scroll down to see the solution walkthrough.');
+
+      // Refresh blueprint to load the new structure
+      await fetchBlueprint();
+
+      alert(`Deep Dive Guide Generated! Created ${structureData.metrics?.total_solution_walkthroughs || 0} detailed solution walkthroughs. Refresh the page to see them.`);
 
     } catch (error) {
       console.error('[Blueprint] Deep Dive Error:', error);
@@ -4107,28 +4102,85 @@ const Blueprint = () => {
                               {unit.topic}
                             </h3>
 
-                            <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none space-y-6">
-                              {/* Render Tutor Guidance if available */}
-                              {unit.tutor_guidance && (
-                                <div className="mb-4 whitespace-pre-wrap">
-                                  <LatexText text={unit.tutor_guidance} />
-                                </div>
-                              )}
 
-                              {/* Render Concept Summary */}
-                              {unit.concept_summary && (
-                                <div className="whitespace-pre-wrap">
-                                  <LatexText text={unit.concept_summary} />
-                                </div>
-                              )}
+                          </div>
 
-                              {/* Fallback to description if no specific fields */}
-                              {!unit.tutor_guidance && !unit.concept_summary && unit.description && (
-                                <div className="whitespace-pre-wrap">
-                                  <LatexText text={unit.description} />
-                                </div>
-                              )}
+                          {/* Solution Walkthrough - MOVED TO TOP */}
+                          {unit.solutionWalkthrough && (
+                            <div className="mt-12 mb-16">
+                              <div className="mb-8">
+                                <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 flex items-center gap-4">
+                                  <BookOpen className="w-8 h-8 md:w-10 md:h-10 text-stone-400 stroke-[1.5]" />
+                                  Complete Solution Walkthrough
+                                </h3>
+                              </div>
+
+                              <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                                <ReactMarkdown
+                                  components={{
+                                    // Custom renderer for paragraphs to handle LaTeX
+                                    p: ({ node, children }) => (
+                                      <p className="mb-6 text-stone-600 dark:text-stone-400 text-lg leading-relaxed">
+                                        <LatexText text={String(children)} />
+                                      </p>
+                                    ),
+                                    // Custom renderer for list items
+                                    li: ({ node, children }) => (
+                                      <li className="text-stone-600 dark:text-stone-400 text-lg leading-relaxed mb-2">
+                                        <LatexText text={String(children)} />
+                                      </li>
+                                    ),
+                                    // Headers matched to Blueprint design (font-light, tracking-tight)
+                                    h1: ({ node, children }) => (
+                                      <h1 className="text-4xl font-light tracking-tight text-stone-900 dark:text-stone-100 mt-12 mb-6 border-b border-stone-200 dark:border-stone-800 pb-4">
+                                        {children}
+                                      </h1>
+                                    ),
+                                    h2: ({ node, children }) => (
+                                      <h2 className="text-3xl font-light tracking-tight text-stone-900 dark:text-stone-100 mt-12 mb-6">
+                                        {children}
+                                      </h2>
+                                    ),
+                                    h3: ({ node, children }) => (
+                                      <h3 className="text-2xl font-medium tracking-tight text-stone-900 dark:text-stone-100 mt-8 mb-4">
+                                        {children}
+                                      </h3>
+                                    ),
+                                    h4: ({ node, children }) => (
+                                      <h4 className="text-xl font-bold text-stone-900 dark:text-stone-100 mt-6 mb-3">
+                                        {children}
+                                      </h4>
+                                    ),
+                                  }}
+                                >
+                                  {unit.solutionWalkthrough}
+                                </ReactMarkdown>
+                              </div>
                             </div>
+                          )}
+
+                          {/* Tutor Guidance / Intro Text - SECOND */}
+                          <div className="mb-12 prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none space-y-6">
+                            {/* Render Tutor Guidance if available */}
+                            {unit.tutor_guidance && (
+                              <div className="mb-4 whitespace-pre-wrap">
+                                <LatexText text={unit.tutor_guidance} />
+                              </div>
+                            )}
+
+                            {/* Render Concept Summary */}
+                            {unit.concept_summary && (
+                              <div className="whitespace-pre-wrap">
+                                <LatexText text={unit.concept_summary} />
+                              </div>
+                            )}
+
+                            {/* Fallback to description if no specific fields */}
+                            {!unit.tutor_guidance && !unit.concept_summary && unit.description && (
+                              <div className="whitespace-pre-wrap">
+                                <LatexText text={unit.description} />
+                              </div>
+                            )}
                           </div>
 
                           {/* Video Module - Horizontal Layout */}
@@ -4334,6 +4386,8 @@ const Blueprint = () => {
                               </div>
                             </div>
                           )}
+
+
 
                           {/* Equations Module */}
                           {unitEquations.length > 0 && (
