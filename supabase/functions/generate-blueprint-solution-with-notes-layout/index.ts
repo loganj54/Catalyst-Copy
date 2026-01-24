@@ -130,6 +130,29 @@ Each solutionWalkthrough should include:
 - Use **bold** for key concepts
 - Write like a professor's detailed solution guide
 
+**CLICKABLE TERMS - CRITICAL:**
+Wrap important concepts, procedural steps, and KEY EQUATIONS in DOUBLE BRACKETS like [[term]].
+
+**INTENSITY: AGGRESSIVE / HIGH DENSITY**
+We want to flag MANY concepts. If it sounds like an engineering term, physics phenomenon, or technical concept, WRAP IT.
+Target **15-20+ terms per section**. Do not be shy.
+
+**What to wrap (Clickable):**
+1. **Engineering Concepts**: [[forced convection]], [[temperature gradient]], [[heat transfer]], [[boundary layer]], [[thermal equilibrium]]
+2. **Physical Phenomena**: [[radiation]], [[evaporation]], [[condensation]], [[laminar flow]], [[turbulent mixing]]
+3. **Properties & Variables**: [[Nusselt number]], [[film temperature]], [[emissivity]], [[Reynolds number]], [[thermal conductivity]]
+4. **Procedural Steps**: [[evaluate air properties]], [[determine flow regime]], [[calculate view factor]]
+5. **Fundamental Equations**: Wrap the ENTIRE LaTeX equation. [[$Nu = 0.023 Re^{0.8} Pr^{n}$]]
+
+**What NOT to wrap (Not Clickable):**
+1. **Simple Values/Assignments**: "Given that $T = 300K$" (Just a value)
+2. **Generic words**: "The problem asks...", "We calculate..."
+
+**Rules:**
+- **LOWER THE THRESHOLD**: If in doubt, WRAP IT.
+- **REPEAT OFFENDERS**: Mark EVERY instance of a key term. If "forced convection" appears 5 times, wrap it ALL 5 times.
+- Mark phrases, not just single words: [[combined convection, radiation, and evaporation]] is excellent.
+
 **STANDARD STRUCTURE GENERATION RULES:**
 (All the same rules as generate-structure-legacy apply)
 1. Generate EXACTLY 3 search queries for EACH topic/concept
