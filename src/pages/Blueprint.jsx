@@ -4118,18 +4118,44 @@ const Blueprint = () => {
                               <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
                                 <ReactMarkdown
                                   components={{
+                                    // Helper function to extract text from children
                                     // Custom renderer for paragraphs to handle LaTeX
-                                    p: ({ node, children }) => (
-                                      <p className="mb-6 text-stone-600 dark:text-stone-400 text-lg leading-relaxed">
-                                        <LatexText text={String(children)} />
-                                      </p>
-                                    ),
+                                    p: ({ node, children }) => {
+                                      // Extract text content from children (handles nested objects)
+                                      const extractText = (child) => {
+                                        if (typeof child === 'string') return child;
+                                        if (Array.isArray(child)) return child.map(extractText).join('');
+                                        if (child?.props?.children) return extractText(child.props.children);
+                                        return '';
+                                      };
+                                      const textContent = Array.isArray(children)
+                                        ? children.map(extractText).join('')
+                                        : extractText(children);
+
+                                      return (
+                                        <p className="mb-6 text-stone-600 dark:text-stone-400 text-lg leading-relaxed">
+                                          <LatexText text={textContent} />
+                                        </p>
+                                      );
+                                    },
                                     // Custom renderer for list items
-                                    li: ({ node, children }) => (
-                                      <li className="text-stone-600 dark:text-stone-400 text-lg leading-relaxed mb-2">
-                                        <LatexText text={String(children)} />
-                                      </li>
-                                    ),
+                                    li: ({ node, children }) => {
+                                      const extractText = (child) => {
+                                        if (typeof child === 'string') return child;
+                                        if (Array.isArray(child)) return child.map(extractText).join('');
+                                        if (child?.props?.children) return extractText(child.props.children);
+                                        return '';
+                                      };
+                                      const textContent = Array.isArray(children)
+                                        ? children.map(extractText).join('')
+                                        : extractText(children);
+
+                                      return (
+                                        <li className="text-stone-600 dark:text-stone-400 text-lg leading-relaxed mb-2">
+                                          <LatexText text={textContent} />
+                                        </li>
+                                      );
+                                    },
                                     // Headers matched to Blueprint design (font-light, tracking-tight)
                                     h1: ({ node, children }) => (
                                       <h1 className="text-4xl font-light tracking-tight text-stone-900 dark:text-stone-100 mt-12 mb-6 border-b border-stone-200 dark:border-stone-800 pb-4">
