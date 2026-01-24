@@ -5,11 +5,12 @@
 // detailed step-by-step solution walkthrough.
 //
 // ONE CALL TO CLAUDE. THAT'S IT.
+// Now with database persistence!
 // ============================================================================
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
-import { callClaude } from '../_shared/supabase-client.ts';
+import { callClaude, createSupabaseClientWithAuth } from '../_shared/supabase-client.ts';
 
 const SOLUTION_PROMPT = `You are an expert tutor who creates detailed, step-by-step solution walkthroughs for homework problems.
 
@@ -39,14 +40,20 @@ serve(async (req) => {
   }
 
   try {
-    const { problemStatement, context } = await req.json();
+    const { problemStatement, context, blueprint_id, unit_id } = await req.json();
 
     if (!problemStatement) {
       throw new Error('Missing problemStatement');
     }
 
+    if (!blueprint_id || !unit_id) {
+      throw new Error('Missing blueprint_id or unit_id for persistence');
+    }
+
     console.log('[Deep Dive] Generating solution for problem...');
     console.log('[Deep Dive] Problem length:', problemStatement.length);
+    console.log('[Deep Dive] Blueprint ID:', blueprint_id);
+    console.log('[Deep Dive] Unit ID:', unit_id);
 
     // Build the user message
     const userMessage = `Please provide a detailed step-by-step solution for the following problem:
@@ -68,11 +75,40 @@ Generate a complete, detailed walkthrough solution.`;
     console.log('[Deep Dive] Response length:', response.content.length);
     console.log('[Deep Dive] Tokens used:', response.usage);
 
+    // Save to database
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Missing authorization header');
+    }
+
+    const supabase = createSupabaseClientWithAuth(authHeader);
+
+    const { data: savedSolution, error: dbError } = await supabase
+      .from('blueprint_deep_dive_solutions')
+      .upsert({
+        blueprint_id,
+        unit_id,
+        solution_markdown: response.content,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'blueprint_id,unit_id'
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('[Deep Dive] Database error:', dbError);
+      throw new Error(`Failed to save solution: ${dbError.message}`);
+    }
+
+    console.log('[Deep Dive] Solution saved to database');
+
     // Return the solution directly
     return new Response(JSON.stringify({
       success: true,
       solution: response.content,
-      usage: response.usage
+      usage: response.usage,
+      saved_id: savedSolution.id
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

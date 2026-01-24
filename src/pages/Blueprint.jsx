@@ -1649,7 +1649,9 @@ const Blueprint = () => {
         },
         body: JSON.stringify({
           problemStatement: problemStatement,
-          context: `Topic: ${unit.topic}\nDescription: ${unit.description}\nUnit Type: ${unit.unit_type}`
+          context: `Topic: ${unit.topic}\nDescription: ${unit.description}\nUnit Type: ${unit.unit_type}`,
+          blueprint_id: id,
+          unit_id: unitId
         }),
       });
 
@@ -1839,6 +1841,15 @@ const Blueprint = () => {
           .then(({ data }) => ({ type: 'practice_problems', data }))
       );
 
+      // I. Deep Dive Solutions
+      promises.push(
+        supabase
+          .from('blueprint_deep_dive_solutions')
+          .select('unit_id, solution_markdown')
+          .eq('blueprint_id', id)
+          .then(({ data }) => ({ type: 'deep_dive_solutions', data }))
+      );
+
       // 3. Execute Parallel Fetches
       const results = await Promise.all(promises);
 
@@ -2025,6 +2036,17 @@ const Blueprint = () => {
         });
         console.log(`[Blueprint] Loaded ${count} practice problems from cache`);
         setPracticeProblems(problemsMap);
+      }
+
+      // Process Deep Dive Solutions
+      const deepDiveData = getResult('deep_dive_solutions');
+      if (deepDiveData && deepDiveData.length > 0) {
+        const solutionsMap = {};
+        deepDiveData.forEach(s => {
+          solutionsMap[s.unit_id] = s.solution_markdown;
+        });
+        console.log(`[Blueprint] Loaded ${deepDiveData.length} deep dive solutions from database`);
+        setDeepDiveSolutions(solutionsMap);
       }
 
     } catch (error) {
@@ -3043,7 +3065,9 @@ const Blueprint = () => {
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           problemStatement: problemStatements,
-          context: `Document: ${blueprint?.name || 'Homework'}\nSubject: ${analysis?.subject_area || 'Unknown'}`
+          context: `Document: ${blueprint?.name || 'Homework'}\nSubject: ${analysis?.subject_area || 'Unknown'}`,
+          blueprint_id: id,
+          unit_id: '__blueprint__' // Special ID for blueprint-level solutions
         }),
       });
 
@@ -4270,6 +4294,25 @@ const Blueprint = () => {
                                 )}
                                 Generate Deep Dive Solution
                               </button>
+                            </div>
+                          )}
+
+                          {/* Deep Dive Solution - Generated and Persisted */}
+                          {deepDiveSolutions[unit.unit_id] && (
+                            <div className="mt-8 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 rounded-2xl p-6 md:p-8 border border-blue-200/60 dark:border-blue-700/60">
+                              <div className="flex items-center gap-3 mb-4">
+                                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                                  <BookOpen className="w-4 h-4 text-blue-500" />
+                                </div>
+                                <h4 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+                                  📚 Deep Dive Solution
+                                </h4>
+                              </div>
+                              <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                                <ReactMarkdown>
+                                  {deepDiveSolutions[unit.unit_id]}
+                                </ReactMarkdown>
+                              </div>
                             </div>
                           )}
 
