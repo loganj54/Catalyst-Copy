@@ -308,7 +308,7 @@ const ResourceTable = ({ resources, session }) => {
 // ============================================================================
 // STEP BY STEP SOLUTION CARD COMPONENT
 // ============================================================================
-const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer, isFocusView = false }) => {
+const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer, isFocusView = false, title }) => {
   const [isExpanded, setIsExpanded] = useState(isFocusView); // Default expanded if focus view
 
   if (!solutionApproach) return null;
@@ -355,14 +355,14 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer,
                         <span className="font-medium text-stone-400 shrink-0 mt-0.5">{i + 1}.</span>
                         <div className="flex-1">
                           <p className="text-stone-700 dark:text-stone-200 leading-relaxed">
-                            <LatexText text={step} />
+                            <LatexText text={step} context={title} />
                           </p>
                         </div>
                       </div>
                     ))
                   ) : (
                     <div className="whitespace-pre-wrap text-stone-700 dark:text-stone-200 leading-relaxed">
-                      <LatexText text={solutionApproach} />
+                      <LatexText text={solutionApproach} context={title} />
                     </div>
                   )}
 
@@ -372,7 +372,7 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer,
                       <div className="bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border border-stone-200 dark:border-stone-700">
                         <span className="text-stone-500 uppercase text-xs font-medium tracking-wider block mb-2">Final Answer</span>
                         <div className="text-lg font-medium text-stone-900 dark:text-stone-50">
-                          <LatexText text={finalAnswer} />
+                          <LatexText text={finalAnswer} context={title} />
                         </div>
                       </div>
                     </div>
@@ -420,6 +420,7 @@ const TopicListItem = ({
   blueprintId,
   classId, // Add classId prop
   currentDocumentId, // Add currentDocumentId prop
+  sectionTitle, // Passed from parent (ContentSection loop)
   topicResponse,
   topicResources,
   topicEquations,
@@ -639,6 +640,10 @@ const TopicListItem = ({
   const isComfortable = topicResponse?.response === 'comfortable';
   const isWalkthrough = unit.unit_type === 'walkthrough' || unit.unit_type === 'problem';
 
+  // Use sectionTitle (e.g. "Forced Convection from a Cooling Orange") if available and this is a walkthrough/problem
+  // Otherwise default to unit.topic
+  const finalContext = (isWalkthrough && sectionTitle) ? sectionTitle : unit.topic;
+
   // Use equations from database if available, fallback to structure data
   // Prioritize sectionEquations as requested ("pull all equations from the whole section")
   // Determine content source based on unit type
@@ -784,7 +789,18 @@ const TopicListItem = ({
                     solutionApproach={unit.solutionData?.approach}
                     commonMistakes={unit.solutionData?.mistakes}
                     isFocusView={true}
+                    title={finalContext}
                   />
+
+                  {equations && equations.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-3">
+                      <EquationDisplay equations={equations} context={finalContext} />
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-stone-800/50">
+                      <span className="text-xs text-stone-400">No equations detected</span>
+                    </div>
+                  )}
                 </div>
               ) : isWalkthrough ? (
                 /* PRACTICE LAYOUT - LEFT COLUMN */
@@ -825,7 +841,7 @@ const TopicListItem = ({
                       <div key={idx} className="space-y-4">
                         <div className="p-4 bg-stone-50 dark:bg-stone-900/50 rounded-xl border border-stone-200 dark:border-stone-700">
                           <p className="text-base font-normal tracking-tight text-stone-900 dark:text-stone-100 leading-relaxed">
-                            <LatexText text={problem.practice_problem} />
+                            <LatexText text={problem.practice_problem} context={finalContext} />
                           </p>
                         </div>
 
@@ -857,7 +873,7 @@ const TopicListItem = ({
                                 <ul className="space-y-4 border-l-2 border-stone-100 dark:border-stone-700 ml-1 pl-4">
                                   {(problem.hints.slice(0, revealedCounts[`${idx}-hints`] || 1)).map((h, i) => (
                                     <li key={i} className="text-base text-stone-700 dark:text-stone-200 leading-relaxed animate-fade-in">
-                                      <LatexText text={h} />
+                                      <LatexText text={h} context={finalContext} />
                                     </li>
                                   ))}
                                 </ul>
@@ -888,6 +904,7 @@ const TopicListItem = ({
                               solutionApproach={problem.solution_steps || problem.solution_approach}
                               commonMistakes={problem.common_mistakes}
                               finalAnswer={problem.final_answer}
+                              title={finalContext}
                             />
                           </div>
                         )}
@@ -914,7 +931,7 @@ const TopicListItem = ({
                     <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 shadow-sm transition-all duration-300">
 
                       <p className="text-stone-700 dark:text-stone-300 text-base leading-relaxed">
-                        <LatexText text={unit.tutor_guidance} />
+                        <LatexText text={unit.tutor_guidance} context={finalContext} />
                       </p>
                     </div>
                   )}
@@ -1132,7 +1149,7 @@ const TopicListItem = ({
 
                 {equations && equations.length > 0 ? (
                   <div className="grid grid-cols-1 gap-3">
-                    <EquationDisplay equations={equations} />
+                    <EquationDisplay equations={equations} context={finalContext} />
                   </div>
                 ) : (
                   <div className="p-4 text-center border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-stone-800/50">
@@ -1141,18 +1158,13 @@ const TopicListItem = ({
                 )}
               </div>
             </div>
-
           </div>
         </div>
-      )
-      }
-    </div >
+      )}
+    </div>
   );
 };
 
-// ============================================================================
-// SKELETON LOADING COMPONENT
-// ============================================================================
 const BlueprintSkeleton = () => {
   return (
     <div className="min-h-screen bg-transparent text-outline relative animate-pulse">
@@ -2416,7 +2428,7 @@ const Blueprint = () => {
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-      const response = await fetch(`${supabaseUrl} /functions/v1 / load - resources - database`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1/load-resources-database`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token} `,
@@ -2499,7 +2511,7 @@ const Blueprint = () => {
         console.log(`[Blueprint] Searching database for unit ${unitId}...`);
 
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const targetResourceProfile = unit.target_resource_profile;
+        const targetResourceProfile = unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase || `Video tutorial explaining ${unit.topic}: ${unit.description || ''}`;
 
         // Debug: log what we're sending
         console.log(`[Blueprint] Database search request: `, {
@@ -2510,7 +2522,7 @@ const Blueprint = () => {
           blueprint_id: id
         });
 
-        const response = await fetch(`${supabaseUrl} /functions/v1 / search - resources - database`, {
+        const response = await fetch(`${supabaseUrl}/functions/v1/search-resources-database`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.access_token} `,
@@ -2542,7 +2554,7 @@ const Blueprint = () => {
           try {
             // Trigger explanation generation (non-blocking for UI, but updates in background)
             // We use a separate function call to keep the search fast
-            const explanationResponse = await fetch(`${supabaseUrl} /functions/v1 / generate - resource - explanation`, {
+            const explanationResponse = await fetch(`${supabaseUrl}/functions/v1/generate-resource-explanation`, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${session.access_token} `,
@@ -2645,7 +2657,7 @@ const Blueprint = () => {
 
         console.log(`[Blueprint] Fetching resources for unit ${unitId}(type: ${unit.unit_type}, method: ${searchMethod})...`);
 
-        const response = await fetch(`${supabaseUrl} /functions/v1 / ${endpoint} `, {
+        const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.access_token} `,
@@ -2778,7 +2790,7 @@ const Blueprint = () => {
 
         const targetResourceProfile = unit.target_resource_profile;
 
-        const response = await fetch(`${supabaseUrl} /functions/v1 / search - resources - database`, {
+        const response = await fetch(`${supabaseUrl}/functions/v1/search-resources-database`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.access_token} `,
@@ -2833,7 +2845,7 @@ const Blueprint = () => {
       console.log(`[Blueprint] Dev Mode: Generating explanations for ${unitsWithResources.length} units in BATCH...`);
 
       try {
-        const batchResponse = await fetch(`${supabaseUrl} /functions/v1 / batch - generate - explanations`, {
+        const batchResponse = await fetch(`${supabaseUrl}/functions/v1/batch-generate-explanations`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.access_token} `,
@@ -3720,6 +3732,29 @@ const Blueprint = () => {
     console.log('[Blueprint] First unit suggested_figures:', currentUnits[0].suggested_figures);
   }
 
+  /* CHECK IF EXPLAINER SHOULD BE VISIBLE */
+  // Whenever currentUnits changes (tab switch), check if the open explainer belongs to a visible unit
+  const { explainers, updateExplainer } = useUiState();
+
+  useEffect(() => {
+    if (!explainers) return;
+
+    explainers.forEach(explainer => {
+      if (explainer.isOpen && explainer.unitId) {
+        // Check if the explainer's unitId is in the currently visible units
+        const isVisible = currentUnits.some(u => u.unit_id === explainer.unitId);
+
+        // Update isHidden state directly without closing/resetting data
+        // avoiding triggers if state is already correct
+        if (isVisible && explainer.isHidden) {
+          updateExplainer(explainer.id, { isHidden: false });
+        } else if (!isVisible && !explainer.isHidden) {
+          updateExplainer(explainer.id, { isHidden: true });
+        }
+      }
+    });
+  }, [currentUnits, explainers, updateExplainer]);
+
   /* Calculate Section Equations & Figures - Aggregated from "Learn" concepts only */
   const sectionLearnEquations = React.useMemo(() => {
     // Filter for Learn units (not walkthroughs)
@@ -4038,7 +4073,7 @@ const Blueprint = () => {
           {/* Deep Dive Solution Display */}
           {deepDiveSolutions['__blueprint__'] && (
             <div className="w-full mt-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <div className="bg-white/50 dark:bg-stone-900/50 rounded-3xl p-8 md:p-12 shadow-sm">
+              <div className="bg-white/50 dark:bg-stone-900/50 rounded-3xl p-8 md:p-12">
                 <div className="space-y-6 mb-8">
                   <h2 className="text-4xl md:text-5xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
                     📚 Solution Walkthrough
@@ -4060,7 +4095,7 @@ const Blueprint = () => {
           {structure && (
             <div className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
               {/* Container wrapping header and content */}
-              <div className="bg-white/50 dark:bg-stone-900/50 rounded-3xl p-8 md:p-12 shadow-sm">
+              <div className="bg-white/50 dark:bg-stone-900/50 rounded-3xl p-8 md:p-12">
                 {/* 1. Problem Header (Active Section) */}
                 <div className="space-y-6 mb-16">
                   <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
@@ -4135,7 +4170,7 @@ const Blueprint = () => {
 
                                       return (
                                         <p className="mb-6 text-stone-600 dark:text-stone-400 text-lg leading-relaxed">
-                                          <LatexText text={textContent} />
+                                          <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} />
                                         </p>
                                       );
                                     },
@@ -4153,7 +4188,7 @@ const Blueprint = () => {
 
                                       return (
                                         <li className="text-stone-600 dark:text-stone-400 text-lg leading-relaxed mb-2">
-                                          <LatexText text={textContent} />
+                                          <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} />
                                         </li>
                                       );
                                     },
@@ -4191,21 +4226,21 @@ const Blueprint = () => {
                             {/* Render Tutor Guidance if available */}
                             {unit.tutor_guidance && (
                               <div className="mb-4 whitespace-pre-wrap">
-                                <LatexText text={unit.tutor_guidance} />
+                                <LatexText text={unit.tutor_guidance} unitId={unit.unit_id} context={currentSectionTitle} />
                               </div>
                             )}
 
                             {/* Render Concept Summary */}
                             {unit.concept_summary && (
                               <div className="whitespace-pre-wrap">
-                                <LatexText text={unit.concept_summary} />
+                                <LatexText text={unit.concept_summary} unitId={unit.unit_id} context={currentSectionTitle} />
                               </div>
                             )}
 
                             {/* Fallback to description if no specific fields */}
                             {!unit.tutor_guidance && !unit.concept_summary && unit.description && (
                               <div className="whitespace-pre-wrap">
-                                <LatexText text={unit.description} />
+                                <LatexText text={unit.description} unitId={unit.unit_id} context={currentSectionTitle} />
                               </div>
                             )}
                           </div>
@@ -4350,7 +4385,7 @@ const Blueprint = () => {
                                   <div key={idx}>
                                     <h5 className="text-md font-bold text-stone-800 dark:text-stone-200 mb-3">{section.title}</h5>
                                     <div className="prose dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
-                                      <LatexText text={section.content} />
+                                      <LatexText text={section.content} unitId={unit.unit_id} context={currentSectionTitle} />
                                     </div>
                                   </div>
                                 ))}
@@ -4408,7 +4443,7 @@ const Blueprint = () => {
                               </div>
                               <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
                                 <div className="whitespace-pre-wrap">
-                                  <LatexText text={unit.deep_dive_explanation} />
+                                  <LatexText text={unit.deep_dive_explanation} unitId={unit.unit_id} context={currentSectionTitle} />
                                 </div>
                               </div>
                             </div>
@@ -4419,7 +4454,7 @@ const Blueprint = () => {
                           {/* Equations Module */}
                           {unitEquations.length > 0 && (
                             <div className="w-full flex justify-center py-6">
-                              <EquationDisplay equations={unitEquations} />
+                              <EquationDisplay equations={unitEquations} context={currentSectionTitle} />
                             </div>
                           )}
                         </div>
@@ -4449,14 +4484,14 @@ const Blueprint = () => {
                                       {i + 1}.
                                     </span>
                                     <div className="whitespace-pre-wrap">
-                                      <LatexText text={step} />
+                                      <LatexText text={step} context={currentSectionTitle} />
                                     </div>
                                   </div>
                                 ))}
                               </div>
                             ) : (
                               <div className="whitespace-pre-wrap">
-                                <LatexText text={String(solutionUnit.solutionData.approach || '')} />
+                                <LatexText text={String(solutionUnit.solutionData.approach || '')} context={currentSectionTitle} />
                               </div>
                             )}
                           </div>
@@ -4510,7 +4545,7 @@ const Blueprint = () => {
                               <div key={pIdx} className="bg-white dark:bg-stone-800 p-6 rounded-xl shadow-sm">
                                 <h5 className="font-bold text-stone-900 dark:text-stone-100 mb-2">Practice Problem {pIdx + 1}</h5>
                                 <div className="prose dark:prose-invert max-w-none">
-                                  <LatexText text={prob.practice_problem} />
+                                  <LatexText text={prob.practice_problem} context={currentSectionTitle} />
                                 </div>
                               </div>
                             ))}

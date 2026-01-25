@@ -18,7 +18,7 @@ import LatexText from './LatexText';
  * @param {string} props.equations[].when_to_use - When to apply this equation
  * @param {number} props.equations[].index - Optional index number for referencing
  */
-const EquationDisplay = ({ equations }) => {
+const EquationDisplay = ({ equations, context }) => {
   if (!equations || equations.length === 0) {
     return null;
   }
@@ -33,6 +33,7 @@ const EquationDisplay = ({ equations }) => {
             <EquationCard
               equation={equation}
               index={idx + 1}
+              context={context}
             />
           </div>
         ))}
@@ -44,7 +45,7 @@ const EquationDisplay = ({ equations }) => {
 /**
  * Individual Equation Card
  */
-const EquationCard = ({ equation, index }) => {
+const EquationCard = ({ equation, index, context }) => {
   const { name, latex, variables, when_to_use } = equation;
   const [showVariables, setShowVariables] = useState(false);
 
@@ -96,7 +97,7 @@ const EquationCard = ({ equation, index }) => {
                 </p>
               </div>
               <p className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed text-left">
-                <LatexText text={when_to_use} />
+                <LatexText text={when_to_use} context={context} />
               </p>
             </div>
           </div>
@@ -121,7 +122,7 @@ const EquationCard = ({ equation, index }) => {
                       <span className="font-mono font-semibold text-stone-600 dark:text-stone-300 shrink-0">
                         <InlineMath math={symbol} />
                       </span>
-                      <span className="text-stone-600 dark:text-stone-400 break-words min-w-0">= <LatexText text={description} /></span>
+                      <span className="text-stone-600 dark:text-stone-400 break-words min-w-0">= <LatexText text={description} context={context} /></span>
                     </div>
                   ))}
                 </div>

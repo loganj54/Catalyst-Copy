@@ -20,19 +20,32 @@ export const UiStateProvider = ({ children }) => {
         setChatState(prev => ({ ...prev, isOpen }));
     };
 
-    const [explainer, setExplainer] = useState({
-        isOpen: false,
-        term: null,
-        anchorRect: null,
-        anchorElement: null, // Add anchorElement to track position on scroll
-        id: null
-    });
+    const [explainers, setExplainers] = useState([]);
+
+    const addExplainer = (newExplainer) => {
+        setExplainers(prev => {
+            // Check if already exists by ID or Term/Unit combination to prevent duplicates if needed
+            const exists = prev.find(e => e.id === newExplainer.id);
+            if (exists) return prev;
+            return [...prev, { ...newExplainer, isOpen: true, isHidden: false }];
+        });
+    };
+
+    const removeExplainer = (id) => {
+        setExplainers(prev => prev.filter(e => e.id !== id));
+    };
+
+    const updateExplainer = (id, updates) => {
+        setExplainers(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
+    };
 
     const value = {
         chatState,
         setChatOpen,
-        explainer,
-        setExplainer
+        explainers,
+        addExplainer,
+        removeExplainer,
+        updateExplainer
     };
 
     return (

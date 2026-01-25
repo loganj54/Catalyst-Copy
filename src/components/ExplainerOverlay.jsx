@@ -1,68 +1,156 @@
 import React, { useEffect, useState, useRef } from 'react';
-
 import { useUiState } from '../context/UiStateContext';
-import { X, Sparkles } from 'lucide-react';
+import { X, Sparkles, Play, RefreshCw, Star, ExternalLink } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 /**
- * ExplainerOverlay Component
- * 
- * Renders a full-screen overlay (pointer-events-none) that manages:
- * 1. Floating "Bubble" Explainer Cards on the right side.
- * 2. Animated SVG connection lines linking the source text to the bubble.
+ * ExplainerBubble Component
+ * Handles the logic for a SINGLE explainer bubble + its connection line
  */
-const ExplainerOverlay = () => {
-    const { explainer, setExplainer } = useUiState();
+const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffset = 0, obstacles = [], horizontalJitter = 0, verticalLaneOffset = 0 }) => {
     const [linePath, setLinePath] = useState('');
-    const [bubblePosition, setBubblePosition] = useState({ top: 0, left: 0 }); // Changed to use left positioning
+    const [bubblePosition, setBubblePosition] = useState({ top: 0, left: 0 });
     const [isVisible, setIsVisible] = useState(false);
 
-    // Ref to the overlay container
-    const containerRef = useRef(null);
+    // Video specific state
+    const [rating, setRating] = useState(4);
+    const [isRerolling, setIsRerolling] = useState(false);
+    const [videos, setVideos] = useState([]);
+    const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+    const [isLoadingVideos, setIsLoadingVideos] = useState(false);
 
-    // Ref to store the initial calculated gap so it stays fixed during resize
+    // Explanation specific state
+    const [explanation, setExplanation] = useState(null);
+    const [isLoadingExplanation, setIsLoadingExplanation] = useState(false);
+
+    const handleReroll = (e) => {
+        e.stopPropagation();
+        if (videos.length <= 1) return;
+
+        setIsRerolling(true);
+        setCurrentVideoIndex(prev => (prev + 1) % videos.length);
+        setTimeout(() => setIsRerolling(false), 500);
+    };
+
+    // Helper: Format Duration
+    const formatDuration = (seconds) => {
+        if (!seconds) return null;
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // Helper: Get YouTube Thumbnail
+    const getThumbnail = (video) => {
+        if (video.thumbnail_url) return video.thumbnail_url;
+        // Fallback for YouTube
+        const match = video.url?.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
+        return match ? `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg` : null;
+    };
+
+    const currentVideo = videos.length > 0 ? videos[currentVideoIndex] : null;
+
+    // Ref to the local container for this specific bubble's line SVG
+    const bubbleRef = useRef(null);
+    const containerRef = useRef(null);
     const fixedOffsetRef = useRef(null);
 
     // Config
-    const BUBBLE_WIDTH = 350;
+    const BUBBLE_WIDTH = 500;
     const RIGHT_MARGIN = 40;
 
+    // Fetch Video Effect
     useEffect(() => {
+        if (explainer.type === 'video' && videos.length === 0 && !isLoadingVideos) {
+            const fetchVideos = async () => {
+                setIsLoadingVideos(true);
+                try {
+                    // Construct search query: "Term with respect to Context"
+                    // Context is typically the Blueprint/Section Title
+                    const query = `${explainer.term} with respect to ${explainer.context || 'general engineering'}`;
+                    console.log(`[ExplainerBubble] Searching videos for: "${query}"`);
+
+                    const { data, error } = await supabase.functions.invoke('search-resources-database', {
+                        body: {
+                            target_resource_profile: query
+                        }
+                    });
+
+                    if (error) throw error;
+
+                    if (data && data.resources && data.resources.length > 0) {
+                        setVideos(data.resources);
+                    } else {
+                        // Handle no results
+                        console.log('[ExplainerBubble] No videos found.');
+                    }
+                } catch (err) {
+                    console.error('Failed to search videos:', err);
+                } finally {
+                    setIsLoadingVideos(false);
+                }
+            };
+            fetchVideos();
+        }
+    }, [explainer.type, explainer.term, explainer.context]);
+
+    // Fetch Explanation Effect
+    useEffect(() => {
+        if (explainer.type === 'explain' && !explanation && !isLoadingExplanation) {
+            const fetchExplanation = async () => {
+                setIsLoadingExplanation(true);
+                try {
+                    const { data, error } = await supabase.functions.invoke('explain-term', {
+                        body: {
+                            term: explainer.term,
+                            context: explainer.context || 'general engineering'
+                        }
+                    });
+
+                    if (error) throw error;
+                    setExplanation(data.explanation);
+                } catch (err) {
+                    console.error('Failed to fetch explanation:', err);
+                    setExplanation('Sorry, we could not generate an explanation at this time.');
+                } finally {
+                    setIsLoadingExplanation(false);
+                }
+            };
+            fetchExplanation();
+        }
+    }, [explainer.type, explainer.term, explainer.context]);
+
+
+    useEffect(() => {
+        // If not open, hide and return
         if (!explainer.isOpen) {
             setIsVisible(false);
-            setLinePath('');
-            fixedOffsetRef.current = null; // Reset the fixed offset when closed
             return;
         }
 
-        // ONE-TIME CALCULATION (plus Resize/Reflow updates)
         const updatePosition = () => {
-            if (!containerRef.current) return;
+            // Find the main container
+            const textColumn = document.getElementById('blueprint-content-column');
+            const parentElement = document.getElementById('blueprint-content-column')?.parentElement;
 
-            const parentElement = containerRef.current.parentElement;
             if (!parentElement) return;
+            if (!containerRef.current || !containerRef.current.parentElement) return;
 
-            // Get Layout Rects
-            const parentRect = parentElement.getBoundingClientRect();
+            const parentRect = containerRef.current.parentElement.getBoundingClientRect();
 
             let startX, startY;
 
-            // 1. Resolve Anchor Coordinates (Relative to Parent Container)
+            // 1. Resolve Anchor Coordinates
             let liveElement = null;
             if (explainer.anchorId) {
                 liveElement = document.getElementById(explainer.anchorId);
-            } else if (explainer.anchorElement && explainer.anchorElement.isConnected) {
-                liveElement = explainer.anchorElement;
             }
 
             if (liveElement && liveElement.isConnected) {
                 const rect = liveElement.getBoundingClientRect();
-
-                // Live Element: Use current viewport rects
                 startX = rect.left - parentRect.left + (rect.width / 2);
                 startY = rect.bottom - parentRect.top - 2;
-            }
-            else if (explainer.anchorRect) {
-                // ... same fallback logic ...
+            } else if (explainer.anchorRect) {
                 if (explainer.anchorRect.docTop && explainer.anchorRect.docLeft) {
                     const parentDocTop = parentRect.top + window.scrollY;
                     const parentDocLeft = parentRect.left + window.scrollX;
@@ -77,83 +165,124 @@ const ExplainerOverlay = () => {
                 return;
             }
 
+            // REPORT START Y to parent for lane collision handling
+            if (onLayoutUpdate) {
+                // We need to measure bubble height for layout metrics too
+                let currentBubbleHeight = 150;
+                if (bubbleRef.current) {
+                    currentBubbleHeight = bubbleRef.current.offsetHeight;
+                }
+
+                // FIX: Include verticalLaneOffset in the reported IdealY so parent sorts correctly based on visual position
+                const baseDropHeight = 4;
+                const DROP_HEIGHT = baseDropHeight + verticalLaneOffset;
+                const horizontalY = startY + DROP_HEIGHT;
+                const idealBubbleTop = (horizontalY - (currentBubbleHeight / 2));
+
+                onLayoutUpdate(explainer.id, {
+                    idealY: idealBubbleTop,
+                    height: currentBubbleHeight,
+                    startY: startY, // Report StartY for lane detection
+                    startX: startX
+                });
+            }
+
             // Bubble Configuration
-            const bubbleTop = startY - 60;
+            // 1. Calculate the line level
+            // Apply verticalLaneOffset: cascading effect for overlapping lines
+            const baseDropHeight = 4;
+            const DROP_HEIGHT = baseDropHeight + verticalLaneOffset;
 
-            // --- NEW POSITIONING LOGIC ---
-            // Find the main text column to anchor against.
-            // We now have a guaranteed ID: #blueprint-content-column
-            const textColumn = document.getElementById('blueprint-content-column');
+            const CORNER_RADIUS = 10;
+            const horizontalY = startY + DROP_HEIGHT; // The Y level where the line travels horizontally
 
-            console.log('[ExplainerOverlay] Debug:', {
-                liveElement,
-                textColumnFound: !!textColumn,
-                windowWidth: window.innerWidth,
-                fixedOffset: fixedOffsetRef.current
-            });
+            // Initial bubble height estimate is 150, but we have strict measurement value.
+            let currentBubbleHeight = 150;
+            if (bubbleRef.current) {
+                currentBubbleHeight = bubbleRef.current.offsetHeight;
+            }
 
+            // Calculate "Ideal" Top to center the bubble on horizontalY
+            // With Layout Offset logic, we apply the parent's calculated shift
+            // NOTE: If we offset the line (horizontalY) by laneOffset, we should PROBABLY shift the bubble ideal top too?
+            // Yes, user wants the line to go UNDER/OVER. Cascading effect.
+            // So centering on the NEW horizontalY maintains the straightness.
+            const idealBubbleTop = (horizontalY - (currentBubbleHeight / 2));
+            const bubbleTop = idealBubbleTop + layoutOffset;
+            const endY = bubbleTop + (currentBubbleHeight / 2);
+
+            // --- POSITIONING LOGIC ---
             let bubbleLeftPos = 0;
 
             if (textColumn) {
                 const colRect = textColumn.getBoundingClientRect();
-                const rightEdge = colRect.right;
-                const windowRight = window.innerWidth;
-                const availableSpace = windowRight - rightEdge;
+                const windowRight = document.documentElement.clientWidth;
+                const availableSpace = windowRight - colRect.right;
 
-                console.log('[ExplainerOverlay] Column metrics:', {
-                    colRight: rightEdge,
-                    parentLeft: parentRect.left,
-                    availableSpace,
-                    bubbleWidth: BUBBLE_WIDTH
-                });
-
-                // Calculate the fixed offset (GAP) if we haven't yet
                 if (fixedOffsetRef.current === null) {
-
-                    // Center the bubble in the available space
-                    // Gap = distance from Text Column Right to Bubble Left
                     let gap = (availableSpace - BUBBLE_WIDTH) / 2;
-
-                    console.log('[ExplainerOverlay] Initial Gap Calc (pre-clamp):', gap);
-
-                    // Simple constraint: don't let it overlap the column (min gap 20px)
                     if (gap < 20) gap = 20;
-
-                    console.log('[ExplainerOverlay] Final Gap:', gap);
                     fixedOffsetRef.current = gap;
                 }
-
-                // bubbleLeft relative to parent = (colRect.right - parentRect.left) + fixedOffsetRef.current
                 bubbleLeftPos = (colRect.right - parentRect.left) + fixedOffsetRef.current;
-
             } else {
-                console.warn('[ExplainerOverlay] #blueprint-content-column not found! Using fallback.');
-                // Fallback to original right-anchored logic if no text column found
-                const rightMargin = RIGHT_MARGIN;
-                bubbleLeftPos = parentRect.width - (BUBBLE_WIDTH + rightMargin);
+                bubbleLeftPos = parentRect.width - (BUBBLE_WIDTH + RIGHT_MARGIN);
             }
 
+            // Apply Jitter
+            bubbleLeftPos += horizontalJitter;
+
+            // SAFETY CLAMP: Ensure bubble never exceeds the right boundary of the parent container
+            const maxAllowedLeft = parentRect.width - BUBBLE_WIDTH - 20; // 20px padding from edge
+            if (bubbleLeftPos > maxAllowedLeft) {
+                bubbleLeftPos = maxAllowedLeft;
+            }
             const endX = bubbleLeftPos;
-            const endY = bubbleTop + 40;
 
             setBubblePosition({ top: bubbleTop, left: bubbleLeftPos });
 
-            console.log('[ExplainerOverlay] Position Set:', { left: bubbleLeftPos, top: bubbleTop });
+            // Generate Path with "Flat" trailing segment and OBSTACLE AVOIDANCE
+            // Smoother Curve: Increase distance to 120px
+            const CURVE_WIDTH = 120;
+            let breakoutX = endX - CURVE_WIDTH;
+
+            // Ensure we don't start curving before we've even left the start text area reasonably
+            breakoutX = Math.max(breakoutX, startX + 40);
+
+            // OBSTACLE AVOIDANCE logic...
+            const pathTop = Math.min(startY, endY);
+            const pathBottom = Math.max(startY, endY);
+
+            const relevantObstacles = obstacles.filter(o => {
+                if (o.id === explainer.id) return false;
+                const oBottom = o.top + o.height;
+                const overlap = (o.top < pathBottom) && (oBottom > pathTop);
+                return overlap;
+            });
+
+            if (relevantObstacles.length > 0) {
+                const baseLeft = bubbleLeftPos - horizontalJitter;
+                const minObstacleLeft = Math.min(...relevantObstacles.map(o => baseLeft + o.relativeLeft));
+                const safeX = minObstacleLeft - 40;
+                breakoutX = Math.min(breakoutX, safeX);
+            }
+
+            // Adjust drop point
+            const dropEndY = horizontalY - CORNER_RADIUS;
 
             // Generate Path
-            const DROP_HEIGHT = 2;
-            const CORNER_RADIUS = 6;
-            const horizontalY = startY + DROP_HEIGHT + CORNER_RADIUS;
-            const breakoutX = endX - 60;
+            let path = "";
+            const actualCurveDist = endX - breakoutX;
+            const controlDist = actualCurveDist / 2;
 
-            const cp1x = breakoutX + 30;
+            const cp1x = breakoutX + controlDist;
             const cp1y = horizontalY;
-            const cp2x = endX - 30;
+            const cp2x = endX - controlDist;
             const cp2y = endY;
 
-            const path = `
+            path = `
                 M ${startX} ${startY} 
-                L ${startX} ${startY + DROP_HEIGHT} 
+                L ${startX} ${dropEndY}
                 Q ${startX} ${horizontalY}, ${startX + CORNER_RADIUS} ${horizontalY}
                 L ${breakoutX} ${horizontalY}
                 C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}
@@ -163,116 +292,455 @@ const ExplainerOverlay = () => {
             setIsVisible(true);
         };
 
-        // Run immediately
         updatePosition();
-
-        // Use ResizeObserver to handle all layout shifts (window resize, sidebar toggle, etc.)
-        const resizeObserver = new ResizeObserver(() => {
-            // Use requestAnimationFrame to ensure we measure *after* layout is settled
-            requestAnimationFrame(updatePosition);
-        });
-
-        // Observe the body (for global re-flows) and the parent container
+        const resizeObserver = new ResizeObserver(() => { requestAnimationFrame(updatePosition); });
         resizeObserver.observe(document.body);
-        if (containerRef.current && containerRef.current.parentElement) {
-            resizeObserver.observe(containerRef.current.parentElement);
-        }
-
-        return () => {
-            resizeObserver.disconnect();
-        };
-
-    }, [explainer.isOpen, explainer.anchorElement, explainer.anchorRect]);
+        const parent = document.getElementById('blueprint-content-column')?.parentElement;
+        if (parent) resizeObserver.observe(parent);
+        if (bubbleRef.current) resizeObserver.observe(bubbleRef.current);
+        return () => { resizeObserver.disconnect(); };
+    }, [explainer, index, layoutOffset, obstacles, horizontalJitter, verticalLaneOffset]); // Dependency on verticalLaneOffset ensures we re-measure when offset changes
 
     const handleClose = () => {
         setIsVisible(false);
-        setTimeout(() => {
-            setExplainer(prev => ({ ...prev, isOpen: false }));
-        }, 300);
+        setTimeout(() => { onClose(explainer.id); }, 300);
     };
 
-    if (!explainer.isOpen && !isVisible) return null;
+    if (explainer.isHidden) return null;
 
-    // RENDER INLINE (No Portal)
-    // Absolute position relative to the parent Blueprint container
+    // Use passed Z-Index or fallback
+    const styles = {
+        top: bubblePosition.top,
+        left: bubblePosition.left,
+        width: BUBBLE_WIDTH,
+        zIndex: explainer.zIndex || (50 + index) // Allow parent to override Z
+    };
+
+    // Calculate Line Z-Index (Just below the bubble, but above lower layers)
+    const lineZIndex = (explainer.zIndex || (50 + index)) - 1;
+
     return (
-        <div
-            ref={containerRef}
-            className="absolute inset-0 z-50 pointer-events-none overflow-visible"
-            style={{
-                // Ensure it covers full height/width of parent
-                width: '100%',
-                height: '100%'
-            }}
-        >
-            {/* 1. Connection Line */}
-            <svg className="absolute inset-0 w-full h-full overflow-visible">
-                <defs>
-                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="#FF4A1C" />
-                    </marker>
-                </defs>
-                <path
-                    d={linePath}
-                    fill="none"
-                    stroke="#FF4A1C"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    className={`transition-all duration-75 ${isVisible ? 'animate-draw-line' : 'opacity-0'}`}
-                    style={{
-                        strokeDasharray: 1500,
-                        strokeDashoffset: isVisible ? 0 : 1500,
-                        transition: 'stroke-dashoffset 0.8s ease-out'
-                    }}
-                />
-            </svg>
+        <React.Fragment>
+            <div ref={containerRef} className="absolute inset-0 pointer-events-none overflow-visible w-full h-full" style={{ zIndex: lineZIndex }}>
+                <svg className="absolute inset-0 w-full h-full overflow-visible">
 
-            {/* 2. Floating Bubble */}
+                    <defs>
+                        <marker id={`arrowhead-${explainer.id}`} markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#A8A29E" />
+                        </marker>
+                    </defs>
+                    <path
+                        d={linePath}
+                        fill="none"
+                        stroke="#A8A29E"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        className={`transition-all duration-75 ${isVisible ? 'animate-draw-line' : 'opacity-0'}`}
+                        style={{
+                            strokeDasharray: 1500,
+                            strokeDashoffset: isVisible ? 0 : 1500,
+                            transition: 'stroke-dashoffset 0.8s ease-out'
+                        }}
+                    />
+                </svg>
+            </div>
             <div
-                className={`absolute pointer-events-auto transition-all duration-500 ease-out transform
+                ref={bubbleRef}
+                className={`absolute pointer-events-auto ease-out transform transition-opacity transition-transform duration-500
                     ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-10 opacity-0'}
                 `}
-                style={{
-                    top: bubblePosition.top,
-                    left: bubblePosition.left,
-                    width: BUBBLE_WIDTH
-                }}
+                style={styles}
             >
-                <div className="bg-white dark:bg-stone-900 rounded-xl shadow-2xl border-2 border-[#FF4A1C]/20 overflow-hidden">
-                    {/* Header */}
-                    <div className="bg-stone-50 dark:bg-stone-800/50 p-4 border-b border-stone-100 dark:border-stone-700 flex justify-between items-start gap-4">
-                        <div>
-                            <h3 className="font-semibold text-lg text-stone-900 dark:text-stone-100 leading-tight">
-                                {explainer.term}, explained
+                <div className="bg-white dark:bg-black rounded-3xl shadow-2xl overflow-hidden border border-stone-300 dark:border-stone-700">
+                    <div className="bg-white dark:bg-black p-4 flex justify-between items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                            <h3 className="font-medium tracking-tight text-xl text-stone-900 dark:text-stone-100 leading-tight truncate pr-2">
+                                {explainer.type === 'video' ?
+                                    (currentVideo ? currentVideo.title : 'Searching for videos...') :
+                                    explainer.type === 'question' ? `Ask a question about ${explainer.term}` :
+                                        explainer.term
+                                }
                             </h3>
-                            <div className="flex items-center gap-1.5 mt-1 text-xs font-medium text-[#FF4A1C]">
-                                <Sparkles className="w-3 h-3" />
-                                <span>AI Explanation</span>
-                            </div>
                         </div>
-                        <button
-                            onClick={handleClose}
-                            className="p-1 rounded-full hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-400 hover:text-stone-600 transition-colors"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                            {explainer.type === 'video' && videos.length > 1 && (
+                                <button
+                                    onClick={handleReroll}
+                                    disabled={isRerolling}
+                                    className={`p-1 rounded-full hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-400 hover:text-stone-600 transition-colors`}
+                                    title="Show next video"
+                                >
+                                    <RefreshCw className={`w-4 h-4 ${isRerolling ? 'animate-spin' : ''}`} />
+                                </button>
+                            )}
+                            <button
+                                onClick={handleClose}
+                                className="p-1 rounded-full hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-400 hover:text-stone-600 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Content */}
                     <div className="p-5 max-h-[60vh] overflow-y-auto">
-                        <div className="space-y-4">
-                            {/* Placeholder Loading State or Content */}
-                            <p className="text-stone-600 dark:text-stone-300 leading-relaxed">
-                                Depending on the context, a <strong>{explainer.term}</strong> refers to...
-                                <br /><br />
-                                <span className="italic text-stone-400 text-sm">
-                                    (This is a placeholder for the generated explanation. The integration with the generation backend will be the next step.)
-                                </span>
-                            </p>
-                        </div>
+                        {explainer.type === 'video' ? (
+                            <div className="space-y-4">
+                                {isLoadingVideos ? (
+                                    <div className="flex items-center justify-center p-8 text-stone-500">
+                                        <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+                                        Finding the best videos...
+                                    </div>
+                                ) : currentVideo ? (
+                                    <div
+                                        onClick={() => window.open(currentVideo.url, '_blank')}
+                                        className="cursor-pointer group/card"
+                                    >
+                                        <div className="flex flex-row gap-5">
+                                            {/* Left Column: Thumbnail & Rating */}
+                                            <div className="w-40 flex-shrink-0 flex flex-col gap-3">
+                                                <div className="relative aspect-video rounded-lg overflow-hidden bg-black group/video shadow-sm border border-stone-100 dark:border-stone-800">
+                                                    {getThumbnail(currentVideo) ? (
+                                                        <img
+                                                            src={getThumbnail(currentVideo)}
+                                                            alt={currentVideo.title}
+                                                            className="w-full h-full object-cover opacity-90 group-hover/card:opacity-100 transition-opacity"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center bg-stone-800 text-stone-500">
+                                                            <Play className="w-8 h-8" />
+                                                        </div>
+                                                    )}
+
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover/card:bg-black/5 transition-colors">
+                                                        <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white ring-1 ring-white/20">
+                                                            <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                                                        </div>
+                                                    </div>
+                                                    {currentVideo.duration_seconds && (
+                                                        <div className="absolute bottom-1.5 right-1.5 px-1 pb-[1px] bg-black/70 text-white text-[9px] font-bold rounded tracking-wide">
+                                                            {formatDuration(currentVideo.duration_seconds)}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Star Rating (Centered below thumb) */}
+                                                <div className="flex items-center justify-between px-1">
+                                                    <div className="flex items-center gap-0.5">
+                                                        {[1, 2, 3, 4, 5].map((star) => (
+                                                            <div key={star}>
+                                                                <Star
+                                                                    className={`w-3 h-3 ${star <= (currentVideo.average_rating || 0) ? 'fill-yellow-400 text-yellow-400' : 'text-stone-200 dark:text-stone-700'}`}
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <span className="text-xs text-stone-400 font-medium ml-1">
+                                                        {currentVideo.average_rating ? currentVideo.average_rating.toFixed(1) : 'NR'}
+                                                        <span className="text-[10px] opacity-70 ml-0.5">({currentVideo.rating_count || 0})</span>
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Right Column: Description & Footer */}
+                                            <div className="flex-1 flex flex-col justify-between min-w-0">
+                                                <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-4">
+                                                    {currentVideo.resource_explanation || currentVideo.description || "No description available."}
+                                                </p>
+
+                                                <div className="flex items-center justify-between pt-3 mt-1 active:mt-1">
+                                                    <span className="px-1.5 py-0.5 bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 text-[9px] font-bold uppercase tracking-wider rounded">
+                                                        {currentVideo.platform || 'VIDEO'}
+                                                    </span>
+
+                                                    <span className="flex items-center gap-1 text-[10px] font-bold text-[#FF4A1C] group-hover/card:text-[#e0390c] transition-colors uppercase tracking-wide">
+                                                        OPEN
+                                                        <ExternalLink className="w-3 h-3" />
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center p-4 text-stone-500">
+                                        No videos found for this term.
+                                    </div>
+                                )}
+                            </div>
+
+                        ) : explainer.type === 'question' ? (
+                            <div className="space-y-4">
+                                <div className="relative">
+                                    <textarea
+                                        className="w-full h-32 p-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] outline-none transition-all resize-none text-stone-700 dark:text-stone-200 placeholder:text-stone-400"
+                                        placeholder={`Ask anything about ${explainer.term}...`}
+                                    ></textarea>
+                                    <button className="absolute bottom-3 right-3 p-1.5 bg-[#FF4A1C] text-white rounded-md hover:bg-[#E03E15] transition-colors shadow-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                                    </button>
+                                </div>
+                                <p className="text-xs text-stone-400 text-center">
+                                    Your question will be answered by our AI tutor in the chat context.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <p className="text-stone-600 dark:text-stone-300 leading-relaxed">
+                                    {isLoadingExplanation ? (
+                                        <span className="flex items-center gap-2 text-stone-500 italic">
+                                            <Sparkles className="w-4 h-4 animate-spin" />
+                                            Generating succinct explanation...
+                                        </span>
+                                    ) : (
+                                        explanation ? (
+                                            <span dangerouslySetInnerHTML={{ __html: explanation.replace(/\n/g, '<br />') }} />
+                                        ) : (
+                                            "Waiting for explanation..."
+                                        )
+                                    )}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
+        </React.Fragment>
+    );
+};
+
+const ExplainerOverlay = () => {
+    const { explainers, removeExplainer } = useUiState();
+
+    // Layout State
+    const [bubbleMetrics, setBubbleMetrics] = useState({});
+    const [bubbleShifts, setBubbleShifts] = useState({});
+    const [laneOffsets, setLaneOffsets] = useState({}); // New: Store calculated lane offsets
+    const [zIndices, setZIndices] = useState({}); // New: Store collision-aware Z-indices
+
+    const getJitter = (id, index) => {
+        if (index === 0) return 0;
+
+        // Pattern: Left, Left, Right, Right, Center...
+        // Sequence Indices: 1, 2, 3, 4, 5...
+        // Modulo 5 mapping:
+        // 1 & 2 -> Left
+        // 3 & 4 -> Right
+        // 0 -> Center
+
+        // Deterministic randomness based on ID for variation within the zone
+        const hash = id.toString().split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const pseudoRandom = Math.sin(hash) * 10000;
+        const randomVal = pseudoRandom - Math.floor(pseudoRandom); // 0.0 to 1.0
+
+        const mod = index % 5;
+        let offset = 0;
+
+        if (mod === 1 || mod === 2) {
+            // Far Left: -80px to -160px
+            offset = -(80 + (randomVal * 80));
+        } else if (mod === 3 || mod === 4) {
+            // Far Right: 80px to 160px
+            offset = 80 + (randomVal * 80);
+        } else {
+            // Center (occasional): -40px to 40px
+            offset = (randomVal * 80) - 40;
+        }
+
+        return offset;
+    };
+
+    // Update to handle startY/startX
+    const handleLayoutUpdate = (id, metrics) => {
+        setBubbleMetrics(prev => {
+            const existing = prev[id];
+            if (existing &&
+                Math.abs(existing.idealY - metrics.idealY) < 2 &&
+                Math.abs(existing.height - metrics.height) < 2 &&
+                Math.abs((existing.startY || 0) - metrics.startY) < 2
+            ) {
+                return prev;
+            }
+            return { ...prev, [id]: metrics };
+        });
+    };
+
+    const [obstacles, setObstacles] = useState([]);
+
+    useEffect(() => {
+        const activeBubbles = explainers
+            .filter(e => !e.isHidden && bubbleMetrics[e.id])
+            .map((e, idx) => ({
+                id: e.id,
+                ...bubbleMetrics[e.id],
+                index: idx
+            }));
+
+        if (activeBubbles.length === 0) {
+            setBubbleShifts({});
+            setObstacles([]);
+            setLaneOffsets({});
+            return;
+        }
+
+        // 1. Solve Vertical Overlaps
+        // Sort keys: 
+        // 1. Vertical Position (startY) - STABILITY FIX: Use Anchor Y instead of Bubble Y to prevent flipping when content resizes
+        // 2. Horizontal Position (startX) - "Hierarchy": Right-most should be Top-most (Smallest Y)
+        activeBubbles.sort((a, b) => {
+            const yDiff = a.startY - b.startY;
+            // If they are on roughly the same line (e.g. within 10px)
+            if (Math.abs(yDiff) < 10) {
+                // If they are on the SAME WORD (very close StartX)
+                // Sort by idealY (Visual Top) so the upper one covers the lower one
+                if (Math.abs(a.startX - b.startX) < 5) {
+                    return a.idealY - b.idealY;
+                }
+
+                // Otherwise: Right (Large X) comes first (Top)
+                // Left (Small X) comes last (Bottom)
+                return b.startX - a.startX;
+            }
+            return yDiff;
+        });
+
+        // CALCULATE Z-INDICES BASED ON SORT ORDER
+        // Topmost (First in array, Rank 0) -> Highest Z
+        // This ensures visual stacking matches the "Line" hierarchy (Top line on top of Bottom line)
+        const newZIndices = {};
+        activeBubbles.forEach((b, i) => {
+            // Base Z is 50. Add inverse index.
+            newZIndices[b.id] = 50 + (activeBubbles.length - i);
+        });
+        setZIndices(newZIndices);
+
+        const GAP = 20;
+        const shifts = {};
+        activeBubbles.forEach(b => shifts[b.id] = 0);
+
+        let iterations = 0;
+        let hasOverlap = true;
+        while (hasOverlap && iterations < 10) {
+            hasOverlap = false;
+            for (let i = 0; i < activeBubbles.length - 1; i++) {
+                const a = activeBubbles[i];
+                const b = activeBubbles[i + 1];
+                const aTop = a.idealY + shifts[a.id];
+                const aBottom = aTop + a.height;
+                const bTop = b.idealY + shifts[b.id];
+                if (aBottom + GAP > bTop) {
+                    hasOverlap = true;
+                    const overlapCheck = (aBottom + GAP) - bTop;
+                    shifts[a.id] -= overlapCheck / 2;
+                    shifts[b.id] += overlapCheck / 2;
+                }
+            }
+            iterations++;
+        }
+        setBubbleShifts(shifts);
+
+        // 2. Solve "Lane" Conflicts (Cascading lines)
+        // Group by StartY (threshold 5px)
+        const LANE_THRESHOLD = 5;
+        const groupLanes = {}; // key: startY (rounded), val: [bubble]
+
+        activeBubbles.forEach(b => {
+            // Find a matching lane key or create new
+            let matchedKey = Object.keys(groupLanes).find(k => Math.abs(parseFloat(k) - b.startY) < LANE_THRESHOLD);
+            if (!matchedKey) {
+                matchedKey = b.startY.toString();
+                groupLanes[matchedKey] = [];
+            }
+            groupLanes[matchedKey].push(b);
+        });
+
+        const newLaneOffsets = {};
+
+        // Process each lane
+        Object.values(groupLanes).forEach(group => {
+            if (group.length <= 1) {
+                group.forEach(b => newLaneOffsets[b.id] = 0);
+                return;
+            }
+
+            // Sort by StartX (Left to Right), with Index (Creation Order) as stable tie-breaker
+            group.sort((a, b) => (a.startX - b.startX) || (a.index - b.index));
+
+            // "Farthest left will go under the next one" - User Correction: "Left side text are supposed to be under"
+            // So: Leftmost (index 0) should be Lowest (Max Offset).
+            // Rightmost (index N) should be Highest (Min Offset).
+
+            group.forEach((b, i) => {
+                newLaneOffsets[b.id] = (group.length - 1 - i) * 6;
+            });
+        });
+
+        setLaneOffsets(newLaneOffsets);
+
+
+        // 3. Obstacles
+        const calculatedObstacles = activeBubbles.map(b => {
+            const originalIndex = explainers.findIndex(e => e.id === b.id);
+            const jitter = getJitter(b.id, originalIndex);
+
+            // IMPORTANT: Obstacle Top depends on SHIFT, not lane offset (lane offset affects line, not bubble pos... 
+            // wait, in child we add laneOffset to bubbleTop logic? Yes.)
+            // Child: bubbleTop = idealBubbleTop + layoutOffset.
+            // But idealBubbleTop = horizontalY - ...
+            // And horizontalY = startY + DROP_HEIGHT + laneOffset.
+            // So Yes, laneOffset DOES shift the bubble down.
+            // We need to account for that in obstacle calc.
+
+            // But wait, shifts[b.id] was calculated based on idealY WITHOUT laneOffset (in step 1).
+            // If we add laneOffset now, we might re-introduce overlapping bubbles?
+            // Since step 1 didn't know about lane offsets.
+            // For small lane offsets (6px), maybe it's fine.
+            // For correctness, we should include laneOffset in the overlap solver.
+            // But simpler to just apply it and assume gap is enough.
+
+            const laneOff = newLaneOffsets[b.id] || 0;
+
+            return {
+                id: b.id,
+                top: b.idealY + shifts[b.id], // FIX: idealY already includes laneOffset. Do not add it twice.
+                height: b.height,
+                jitter: jitter,
+                relativeLeft: jitter
+            };
+        });
+
+        setObstacles(calculatedObstacles.map(o => ({
+            id: o.id,
+            top: o.top,
+            height: o.height,
+            relativeLeft: o.relativeLeft
+        })));
+
+
+    }, [explainers, bubbleMetrics]);
+
+    return (
+        <div
+            className="absolute inset-0 z-40 pointer-events-none overflow-visible"
+            style={{ width: '100%', height: '100%' }}
+        >
+            {explainers.map((explainer, index) => {
+                const jitter = getJitter(explainer.id, index);
+                // Inject the calculated Z-index
+                const explainerWithZ = { ...explainer, zIndex: zIndices[explainer.id] };
+
+                return (
+                    <ExplainerBubble
+                        key={explainerWithZ.id}
+                        explainer={explainerWithZ}
+                        index={index}
+                        onClose={removeExplainer}
+                        onLayoutUpdate={handleLayoutUpdate}
+                        layoutOffset={bubbleShifts[explainer.id] || 0}
+                        verticalLaneOffset={laneOffsets[explainer.id] || 0} // Pass lane offset
+                        horizontalJitter={jitter}
+                        obstacles={obstacles}
+                    />
+                );
+            })}
 
             <style>{`
                 @keyframes draw-line {
