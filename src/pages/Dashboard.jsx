@@ -164,26 +164,27 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-background-page font-sans text-gray-900">
+    <div className="flex h-[calc(100vh-80px)] w-full bg-stone-100 p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden">
 
-      {/* 1. Sidebar */}
-      <Sidebar className="hidden lg:flex transition-all duration-300" />
+      {/* 1. Sidebar Bubble */}
+      <div className="hidden lg:flex flex-col w-[250px] bg-stone-50 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
+        <Sidebar className="w-full h-full border-r-0 bg-stone-50" />
+      </div>
 
-      {/* 2. Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* 2. Main Content Bubble */}
+      <div className="flex-1 flex flex-col min-w-0 bg-white rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
 
         {/* Header Area */}
-        <header className="px-8 py-8 border-b border-gray-200 bg-white">
+        <header className="px-8 py-6 border-b border-gray-100 bg-white flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Classwork Dashboard</h1>
-              <p className="text-gray-500 mt-1">Manage your classes and blueprints</p>
+              <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Classwork Dashboard</h1>
+              <p className="text-sm text-gray-500 mt-1">Manage your classes and blueprints</p>
             </div>
-            {/* Global action if needed */}
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8 space-y-10">
+        <main className="flex-1 overflow-y-auto p-8 space-y-8 bg-gray-50/50">
 
           {/* Modals placed here */}
           <CreateClassModal
@@ -206,7 +207,7 @@ const Dashboard = () => {
           {/* Section: Recent Blueprints */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium text-gray-900">Recent Blueprints</h2>
+              <h2 className="text-base font-medium text-gray-900">Recent Blueprints</h2>
               <Button
                 variant="secondary"
                 size="sm"
@@ -274,7 +275,7 @@ const Dashboard = () => {
           {/* Section: Classes */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium text-gray-900">All Classes</h2>
+              <h2 className="text-base font-medium text-gray-900">All Classes</h2>
               <Button
                 variant="primary"
                 size="sm"
@@ -350,5 +351,4 @@ const Dashboard = () => {
     </div>
   );
 };
-
 export default Dashboard;

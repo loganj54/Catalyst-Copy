@@ -39,7 +39,7 @@ export const Sidebar = ({ className = '' }) => {
     );
 
     return (
-        <div className={`w-[250px] flex-shrink-0 flex flex-col h-[calc(100vh-80px)] border-r border-gray-200 bg-white ${className}`}>
+        <div className={`w-[250px] flex-shrink-0 flex flex-col h-full border-r border-gray-200 bg-stone-50 ${className}`}>
             {/* Header / Context Switcher */}
             <div className="p-4 pl-2">
                 <div className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
