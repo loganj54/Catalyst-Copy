@@ -2177,96 +2177,148 @@ const Blueprint = () => {
 
   // Handle webhook trigger
   const handleTriggerWebhook = async (unit) => {
-    if (!session?.access_token) return;
+    console.log('[Blueprint] 🚀 handleTriggerWebhook INVOKED for unit:', unit?.topic);
+
+    if (!session?.access_token) {
+      console.warn('[Blueprint] ❌ Cannot trigger webhook: No access token.');
+      return;
+    }
 
     try {
-      // Find parent section to get its metadata
+      // 1. Resolve Hierarchy/Context (Section Title)
       let section = null;
       let struct = learningStructure?.structure;
+
+      // Unwrap nested structure if present
       if (struct?.learning_structure) struct = struct.learning_structure;
+
       let isPrereq = false;
 
+      // Robust Section Lookup
       if (struct) {
+        // Check content sections
         if (struct.content_sections) {
           section = struct.content_sections.find(s => s.learning_units?.some(u => u.unit_id === unit.unit_id));
         }
+        // Check prerequisites
         if (!section && struct.prerequisites_section?.learning_units?.some(u => u.unit_id === unit.unit_id)) {
           section = struct.prerequisites_section;
           isPrereq = true;
         }
+      } else {
+        console.warn('[Blueprint] ⚠️ learningStructure context missing. Using fallbacks.');
       }
+
+      // 2. Determine Context Title
+      // Priority: Section Title > Blueprint Title > Generic Global
+      const blueprintTitle = struct?.title || 'Engineering Course';
+      const contextTitle = section?.title || blueprintTitle;
+
+      // 3. Prepare Queries - Split by search_queries
+      // Fallback to topic if no queries
+      let queries = unit.search_queries && unit.search_queries.length > 0
+        ? unit.search_queries
+        : [unit.topic || 'Unknown Topic'];
+
+      console.log(`[Blueprint] 🎯 Preparing ${queries.length} webhook(s) for unit: ${unit.topic}`);
 
       const webhookUrl = 'https://hook.us2.make.com/4biukvihdmvo4aianlpqk5sbnewjbonh';
 
-      // Match the format used in triggerAllWebhooks (Developer Mode)
-      // Wrap the single unit in an array
-      const unitPayload = {
-        unit_id: unit.unit_id,
-        topic: unit.topic,
-        description: unit.description,
-        topic_description: unit.description,
-        learning_objective: unit.learning_objective,
-        target_resource_profile: unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase || `Video tutorial explaining ${unit.topic}: ${unit.description || ''}`,
-        search_queries: unit.search_queries || []
-      };
+      // 4. Send Webhooks in Parallel
+      const promises = queries.map(async (rawQuery, index) => {
+        // Ensure query is a string. If it's an object, try to extract 'query' or 'text' property, or stringify it.
+        let query = rawQuery;
+        if (typeof rawQuery === 'object' && rawQuery !== null) {
+          query = rawQuery.query || rawQuery.text || JSON.stringify(rawQuery);
+        }
 
-      const payload = {
-        section_title: section?.title || 'Single Unit Trigger',
-        section_learning_objective: section?.learning_objective || '',
-        section_description: section?.description || '',
-        is_prerequisite: isPrereq,
-        units: [unitPayload],
-        blueprint_id: id,
-        user_id: user.id,
-        triggered_at: new Date().toISOString()
-      };
+        // Strict Format: "Term with respect to Context"
+        // As requested by user: "switch out some of the variables for some of the new variables that we've already discussed"
+        const term = unit.topic || 'Unknown Topic';
+        const formattedSearchQuery = `${term} with respect to ${contextTitle}`;
 
-      console.log('[Blueprint] Triggering manual webhook for unit (as array of 1):', unit.topic);
+        const unitPayload = {
+          unit_id: unit.unit_id || 'unknown_unit',
+          topic: term,
+          description: unit.description || '',
+          topic_description: unit.description || '',
+          learning_objective: unit.learning_objective || '',
+          target_resource_profile: formattedSearchQuery,
+          search_query: query, // Singular, string
+        };
 
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
+        const payload = {
+          section_title: contextTitle,
+          section_learning_objective: section?.learning_objective || '',
+          section_description: section?.description || '',
+          is_prerequisite: isPrereq,
+          units: [unitPayload], // Start with 1 unit per webhook
+          query_index: index + 1,
+          total_queries: queries.length,
+          blueprint_id: id,
+          user_id: user.id || 'unknown_user',
+          triggered_at: new Date().toISOString()
+        };
+
+        console.log(`[Blueprint] 📡 Sending Webhook ${index + 1}/${queries.length} for "${query}"`);
+        console.log(`[Blueprint]    Payload Preview:`, { target_resource_profile: formattedSearchQuery, search_query: query });
+
+        try {
+          // Standard fetch. We assume Make.com is configured to accept requests or we ignore CORS for "fire and forget" if needed,
+          // but usually standard fetch is fine for Make webhooks.
+          const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+          });
+
+          console.log(`[Blueprint] Webhook ${index + 1} Status: ${response.status} ${response.statusText}`);
+
+          if (response.ok) {
+            // Fire and forget success
+            console.log(`[Blueprint] ✅ Webhook ${index + 1} successfully triggered.`);
+
+            // Attempt to read body just in case it returns immediate data (optional)
+            try {
+              const text = await response.text();
+              if (text && text.length < 500) { // Only log if short
+                console.log(`[Blueprint] Webhook ${index + 1} Response: ${text}`);
+              }
+
+              // Check for immediate results (User requested behavior similar to button)
+              // If the button logic handled immediate results, we do too.
+              try {
+                const data = JSON.parse(text);
+                if (data && data.found && data.resource) {
+                  console.log('[Blueprint] 🎁 Immediate resource found via webhook!');
+                  const resource = { ...data.resource, from_cache: true };
+                  setTopicResources(prev => {
+                    const existing = prev[unit.unit_id] || [];
+                    if (existing.some(r => r.url === resource.url)) return prev;
+                    return { ...prev, [unit.unit_id]: [...existing, resource] };
+                  });
+                }
+              } catch (jsonErr) {
+                // ignore
+              }
+            } catch (readErr) {
+              // ignore
+            }
+          } else {
+            console.error(`[Blueprint] ❌ Webhook ${index + 1} failed with status: ${response.status}`);
+          }
+        } catch (err) {
+          console.error(`[Blueprint] ❌ Webhook ${index + 1} network error:`, err);
+        }
       });
 
-      if (response.ok) {
-        // Try to parse partial results or cache hits if returned
-        try {
-          const data = await response.json();
-
-          // Handle immediate cache hit if the webhook returns it
-          if (data && data.found && data.resource) {
-            console.log('[Blueprint] Resource found via webhook!');
-
-            const resource = {
-              ...data.resource,
-              from_cache: true
-            };
-
-            setTopicResources(prev => {
-              const existing = prev[unit.unit_id] || [];
-              if (existing.some(r => r.url === resource.url)) return prev;
-              return {
-                ...prev,
-                [unit.unit_id]: [...existing, resource]
-              };
-            });
-            console.log('Success! Found a cached resource immediately.');
-          } else {
-            console.log('Webhook triggered successfully! Analysis is running in background.');
-          }
-        } catch (e) {
-          // Response was OK but not JSON (likely "Accepted" string)
-          console.log('[Blueprint] Webhook accepted (non-JSON response).');
-        }
-      } else {
-        throw new Error(`Webhook failed with status ${response.status}`);
-      }
+      await Promise.all(promises);
+      console.log('[Blueprint] All webhooks processing complete.');
 
     } catch (error) {
-      console.error('Error triggering webhook:', error);
+      console.error('[Blueprint] ❌ Error triggering webhook:', error);
     }
   };
 
@@ -2513,40 +2565,70 @@ const Blueprint = () => {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const targetResourceProfile = unit.target_resource_profile || unit.ideal_video_description || unit.semantic_search_phrase || `Video tutorial explaining ${unit.topic}: ${unit.description || ''}`;
 
-        // Debug: log what we're sending
-        console.log(`[Blueprint] Database search request: `, {
-          unit_id: unitId,
-          topic: unit.topic,
-          target_resource_profile: targetResourceProfile?.substring(0, 100) + '...',
-          has_embedding: !!unit.target_resource_embedding,
-          blueprint_id: id
-        });
+        // Initial Search
+        const performSearch = async () => {
+          const response = await fetch(`${supabaseUrl}/functions/v1/search-resources-database`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token} `,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              unit_id: unitId,
+              topic: unit.topic,
+              target_resource_profile: targetResourceProfile,
+              blueprint_id: id
+            }),
+          });
+          return await response.json();
+        };
 
-        const response = await fetch(`${supabaseUrl}/functions/v1/search-resources-database`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token} `,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            unit_id: unitId,
-            topic: unit.topic,
-            target_resource_profile: targetResourceProfile,
-            blueprint_id: id
-          }),
-        });
-
-        const data = await response.json();
-        console.log(`[Blueprint] Database search raw response: `, data);
-        console.log(`[Blueprint] Database search response status: `, response.status);
-        console.log(`[Blueprint] Database search success: `, data.success);
-        console.log(`[Blueprint] Database search resources count: `, data.resources?.length);
-
-        if (!data.success) throw new Error(data.error || 'Database search failed');
-
+        let data = await performSearch();
         foundResources = data.resources || [];
 
-        // After successfully finding resources from the database,
+        // Condition B: No resources found -> Trigger Webhook & Poll
+        if (foundResources.length === 0) {
+          console.log('[Blueprint] ⚠️ No resources found in DB. Triggering external search (Webhook)...');
+
+          // 1. Trigger Webhook
+          await handleTriggerWebhook(unit);
+
+          // 2. Poll Database (Max 6 attempts * 30s = 3 mins)
+          let attempts = 0;
+          const maxAttempts = 6;
+          const pollInterval = 30000; // 30 seconds
+
+          while (attempts < maxAttempts && foundResources.length === 0) {
+            attempts++;
+            console.log(`[Blueprint] ⏳ Polling database for new resources... Attempt ${attempts}/${maxAttempts}`);
+
+            // Wait for interval
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+            // Search again
+            const pollResult = await performSearch();
+            if (pollResult.success && pollResult.resources && pollResult.resources.length > 0) {
+              console.log(`[Blueprint] ✅ Found ${pollResult.resources.length} resources after polling!`);
+              foundResources = pollResult.resources;
+              break; // Standard flow continues below
+            }
+          }
+
+          if (foundResources.length === 0) {
+            console.log('[Blueprint] ❌ Polling timed out. No resources found.');
+            alert("We couldn't find any resources in our database or from external sources at the moment. Please try again later.");
+            setSearchingTopics(prev => {
+              const next = new Set(prev);
+              next.delete(unitId);
+              return next;
+            });
+            loadingResourcesRef.current.delete(unitId);
+            return; // Exit function
+          }
+        }
+
+        // Processing Found Resources (Same as before)
+        // After successfully finding resources (immediately or via polling),
         // trigger the AI explanation generation for context
         if (foundResources.length > 0) {
           console.log(`[Blueprint] Generating explanations for ${foundResources.length} database resources...`);
@@ -3819,7 +3901,7 @@ const Blueprint = () => {
       {/* Sidebars Container */}
 
       {/* 1. Main App Sidebar (Tree) - Fixed Far Left */}
-      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
+      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-40 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
         <ClassSidebar />
       </div>
 
@@ -4114,6 +4196,21 @@ const Blueprint = () => {
                     const unitEquations = topicEquations[unit.unit_id] || [];
                     const unitResources = topicResources[unit.unit_id] || [];
 
+                    // DEBUG: Inspect resources during render
+                    if (unitResources.length > 0) {
+                      console.log(`[Blueprint] 🟢 Rendering unit: ${unit.topic} (${unit.unit_id})`);
+                      console.log(`[Blueprint]   Total resources: ${unitResources.length}`);
+                      unitResources.forEach((r, idx) => {
+                        console.log(`[Blueprint]     Resource ${idx}:`, {
+                          title: r.title,
+                          type: r.type,
+                          url: r.url,
+                          is_hidden: r.is_hidden,
+                          platform: r.platform
+                        });
+                      });
+                    }
+
                     // Find primary video - most recent non-hidden YouTube video
                     // This ensures the re-rolled video persists correctly
                     const visibleVideos = unitResources
@@ -4126,6 +4223,10 @@ const Blueprint = () => {
                       .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
                     const primaryVideo = visibleVideos[0];
+
+                    if (unitResources.length > 0 && !primaryVideo) {
+                      console.warn(`[Blueprint] ⚠️ Has resources but NO visible video found for unit ${unit.unit_id}`);
+                    }
                     const hasMoreVideos = visibleVideos.length > 1;
 
                     return (
@@ -4170,7 +4271,7 @@ const Blueprint = () => {
 
                                       return (
                                         <p className="mb-6 text-stone-600 dark:text-stone-400 text-lg leading-relaxed">
-                                          <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} />
+                                          <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
                                         </p>
                                       );
                                     },
@@ -4188,7 +4289,7 @@ const Blueprint = () => {
 
                                       return (
                                         <li className="text-stone-600 dark:text-stone-400 text-lg leading-relaxed mb-2">
-                                          <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} />
+                                          <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
                                         </li>
                                       );
                                     },
@@ -4226,21 +4327,21 @@ const Blueprint = () => {
                             {/* Render Tutor Guidance if available */}
                             {unit.tutor_guidance && (
                               <div className="mb-4 whitespace-pre-wrap">
-                                <LatexText text={unit.tutor_guidance} unitId={unit.unit_id} context={currentSectionTitle} />
+                                <LatexText text={unit.tutor_guidance} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
                               </div>
                             )}
 
                             {/* Render Concept Summary */}
                             {unit.concept_summary && (
                               <div className="whitespace-pre-wrap">
-                                <LatexText text={unit.concept_summary} unitId={unit.unit_id} context={currentSectionTitle} />
+                                <LatexText text={unit.concept_summary} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
                               </div>
                             )}
 
                             {/* Fallback to description if no specific fields */}
                             {!unit.tutor_guidance && !unit.concept_summary && unit.description && (
                               <div className="whitespace-pre-wrap">
-                                <LatexText text={unit.description} unitId={unit.unit_id} context={currentSectionTitle} />
+                                <LatexText text={unit.description} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
                               </div>
                             )}
                           </div>
@@ -4328,9 +4429,24 @@ const Blueprint = () => {
                                   </div>
 
                                   <div className="flex items-center justify-between pt-4 mt-2">
-                                    <span className="px-2 py-1 bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 text-[10px] font-bold uppercase tracking-wider rounded">
-                                      YOUTUBE
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="px-2 py-1 bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 text-[10px] font-bold uppercase tracking-wider rounded">
+                                        YOUTUBE
+                                      </span>
+                                      {/* DEBUG BUTTON: Always available manually */}
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          console.log('[Blueprint] 🖱️ "Webhook (Debug)" clicked for unit:', unit.topic);
+                                          handleTriggerWebhook(unit);
+                                        }}
+                                        className="p-1 px-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded text-xs text-stone-400 font-medium flex items-center gap-1"
+                                        title="Manually trigger webhook (Debug)"
+                                      >
+                                        <Zap className="w-3 h-3" />
+                                        <span className="hidden sm:inline">Webhook</span>
+                                      </button>
+                                    </div>
 
                                     <span className="flex items-center gap-1.5 text-xs font-bold text-[#FF4A1C] group-hover/card:text-[#e0390c] transition-colors uppercase tracking-wide">
                                       OPEN
@@ -4360,8 +4476,13 @@ const Blueprint = () => {
                                   Search Database
                                 </button>
                                 <button
-                                  onClick={() => handleTriggerWebhook(unit)}
-                                  className="px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border border-transparent rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shadow-sm flex items-center gap-2">
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    console.log('[Blueprint] 🖱️ "Activate Webhook" button clicked manually for unit:', unit.topic);
+                                    handleTriggerWebhook(unit);
+                                  }}
+                                  className="px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border border-transparent rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shadow-sm flex items-center gap-2"
+                                >
                                   <Zap className="w-4 h-4" />
                                   Activate Webhook
                                 </button>
@@ -4385,7 +4506,7 @@ const Blueprint = () => {
                                   <div key={idx}>
                                     <h5 className="text-md font-bold text-stone-800 dark:text-stone-200 mb-3">{section.title}</h5>
                                     <div className="prose dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
-                                      <LatexText text={section.content} unitId={unit.unit_id} context={currentSectionTitle} />
+                                      <LatexText text={section.content} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
                                     </div>
                                   </div>
                                 ))}
@@ -4443,7 +4564,7 @@ const Blueprint = () => {
                               </div>
                               <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
                                 <div className="whitespace-pre-wrap">
-                                  <LatexText text={unit.deep_dive_explanation} unitId={unit.unit_id} context={currentSectionTitle} />
+                                  <LatexText text={unit.deep_dive_explanation} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
                                 </div>
                               </div>
                             </div>

@@ -199,6 +199,8 @@ serve(async (req: Request) => {
 
         return {
           id: resource.id,
+          // Ensure type is present; default to 'video' for compatibility with frontend filters
+          type: resource.type || 'video',
           title: resource.title,
           url: resource.url,
           platform: resource.platform || 'Web',

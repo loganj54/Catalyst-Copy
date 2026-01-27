@@ -9,7 +9,7 @@ import { useUiState } from '../context/UiStateContext';
  * InteractiveTerm Component
  * Handles the state and UI for a single clickable term with a popover menu.
  */
-const InteractiveTerm = ({ content, index, unitId, context }) => {
+const InteractiveTerm = ({ content, index, unitId, context, blueprintId }) => {
     // DEBUG LOG
     // console.log(`[InteractiveTerm] Rendered: ${content}, context:`, context);
     const [isOpen, setIsOpen] = useState(false);
@@ -61,6 +61,7 @@ const InteractiveTerm = ({ content, index, unitId, context }) => {
             context: context, // Pass the CONTEXT (e.g. Solution Walkthrough Title)
             anchorId: domId, // PASS THE STABLE DOM ID
             unitId: unitId, // Pass the Unit ID
+            blueprintId: blueprintId, // Pass the Blueprint ID
             // Pass explicit start coordinates (snapshot)
             startPosition: {
                 x: activeRect ? activeRect.left + (activeRect.width / 2) : 0, // Bottom Center X
@@ -103,7 +104,7 @@ const InteractiveTerm = ({ content, index, unitId, context }) => {
                 `}
             >
                 {/* Recursive render to handle math inside the clickable term */}
-                <LatexText text={content} unitId={unitId} context={context} />
+                <LatexText text={content} unitId={unitId} context={context} blueprintId={blueprintId} />
             </span>
 
             {/* The Icon Menu Popover */}
@@ -141,13 +142,13 @@ const InteractiveTerm = ({ content, index, unitId, context }) => {
 
 /**
  * LatexText Component
- * 
- * Renders mixed text and LaTeX. 
+ *
+ * Renders mixed text and LaTeX.
  * - Text wrapped in $...$ will be rendered using KaTeX (Static).
  * - Text wrapped in [[...]] will be rendered as a clickable term (Interactive).
  * - [[...]] can contain nested LaTeX equations.
  */
-function LatexText({ text, unitId, context }) {
+function LatexText({ text, unitId, context, blueprintId }) {
     if (!text) return null;
 
     // Split by [[...]] (clickable terms) OR $...$ (inline math)
@@ -160,7 +161,7 @@ function LatexText({ text, unitId, context }) {
                 // Handling Clickable Terms: [[...]]
                 if (part.startsWith('[[') && part.endsWith(']]')) {
                     const content = part.slice(2, -2);
-                    return <InteractiveTerm key={i} content={content} index={i} unitId={unitId} context={context} />;
+                    return <InteractiveTerm key={i} content={content} index={i} unitId={unitId} context={context} blueprintId={blueprintId} />;
                 }
 
                 // Handling Static Math: $...$

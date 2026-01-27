@@ -18,6 +18,8 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
     const [videos, setVideos] = useState([]);
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
     const [isLoadingVideos, setIsLoadingVideos] = useState(false);
+    const [hasFetchedVideos, setHasFetchedVideos] = useState(false);
+
 
     // Explanation specific state
     const [explanation, setExplanation] = useState(null);
@@ -59,40 +61,51 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
     const BUBBLE_WIDTH = 500;
     const RIGHT_MARGIN = 40;
 
+    // Reset fetch state when explainer changes
+    useEffect(() => {
+        setHasFetchedVideos(false);
+        setVideos([]);
+    }, [explainer.term, explainer.context]);
+
     // Fetch Video Effect
     useEffect(() => {
-        if (explainer.type === 'video' && videos.length === 0 && !isLoadingVideos) {
+        if (explainer.type === 'video' && !hasFetchedVideos && !isLoadingVideos) {
             const fetchVideos = async () => {
                 setIsLoadingVideos(true);
                 try {
-                    // Construct search query: "Term with respect to Context"
-                    // Context is typically the Blueprint/Section Title
-                    const query = `${explainer.term} with respect to ${explainer.context || 'general engineering'}`;
-                    console.log(`[ExplainerBubble] Searching videos for: "${query}"`);
+                    // Use the new find-videos function
+                    const blueprintId = explainer.blueprintId;
+                    const unitId = explainer.unitId;
 
-                    const { data, error } = await supabase.functions.invoke('search-resources-database', {
+                    console.log(`[ExplainerBubble] Calling 'find-videos' for blueprint: "${blueprintId}", unit: "${unitId}"`);
+
+                    const { data, error } = await supabase.functions.invoke('find-videos', {
                         body: {
-                            target_resource_profile: query
+                            blueprint_id: blueprintId,
+                            unit_id: unitId,
+                            max_results: 5
                         }
                     });
 
                     if (error) throw error;
 
-                    if (data && data.resources && data.resources.length > 0) {
-                        setVideos(data.resources);
+                    if (data && data.success && data.videos && data.videos.length > 0) {
+                        setVideos(data.videos);
                     } else {
-                        // Handle no results
                         console.log('[ExplainerBubble] No videos found.');
+                        // Optionally set a state to show "No videos found" message
                     }
                 } catch (err) {
                     console.error('Failed to search videos:', err);
                 } finally {
                     setIsLoadingVideos(false);
+                    setHasFetchedVideos(true);
                 }
             };
             fetchVideos();
         }
-    }, [explainer.type, explainer.term, explainer.context]);
+    }, [explainer.type, explainer.blueprintId, explainer.unitId]);
+
 
     // Fetch Explanation Effect
     useEffect(() => {
@@ -416,9 +429,9 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                                                             <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
                                                         </div>
                                                     </div>
-                                                    {currentVideo.duration_seconds && (
+                                                    {currentVideo.duration && (
                                                         <div className="absolute bottom-1.5 right-1.5 px-1 pb-[1px] bg-black/70 text-white text-[9px] font-bold rounded tracking-wide">
-                                                            {formatDuration(currentVideo.duration_seconds)}
+                                                            {formatDuration(currentVideo.duration)}
                                                         </div>
                                                     )}
                                                 </div>
@@ -444,7 +457,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                                             {/* Right Column: Description & Footer */}
                                             <div className="flex-1 flex flex-col justify-between min-w-0">
                                                 <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-4">
-                                                    {currentVideo.resource_explanation || currentVideo.description || "No description available."}
+                                                    {currentVideo.match_explanation || currentVideo.description || "No description available."}
                                                 </p>
 
                                                 <div className="flex items-center justify-between pt-3 mt-1 active:mt-1">
@@ -461,8 +474,55 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="text-center p-4 text-stone-500">
-                                        No videos found for this term.
+                                    <div className="text-center p-4 text-stone-500 space-y-3">
+                                        <p>No videos found for this term.</p>
+                                        <button
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                console.log(`[ExplainerOverlay] 🖱️ "Activate Webhook" Clicked for: "${explainer.term}"`);
+
+                                                try {
+                                                    const webhookUrl = 'https://hook.us2.make.com/4biukvihdmvo4aianlpqk5sbnewjbonh';
+                                                    const term = explainer.term || 'Unknown Term';
+                                                    const context = explainer.context || 'general engineering';
+                                                    const query = `${term} with respect to ${context}`;
+
+                                                    const payload = {
+                                                        section_title: context,
+                                                        units: [{
+                                                            unit_id: 'manual_explainer_debug',
+                                                            topic: term,
+                                                            target_resource_profile: query,
+                                                            search_query: query
+                                                        }],
+                                                        query_index: 1,
+                                                        total_queries: 1,
+                                                        triggered_at: new Date().toISOString()
+                                                    };
+
+                                                    console.log('[ExplainerOverlay] 📡 Sending Payload:', payload);
+
+                                                    const res = await fetch(webhookUrl, {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify(payload)
+                                                    });
+
+                                                    if (res.ok) {
+                                                        console.log('[ExplainerOverlay] ✅ Webhook Sent Successfully');
+                                                        alert('Webhook Sent! Check Make.com.');
+                                                    } else {
+                                                        console.error('[ExplainerOverlay] ❌ Webhook Failed:', res.status);
+                                                        alert('Webhook Failed. Check Console.');
+                                                    }
+                                                } catch (err) {
+                                                    console.error('[ExplainerOverlay] ❌ Error:', err);
+                                                }
+                                            }}
+                                            className="px-3 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 rounded text-xs font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition"
+                                        >
+                                            Activate Webhook
+                                        </button>
                                     </div>
                                 )}
                             </div>
