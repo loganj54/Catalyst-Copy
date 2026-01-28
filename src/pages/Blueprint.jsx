@@ -16,8 +16,7 @@ import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 import EquationDisplay from '../components/EquationDisplay';
 import FigureDisplay from '../components/FigureDisplay';
-import Sidebar from '../components/Sidebar';
-import ClassSidebar from '../components/ClassSidebar';
+import { Sidebar } from '../components/dub-ui/Sidebar';
 import StructureGenerationProgress from '../components/StructureGenerationProgress';
 import ChatDrawer from '../components/ChatDrawer';
 import RelatedMaterialModule from '../components/RelatedMaterialModule';
@@ -1169,7 +1168,7 @@ const BlueprintSkeleton = () => {
   return (
     <div className="min-h-screen bg-transparent text-outline relative animate-pulse">
       {/* Sidebars */}
-      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
+      <div className="fixed top-0 left-0 h-full z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
         <div className="p-6 space-y-6">
           <div className="h-6 w-32 bg-stone-200 dark:bg-stone-800 rounded" />
           <div className="space-y-3">
@@ -3862,7 +3861,7 @@ const Blueprint = () => {
     <div className="flex h-[calc(100vh-80px)] w-full p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden transition-all duration-300 bg-stone-100 dark:bg-stone-950">
       {/* 1. Class Sidebar Bubble */}
       <div className="hidden lg:flex flex-col w-[250px] bg-stone-50 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
-        <ClassSidebar className="w-full h-full border-r-0 bg-stone-50" />
+        <Sidebar className="w-full h-full border-r-0 bg-stone-50" activeClassId={blueprint?.class_id} />
       </div>
 
       {/* 2. Main Content Bubble */}

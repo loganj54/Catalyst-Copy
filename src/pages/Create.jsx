@@ -411,9 +411,9 @@ const Create = () => {
 
   return (
     <div
-      className={`min-h-screen pt-24 pb-12 px-4 sm:px-6 relative transition-all duration-300 ${bgPattern === 'white' || bgPattern === 'none'
-          ? 'bg-stone-100 dark:bg-stone-950'
-          : 'bg-transparent'
+      className={`h-screen overflow-y-auto pb-12 px-4 sm:px-6 relative transition-all duration-300 ${bgPattern === 'white' || bgPattern === 'none'
+        ? 'bg-stone-100 dark:bg-stone-950'
+        : 'bg-transparent'
         }`}
     >
       <div className="max-w-3xl mx-auto relative z-10">

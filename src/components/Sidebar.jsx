@@ -32,11 +32,11 @@ const Sidebar = ({ collapsed = false }) => {
         to={item.path}
         title={collapsed ? item.label : ''}
         className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-normal transition-all border ${isActive
-          ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600 shadow-sm'
-          : 'text-stone-500 dark:text-stone-400 border-transparent hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-stone-100'
+          ? 'bg-gray-100 text-black border-transparent'
+          : 'text-stone-500 hover:bg-gray-50 hover:text-stone-900 border-transparent'
           } ${collapsed ? 'justify-center px-2' : ''}`}
       >
-        <item.icon className={`w-5 h-5 transition-colors ${isActive ? 'text-stone-900 dark:text-stone-100' : 'text-stone-400 dark:text-stone-500 group-hover:text-stone-900 dark:group-hover:text-stone-100'
+        <item.icon className={`w-5 h-5 transition-colors ${isActive ? 'text-black' : 'text-stone-400 group-hover:text-stone-900'
           }`} />
 
         {!collapsed && (

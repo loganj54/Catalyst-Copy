@@ -16,8 +16,7 @@ import {
 } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useTheme } from '../context/ThemeContext';
-import Sidebar from '../components/Sidebar';
-import ClassSidebar from '../components/ClassSidebar';
+import { Sidebar } from '../components/dub-ui/Sidebar';
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -359,11 +358,11 @@ const ClassDetails = () => {
   const { bgPattern } = useTheme(); // Import theme
 
   return (
-    <div className="flex h-[calc(100vh-80px)] w-full bg-stone-100 dark:bg-stone-950 p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden transition-colors duration-300">
+    <div className="flex h-full w-full bg-stone-100 dark:bg-stone-950 p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden transition-colors duration-300">
 
       {/* 1. Class Sidebar Bubble */}
       <div className="hidden lg:flex flex-col w-[250px] bg-stone-50 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
-        <ClassSidebar className="w-full h-full border-r-0 bg-stone-50" />
+        <Sidebar className="w-full h-full border-r-0 bg-stone-50" activeClassId={id} />
       </div>
 
       {/* 2. Main Content Bubble */}

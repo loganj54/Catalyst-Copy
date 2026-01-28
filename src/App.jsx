@@ -17,62 +17,77 @@ import Blueprint from './pages/Blueprint';
 import Create from './pages/Create';
 import ClassDetails from './pages/ClassDetails';
 
+import SidebarNavigation from './components/SidebarNavigation';
+
 function Layout() {
   const location = useLocation();
 
+  // Define routes that should use the Sidebar instead of Navbar
+  const sidebarRoutes = ['/classes', '/create', '/blueprint'];
+  const isSidebarPage = sidebarRoutes.some(route => location.pathname.startsWith(route)) || location.pathname.startsWith('/class/');
+
   return (
-    <div className="w-full min-h-screen relative flex flex-col pt-20">
-      <Navbar />
-      {/* <ThemeToggle /> */}
-      <Background />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/classes" element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        } />
-        <Route path="/projects" element={
-          <ProtectedRoute>
-            <Projects />
-          </ProtectedRoute>
-        } />
-        <Route path="/career" element={
-          <ProtectedRoute>
-            <Career />
-          </ProtectedRoute>
-        } />
-        <Route path="/skills" element={
-          <ProtectedRoute>
-            <Skills />
-          </ProtectedRoute>
-        } />
-        <Route
-          path="/create"
-          element={
+    <div className={`w-full min-h-screen relative flex flex-col ${isSidebarPage ? '' : 'pt-20'}`}>
+
+      {/* Show Navbar only if NOT a sidebar page */}
+      {!isSidebarPage && <Navbar />}
+
+      {/* Show Sidebar only if IS a sidebar page */}
+      {isSidebarPage && <SidebarNavigation />}
+
+      {/* Background is handled specifically in Dashboard for sidebar pages, global for others */}
+      {!isSidebarPage && <Background />}
+
+      <div className={`${isSidebarPage ? 'pl-16 h-screen overflow-hidden' : ''}`}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/classes" element={
             <ProtectedRoute>
-              <Create />
+              <Dashboard />
             </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/class/:id"
-          element={
+          } />
+          <Route path="/projects" element={
             <ProtectedRoute>
-              <ClassDetails />
+              <Projects />
             </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/blueprint/:id"
-          element={
+          } />
+          <Route path="/career" element={
             <ProtectedRoute>
-              <Blueprint />
+              <Career />
             </ProtectedRoute>
-          }
-        />
-      </Routes>
+          } />
+          <Route path="/skills" element={
+            <ProtectedRoute>
+              <Skills />
+            </ProtectedRoute>
+          } />
+          <Route
+            path="/create"
+            element={
+              <ProtectedRoute>
+                <Create />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/class/:id"
+            element={
+              <ProtectedRoute>
+                <ClassDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/blueprint/:id"
+            element={
+              <ProtectedRoute>
+                <Blueprint />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </div>
     </div>
   );
 }
