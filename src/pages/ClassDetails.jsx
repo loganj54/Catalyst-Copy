@@ -356,18 +356,17 @@ const ClassDetails = () => {
   if (!classData) return null;
 
   return (
-    <div
-      className="min-h-screen bg-transparent flex text-outline relative"
-    >
+    <div className="flex h-[calc(100vh-80px)] w-full bg-stone-100 p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden">
 
-
-
-      {/* Class Sidebar */}
-      <div className="fixed top-20 left-0 h-[calc(100vh-80px)] z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
-        <ClassSidebar />
+      {/* 1. Class Sidebar Bubble */}
+      <div className="hidden lg:flex flex-col w-[250px] bg-stone-50 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
+        <ClassSidebar className="w-full h-full border-r-0 bg-stone-50" />
       </div>
 
-      <div className="flex-1 min-w-0 relative z-10">
+      {/* 2. Main Content Bubble */}
+      <div className="flex-1 flex flex-col min-w-0 bg-white rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
+
+        {/* Modals & Dialogs (ensure z-index or place outside if needed, usually fixed works) */}
         <ConfirmDialog
           isOpen={confirmDialog.isOpen}
           onClose={() => setConfirmDialog({ isOpen: false, type: '', itemId: null, itemPath: null })}
@@ -379,96 +378,100 @@ const ClassDetails = () => {
           type="danger"
         />
 
-        <div className="pt-8 pb-12 px-6 lg:px-12 max-w-7xl mx-auto space-y-12">
-
-          {/* Edit Blueprint Name Modal */}
-          {editingBlueprint && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-xl max-w-md w-full p-6 border border-stone-200 dark:border-stone-700 animate-in fade-in zoom-in-95 duration-200">
-                <h3 className="text-xl font-bold text-stone-900 dark:text-stone-100 mb-4">Rename Blueprint</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
-                      Blueprint Name
-                    </label>
-                    <input
-                      type="text"
-                      value={newBlueprintName}
-                      onChange={(e) => setNewBlueprintName(e.target.value)}
-                      className="w-full px-3 py-2 bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg focus:ring-2 focus:ring-[#FF4A1C] focus:border-transparent outline-none transition-all text-stone-900 dark:text-stone-100"
-                      placeholder="Enter new name"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') saveBlueprintName();
-                        if (e.key === 'Escape') setEditingBlueprint(null);
-                      }}
-                    />
-                  </div>
-                  <div className="flex justify-end gap-3 pt-2">
-                    <button
-                      onClick={() => setEditingBlueprint(null)}
-                      className="px-4 py-2 text-sm font-medium text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={saveBlueprintName}
-                      disabled={isSavingName || !newBlueprintName.trim()}
-                      className="px-4 py-2 text-sm font-medium bg-[#FF4A1C] text-white rounded-lg hover:bg-[#e03e15] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                    >
-                      {isSavingName ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        'Save Changes'
-                      )}
-                    </button>
-                  </div>
+        {editingBlueprint && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 border border-gray-200 animate-in fade-in zoom-in-95 duration-200">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Rename Blueprint</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Blueprint Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newBlueprintName}
+                    onChange={(e) => setNewBlueprintName(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all text-gray-900"
+                    placeholder="Enter new name"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveBlueprintName();
+                      if (e.key === 'Escape') setEditingBlueprint(null);
+                    }}
+                  />
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => setEditingBlueprint(null)}
+                    className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveBlueprintName}
+                    disabled={isSavingName || !newBlueprintName.trim()}
+                    className="px-4 py-2 text-sm font-medium bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  >
+                    {isSavingName ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Changes'
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Header */}
-          <div className="flex flex-col gap-6 mb-8">
-            <div className="text-left">
-              <h1 className="text-4xl font-normal text-[#2A2B2A] dark:text-stone-100 tracking-tight">{classData.name}</h1>
-              <p className="text-stone-500 dark:text-stone-400 text-lg">{classData.professor}</p>
-            </div>
+        {/* Header Area */}
+        <header className="px-8 py-6 border-b border-gray-100 bg-white flex-shrink-0">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="text-left">
+                <h1 className="text-4xl font-normal text-black dark:text-stone-100 tracking-tight">{classData.name}</h1>
+                <p className="text-stone-500 dark:text-stone-400 text-lg">{classData.professor}</p>
+              </div>
 
-            {/* Navigation Toggle */}
-            <div className="self-center bg-stone-100/50 dark:bg-stone-800/50 p-1 rounded-lg inline-flex items-center border border-stone-200 dark:border-stone-700">
-              <button
-                onClick={() => setActiveTab('blueprints')}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'blueprints'
-                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
-                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
-                  }`}
-              >
-                Blueprints
-              </button>
-              <button
-                onClick={() => setActiveTab('documents')}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'documents'
-                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm border border-stone-200 dark:border-stone-600'
-                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 border border-transparent'
-                  }`}
-              >
-                Documents
-              </button>
+              {/* Navigation Toggle / Tabs */}
+              <div className="bg-gray-100 p-1 rounded-lg inline-flex items-center">
+                <button
+                  onClick={() => setActiveTab('blueprints')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'blueprints'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                    }`}
+                >
+                  Blueprints
+                </button>
+                <button
+                  onClick={() => setActiveTab('documents')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${activeTab === 'documents'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                    }`}
+                >
+                  Documents
+                </button>
+              </div>
             </div>
           </div>
+        </header>
 
-          {/* Content Area */}
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto p-8 bg-gray-50/50">
+
+          {/* Content Logic */}
           <div className="min-h-[400px]">
             {activeTab === 'documents' && (
               <div className="min-h-[300px]">
                 {documents.length > 0 ? (
                   <div className="space-y-6">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-xl font-normal text-stone-900 dark:text-stone-100">Your Documents</h3>
+                      <h3 className="text-base font-medium text-gray-900">Your Documents</h3>
                       <div>
                         <input
                           ref={fileInputRef}
@@ -480,17 +483,17 @@ const ClassDetails = () => {
                         />
                         <label
                           htmlFor="document-upload"
-                          className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 cursor-pointer shadow-sm ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className={`flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-all text-gray-700 cursor-pointer shadow-sm text-sm font-medium ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                           {uploadingDocument ? (
                             <>
-                              <Loader2 className="w-5 h-5 animate-spin" />
-                              <span className="font-medium text-sm">Uploading...</span>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Uploading...</span>
                             </>
                           ) : (
                             <>
-                              <Plus className="w-5 h-5" />
-                              <span className="font-medium text-sm">Upload Document</span>
+                              <Plus className="w-4 h-4" />
+                              <span>Upload Document</span>
                             </>
                           )}
                         </label>
@@ -501,26 +504,27 @@ const ClassDetails = () => {
                       {documents.map((doc) => (
                         <div
                           key={doc.id}
-                          className="bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl p-6 shadow-sm hover:shadow-md transition-all group relative flex flex-col h-full"
+                          className="bg-white border border-gray-300 rounded-xl p-5 shadow-sm hover:shadow-md transition-all group relative flex flex-col h-full cursor-pointer hover:border-gray-400"
+                          onClick={(e) => handleViewDocument(e, doc)}
                         >
                           <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg flex items-center justify-center text-stone-500 dark:text-stone-400">
+                            <div className="w-10 h-10 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-sm flex items-center justify-center text-black dark:text-stone-400">
                               <FileText className="w-5 h-5" />
                             </div>
 
                             <div className="relative">
                               <button
                                 onClick={(e) => toggleDropdown(e, doc.id)}
-                                className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                               >
-                                <MoreVertical className="w-5 h-5" />
+                                <MoreVertical className="w-4 h-4" />
                               </button>
 
                               {openDropdownId === doc.id && (
-                                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 py-1 z-10 animate-fade-in">
+                                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 animate-fade-in" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     onClick={(e) => handleViewDocument(e, doc)}
-                                    className="w-full px-4 py-2 text-left text-sm text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2"
+                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                                   >
                                     <Eye className="w-4 h-4" />
                                     View
@@ -528,7 +532,7 @@ const ClassDetails = () => {
                                   <a
                                     href={doc.file_url}
                                     download
-                                    className="w-full px-4 py-2 text-left text-sm text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2"
+                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <Download className="w-4 h-4" />
@@ -536,7 +540,7 @@ const ClassDetails = () => {
                                   </a>
                                   <button
                                     onClick={(e) => handleDeleteDocument(e, doc.id, doc.file_path)}
-                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-50"
                                   >
                                     <Trash2 className="w-4 h-4" />
                                     Delete
@@ -546,36 +550,30 @@ const ClassDetails = () => {
                             </div>
                           </div>
 
-                          <div className="mb-6">
-                            <h4 className="text-xl font-normal text-stone-900 dark:text-stone-100 mb-1 truncate" title={doc.name}>
+                          <div className="mb-2">
+                            <h4 className="text-sm font-medium text-gray-900 mb-1 truncate" title={doc.name}>
                               {doc.name}
                             </h4>
-                            <p className="text-sm text-stone-500 dark:text-stone-400">
+                            <p className="text-xs text-gray-500">
                               {(doc.file_size / 1024).toFixed(1)} KB
                             </p>
                           </div>
 
-                          <div className="mt-auto pt-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs text-stone-400 dark:text-stone-500">
-                            <div className="flex items-center gap-1.5">
-                              <span>Created</span>
-                              <span className="text-stone-500 dark:text-stone-400">{new Date(doc.created_at).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <span>{new Date(doc.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
+                          <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
+                            <span>{new Date(doc.created_at).toLocaleDateString()}</span>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-12">
-                    <div className="w-20 h-20 bg-stone-50 dark:bg-stone-800 rounded-full flex items-center justify-center mx-auto mb-6 text-stone-300 dark:text-stone-600">
-                      <FolderOpen className="w-10 h-10" />
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                      <FolderOpen className="w-6 h-6" />
                     </div>
-                    <h3 className="text-xl font-bold text-[#2A2B2A] dark:text-stone-100 mb-2">Class Documents</h3>
-                    <p className="text-stone-500 dark:text-stone-400 mb-8 max-w-md mx-auto">
-                      Store your syllabus, assignments, and lecture notes here to keep everything organized.
+                    <h3 className="text-sm font-medium text-gray-900 mb-1">No documents yet</h3>
+                    <p className="text-sm text-gray-500 mb-6 max-w-sm mx-auto">
+                      Upload syllabus, assignments, and notes to share with your class.
                     </p>
                     <input
                       ref={fileInputRef}
@@ -587,17 +585,17 @@ const ClassDetails = () => {
                     />
                     <label
                       htmlFor="document-upload-empty"
-                      className={`flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 cursor-pointer shadow-sm ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`inline-flex items-center justify-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all text-gray-700 cursor-pointer shadow-sm text-sm font-medium ${uploadingDocument ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       {uploadingDocument ? (
                         <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          <span className="font-medium text-sm">Uploading...</span>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Uploading...</span>
                         </>
                       ) : (
                         <>
-                          <Plus className="w-5 h-5" />
-                          <span className="font-medium text-sm">Upload Document</span>
+                          <Plus className="w-4 h-4" />
+                          <span>Upload Document</span>
                         </>
                       )}
                     </label>
@@ -611,13 +609,13 @@ const ClassDetails = () => {
                 {blueprints.length > 0 ? (
                   <div className="space-y-6">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-xl font-normal text-stone-900 dark:text-stone-100">Your Blueprints</h3>
+                      <h3 className="text-base font-medium text-gray-900">Your Blueprints</h3>
                       <button
                         onClick={() => navigate('/create', { state: { initialClassId: id } })}
-                        className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 shadow-sm"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-all shadow-sm text-sm font-medium"
                       >
-                        <Plus className="w-5 h-5" />
-                        <span className="font-medium text-sm">New Blueprint</span>
+                        <Plus className="w-4 h-4" />
+                        <span>New Blueprint</span>
                       </button>
                     </div>
 
@@ -626,86 +624,81 @@ const ClassDetails = () => {
                         <div
                           key={blueprint.id}
                           onClick={() => navigate(`/blueprint/${blueprint.id}`)}
-                          className="bg-white dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-all group relative flex flex-col h-full"
+                          className="bg-white border border-gray-300 rounded-xl p-5 shadow-sm hover:shadow-md cursor-pointer transition-all group relative flex flex-col h-full hover:border-gray-400"
                         >
                           <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg flex items-center justify-center text-stone-500 dark:text-stone-400">
+                            <div className="w-10 h-10 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-sm flex items-center justify-center text-black dark:text-stone-400">
                               <PenTool className="w-5 h-5" />
                             </div>
 
                             <div className="relative">
                               <button
                                 onClick={(e) => toggleDropdown(e, blueprint.id)}
-                                className="w-8 h-8 flex items-center justify-center rounded-full text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                                className="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                               >
-                                <MoreVertical className="w-5 h-5" />
+                                <MoreVertical className="w-4 h-4" />
                               </button>
 
                               {openDropdownId === blueprint.id && (
-                                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 py-1 z-10 animate-fade-in">
+                                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 animate-fade-in" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     onClick={(e) => handleEditBlueprint(e, blueprint)}
-                                    className="w-full px-4 py-2 text-left text-sm text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2"
+                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                                   >
                                     <Edit2 className="w-4 h-4" />
                                     Edit Name
                                   </button>
                                   <button
                                     onClick={(e) => handleDeleteBlueprint(e, blueprint.id)}
-                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-50"
                                   >
                                     <Trash2 className="w-4 h-4" />
-                                    Delete Blueprint
+                                    Delete
                                   </button>
                                 </div>
                               )}
                             </div>
                           </div>
 
-                          <div className="mb-6">
-                            <h4 className="text-xl font-normal text-stone-900 dark:text-stone-100 mb-1 truncate" title={blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}>
+                          <div className="mb-2">
+                            <h4 className="text-sm font-medium text-gray-900 mb-1 truncate" title={blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}>
                               {blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}
                             </h4>
-                            <p className="text-sm text-stone-500 dark:text-stone-400 line-clamp-2 h-10">
+                            <p className="text-xs text-gray-500 line-clamp-2 h-8">
                               {blueprint.task_type}
                             </p>
                           </div>
 
-                          <div className="mt-auto pt-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between text-xs text-stone-400 dark:text-stone-500">
-                            <div className="flex items-center gap-1.5">
-                              <span>Created</span>
-                              <span className="text-stone-500 dark:text-stone-400">{new Date(blueprint.created_at).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <span>{new Date(blueprint.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
+                          <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
+                            <span>{new Date(blueprint.created_at).toLocaleDateString()}</span>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-12">
-                    <div className="w-20 h-20 bg-stone-50 dark:bg-stone-800 rounded-full flex items-center justify-center mx-auto mb-6 text-stone-300 dark:text-stone-600">
-                      <PenTool className="w-10 h-10" />
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                      <PenTool className="w-6 h-6" />
                     </div>
-                    <h3 className="text-xl font-bold text-[#2A2B2A] dark:text-stone-100 mb-2">Class Blueprints</h3>
-                    <p className="text-stone-500 dark:text-stone-400 mb-8 max-w-md mx-auto">
-                      Create and manage your engineering blueprints and diagrams for this class.
+                    <h3 className="text-sm font-medium text-gray-900 mb-1">No blueprints yet</h3>
+                    <p className="text-sm text-gray-500 mb-6 max-w-sm mx-auto">
+                      Create and manage your engineering blueprints for this class.
                     </p>
                     <button
                       onClick={() => navigate('/create', { state: { initialClassId: id } })}
-                      className="flex items-center justify-center gap-2 px-5 py-2.5 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700 transition-all text-[#2A2B2A] dark:text-stone-100 shadow-sm"
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-all shadow-sm text-sm font-medium"
                     >
-                      <Plus className="w-5 h-5" />
-                      <span className="font-medium text-sm">New Blueprint</span>
+                      <Plus className="w-4 h-4" />
+                      <span>New Blueprint</span>
                     </button>
                   </div>
                 )}
               </div>
             )}
           </div>
-        </div>
+
+        </main>
       </div>
     </div>
   );

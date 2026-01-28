@@ -59,7 +59,7 @@ export const Sidebar = ({ className = '' }) => {
                 {/* Main Group */}
                 <div className="space-y-0.5">
                     <NavItem icon={LayoutDashboard} label="Overview" path="/classes" />
-                    <NavItem icon={BookOpen} label="Classes" path="/classes" badge="New" />
+                    <NavItem icon={BookOpen} label="Classes" path="/classes" />
                     <NavItem icon={Zap} label="Projects" path="/projects" />
                 </div>
 

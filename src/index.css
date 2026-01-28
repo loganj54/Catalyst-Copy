@@ -81,6 +81,15 @@
   background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8a29e' fill-opacity='0.15'%3E%3Ccircle cx='5' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='5' r='1.5'/%3E%3Ccircle cx='65' cy='5' r='1.5'/%3E%3Ccircle cx='25' cy='25' r='1.5'/%3E%3Ccircle cx='45' cy='25' r='1.5'/%3E%3Ccircle cx='85' cy='25' r='1.5'/%3E%3Ccircle cx='5' cy='45' r='1.5'/%3E%3Ccircle cx='45' cy='45' r='1.5'/%3E%3Ccircle cx='65' cy='45' r='1.5'/%3E%3Ccircle cx='25' cy='65' r='1.5'/%3E%3Ccircle cx='65' cy='65' r='1.5'/%3E%3Ccircle cx='85' cy='65' r='1.5'/%3E%3Ccircle cx='5' cy='85' r='1.5'/%3E%3Ccircle cx='25' cy='85' r='1.5'/%3E%3Ccircle cx='85' cy='85' r='1.5'/%3E%3C/g%3E%3C/svg%3E");
 }
 
+.bg-pattern-grid {
+  background-image: linear-gradient(to right, #80808025 1px, transparent 1px), linear-gradient(to bottom, #80808025 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.dark .bg-pattern-grid {
+  background-image: linear-gradient(to right, #ffffff25 1px, transparent 1px), linear-gradient(to bottom, #ffffff25 1px, transparent 1px);
+}
+
 /* Global Scrollbar Theme - Robust Overrides */
 /* Root level for the main page scrollbar */
 html {

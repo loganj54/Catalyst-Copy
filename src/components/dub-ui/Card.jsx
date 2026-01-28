@@ -3,7 +3,7 @@ import React from 'react';
 export const Card = ({ children, className = '', noPadding = false, ...props }) => {
     return (
         <div
-            className={`bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden ${className}`}
+            className={`bg-white border border-gray-300 rounded-xl shadow-sm transition-all duration-200 hover:border-gray-400 hover:shadow-md overflow-hidden ${className}`}
             {...props}
         >
             <div className={noPadding ? '' : 'p-6'}>

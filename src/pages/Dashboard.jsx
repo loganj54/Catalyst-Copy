@@ -178,7 +178,7 @@ const Dashboard = () => {
         <header className="px-8 py-6 border-b border-gray-100 bg-white flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Classwork Dashboard</h1>
+              <h1 className="text-xl font-semibold text-black tracking-tight">Classwork Dashboard</h1>
               <p className="text-sm text-gray-500 mt-1">Manage your classes and blueprints</p>
             </div>
           </div>
@@ -296,7 +296,7 @@ const Dashboard = () => {
                 >
                   <div className="p-5">
                     <div className="flex justify-between items-start mb-4">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 border border-gray-100 flex items-center justify-center text-gray-500">
+                      <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 shadow-sm flex items-center justify-center text-black">
                         <BookOpen className="w-5 h-5" />
                       </div>
                       <div className="relative">
