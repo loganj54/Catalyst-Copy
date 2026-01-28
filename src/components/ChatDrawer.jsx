@@ -56,6 +56,13 @@ const ChatDrawer = ({
 
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
+    const justCreatedThreadRef = useRef(null);
+    const activeThreadIdRef = useRef(activeThreadId);
+
+    // Keep activeThreadIdRef in sync with state
+    useEffect(() => {
+        activeThreadIdRef.current = activeThreadId;
+    }, [activeThreadId]);
 
     // Initial load: resolve doc ID and fetch threads
     useEffect(() => {
@@ -66,8 +73,14 @@ const ChatDrawer = ({
     }, [isOpen, blueprintId]);
 
     // When thread changes, load messages
+    // When thread changes, load messages
     useEffect(() => {
         if (activeThreadId) {
+            // If we just created this thread, we already have the messages (optimistic + first user msg)
+            if (justCreatedThreadRef.current === activeThreadId) {
+                justCreatedThreadRef.current = null; // Reset
+                return;
+            }
             fetchMessages(activeThreadId);
         } else if (isOpen) {
             // If no thread active, ensure we have a clean slate (or create new temporary)
@@ -165,7 +178,8 @@ const ChatDrawer = ({
             // If no active thread and threads exist, maybe select the most recent?
             // Or keep it null to prompt new? User logic: "Save it... I can go back to it"
             // Let's default to the most recent thread if available and we haven't selected one
-            if (data?.length > 0 && !activeThreadId) {
+            // Use ref to avoid stale closure issues
+            if (data?.length > 0 && !activeThreadIdRef.current) {
                 setActiveThreadId(data[0].id);
             }
         } catch (error) {
@@ -266,7 +280,9 @@ const ChatDrawer = ({
 
         // Ensure we have a thread
         let currentThreadId = activeThreadId;
-        if (!currentThreadId) {
+        const isNewThread = !currentThreadId;
+
+        if (isNewThread) {
             // Create a thread on the fly!
             try {
                 const { data: { user } } = await supabase.auth.getUser();
@@ -283,6 +299,10 @@ const ChatDrawer = ({
                 if (error) throw error;
 
                 setThreads([data, ...threads]);
+
+                // Prevent race condition: Mark this thread as just created so useEffect doesn't overwrite our state
+                justCreatedThreadRef.current = data.id;
+
                 setActiveThreadId(data.id);
                 currentThreadId = data.id;
             } catch (err) {
@@ -295,7 +315,13 @@ const ChatDrawer = ({
         const userMessage = { role: 'user', content: userMessageContent };
 
         // Optimistic update
-        setMessages(prev => [...prev, userMessage]);
+        if (isNewThread) {
+            // If new thread, replace the default greeting with just the user message
+            setMessages([userMessage]);
+        } else {
+            setMessages(prev => [...prev, userMessage]);
+        }
+
         setInput('');
         if (inputRef.current) inputRef.current.style.height = 'auto';
         setIsLoading(true);
@@ -312,9 +338,9 @@ const ChatDrawer = ({
             const { data: { session } } = await supabase.auth.getSession();
             const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-document`;
 
-            // Build history from current messages (excluding the one we just added optimistically to avoid dupes if logic weirdness, but actually we need to send it)
-            // Best to send the full history including the new one.
-            const messageHistory = [...messages, userMessage];
+            // Build history from current messages
+            // If new thread, we only have the new message (ignore previous default greeting)
+            const messageHistory = isNewThread ? [userMessage] : [...messages, userMessage];
 
             const res = await fetch(functionUrl, {
                 method: 'POST',
@@ -380,7 +406,17 @@ const ChatDrawer = ({
                 .update({ updated_at: new Date().toISOString() })
                 .eq('id', currentThreadId);
 
-            fetchThreads(); // Refresh list order to show latest on top
+            // Update thread list locally to show latest on top without refetching (prevents UI glitches)
+            setThreads(prev => {
+                // If it's a new thread, it's already at top from logic above (re-sorting won't hurt)
+                // If existing, we move it to top
+                const existing = prev.find(t => t.id === currentThreadId);
+                if (existing) {
+                    const others = prev.filter(t => t.id !== currentThreadId);
+                    return [{ ...existing, updated_at: new Date().toISOString() }, ...others];
+                }
+                return prev;
+            });
 
             // Auto-title if this is the first real message (or title is default)
             // We can check if thread title is "New Conversation" locally or just fire and forget
