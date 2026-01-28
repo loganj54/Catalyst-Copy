@@ -71,12 +71,12 @@ export const Sidebar = ({ className = '', activeClassId = null }) => {
     return (
         <div className={`w-[250px] flex-shrink-0 flex flex-col h-full border-r border-gray-200 bg-stone-50 ${className}`}>
             {/* Header */}
-            <div className="p-6 pb-2">
+            <div className="p-6">
                 <h2 className="text-xl font-normal text-black tracking-tight leading-tight">Classes Dashboard</h2>
             </div>
 
             {/* Navigation Groups */}
-            <div className="flex-1 overflow-y-auto py-6 px-3 space-y-6">
+            <div className="flex-1 overflow-y-auto pt-5 pb-6 px-3 space-y-6">
 
                 {/* Dashboard Link */}
                 <div className="space-y-0.5">

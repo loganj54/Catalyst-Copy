@@ -3858,14 +3858,14 @@ const Blueprint = () => {
   } : null);
 
   return (
-    <div className="flex h-[calc(100vh-80px)] w-full p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden transition-all duration-300 bg-stone-100 dark:bg-stone-950">
+    <div className="flex h-full w-full py-3 pr-3 pl-0 gap-0 overflow-hidden transition-all duration-300 bg-stone-100 dark:bg-stone-950">
       {/* 1. Class Sidebar Bubble */}
-      <div className="hidden lg:flex flex-col w-[250px] bg-stone-50 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
-        <Sidebar className="w-full h-full border-r-0 bg-stone-50" activeClassId={blueprint?.class_id} />
+      <div className="hidden lg:flex flex-col w-[250px] bg-white border-l border-stone-200 dark:border-stone-800 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
+        <Sidebar className="w-full h-full border-r-0 bg-white" activeClassId={blueprint?.class_id} />
       </div>
 
       {/* 2. Main Content Bubble */}
-      <div className={`flex-1 flex flex-col min-w-0 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden relative transition-all duration-300 bg-white dark:bg-stone-950`}>
+      <div className={`flex-1 flex flex-col min-w-0 ml-3 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden relative transition-all duration-300 bg-white dark:bg-stone-950`}>
 
         {/* Background Layer: Grid + Mask (Only visible if pattern is 'grid') */}
         {bgPattern === 'grid' && (
@@ -3884,18 +3884,13 @@ const Blueprint = () => {
         <div id="main-scroll-container" onScroll={handleScroll} className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
           <div className="w-full min-h-full">
             <div className="sticky top-0 z-30 w-full bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 transition-all duration-300">
-              <div className="px-8 py-6 relative">
+              <div className="px-6 py-5 relative">
                 <div className="flex items-center justify-between gap-4 relative z-10 pointer-events-none">
                   {/* Left: Title & Subtitle */}
                   <div className="text-left min-w-0 pointer-events-auto">
-                    <h1 className="text-4xl font-normal text-black dark:text-stone-100 tracking-tight truncate">
+                    <h1 className="text-xl font-normal text-black dark:text-stone-100 tracking-tight leading-tight truncate">
                       {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
                     </h1>
-                    {blueprint.class?.name && (
-                      <p className="text-stone-500 dark:text-stone-400 text-lg">
-                        {blueprint.class.name}
-                      </p>
-                    )}
                   </div>
 
                   {/* Right: Actions */}

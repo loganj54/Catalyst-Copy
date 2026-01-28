@@ -27,7 +27,7 @@ function Layout() {
   const isSidebarPage = sidebarRoutes.some(route => location.pathname.startsWith(route)) || location.pathname.startsWith('/class/');
 
   return (
-    <div className={`w-full min-h-screen relative flex flex-col ${isSidebarPage ? '' : 'pt-20'}`}>
+    <div className={`w-full min-h-screen relative flex flex-col ${isSidebarPage ? 'bg-stone-100 dark:bg-stone-950' : 'pt-20'}`}>
 
       {/* Show Navbar only if NOT a sidebar page */}
       {!isSidebarPage && <Navbar />}
@@ -38,7 +38,7 @@ function Layout() {
       {/* Background is handled specifically in Dashboard for sidebar pages, global for others */}
       {!isSidebarPage && <Background />}
 
-      <div className={`${isSidebarPage ? 'pl-16 h-screen overflow-hidden' : ''}`}>
+      <div className={`${isSidebarPage ? 'pl-[68px] h-screen overflow-hidden' : ''}`}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/auth" element={<Auth />} />

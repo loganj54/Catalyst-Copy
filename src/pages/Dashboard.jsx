@@ -167,15 +167,15 @@ const Dashboard = () => {
   const { bgPattern } = useTheme(); // Import theme
 
   return (
-    <div className="flex h-full w-full bg-stone-100 dark:bg-stone-950 p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden transition-colors duration-300">
+    <div className="flex h-full w-full bg-stone-100 dark:bg-stone-950 py-3 pr-3 pl-0 gap-0 overflow-hidden transition-colors duration-300">
 
       {/* 1. Sidebar Bubble */}
-      <div className="hidden lg:flex flex-col w-[250px] bg-stone-50 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
-        <Sidebar className="w-full h-full border-r-0 bg-stone-50" />
+      <div className="hidden lg:flex flex-col w-[250px] bg-white border-l border-stone-200 dark:border-stone-800 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
+        <Sidebar className="w-full h-full border-r-0 bg-white" />
       </div>
 
       {/* 2. Main Content Bubble */}
-      <div className={`flex-1 flex flex-col min-w-0 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden transition-all duration-300 relative bg-white dark:bg-stone-950`}>
+      <div className={`flex-1 flex flex-col min-w-0 ml-3 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden transition-all duration-300 relative bg-white dark:bg-stone-950`}>
 
         {/* Background Layer: Grid + Mask (Only visible if pattern is 'grid') */}
         {bgPattern === 'grid' && (
@@ -191,15 +191,15 @@ const Dashboard = () => {
         )}
 
         {/* Header Area */}
-        <header className="px-8 py-6 border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex-shrink-0 relative z-10">
+        <header className="px-6 pt-5 pb-7 border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex-shrink-0 relative z-10">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-normal text-black dark:text-stone-100 tracking-tight">Classes</h1>
+              <h1 className="text-xl font-normal text-black dark:text-stone-100 tracking-tight leading-tight">Classes</h1>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8 space-y-8 bg-transparent relative z-10">
+        <main className="flex-1 overflow-y-auto p-12 space-y-8 bg-transparent relative z-10">
 
           {/* Modals placed here */}
           <CreateClassModal
