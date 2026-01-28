@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Layers, ArrowRight, LogOut, ChevronDown, Plus, Sun, Moon } from 'lucide-react';
+import { Layers, ArrowRight, LogOut, ChevronDown, Plus, Sun, Moon, Grid, Layout, Circle } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -7,7 +7,7 @@ import { useUiState } from '../context/UiStateContext';
 
 const Navbar = () => {
   const { user, signOut } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, bgPattern, setBgPattern } = useTheme();
   const { chatState } = useUiState();
   const navigate = useNavigate();
   const location = useLocation();
@@ -85,6 +85,38 @@ const Navbar = () => {
                 <Sun className="w-5 h-5" />
               )}
             </button>
+
+            <div className="hidden md:flex items-center gap-1 mr-4">
+              <button
+                onClick={() => setBgPattern('grid')}
+                className={`p-2 rounded-lg transition-colors ${bgPattern === 'grid'
+                  ? 'bg-stone-100 dark:bg-stone-800 text-[#FF4A1C]'
+                  : 'text-black/60 dark:text-white/60 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-black dark:hover:text-white'}`}
+                title="Grid Background"
+              >
+                <Grid className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={() => setBgPattern('dots')}
+                className={`p-2 rounded-lg transition-colors ${bgPattern === 'dots'
+                  ? 'bg-stone-100 dark:bg-stone-800 text-[#FF4A1C]'
+                  : 'text-black/60 dark:text-white/60 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-black dark:hover:text-white'}`}
+                title="Dot Pattern"
+              >
+                <Circle className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={() => setBgPattern('white')}
+                className={`p-2 rounded-lg transition-colors ${bgPattern === 'white' || bgPattern === 'none'
+                  ? 'bg-stone-100 dark:bg-stone-800 text-[#FF4A1C]'
+                  : 'text-black/60 dark:text-white/60 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-black dark:hover:text-white'}`}
+                title="Plain Background"
+              >
+                <Layout className="w-5 h-5" />
+              </button>
+            </div>
             <Link to="/classes" className="text-sm font-medium text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors pr-6">
               Dashboard
             </Link>

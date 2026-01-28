@@ -6,11 +6,13 @@ import {
   ToggleLeft, ToggleRight, Zap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 import { extractTextFromPdf, isPdfFile, isLargeFile } from '../utils/pdfExtractor';
 
 const Create = () => {
   const { user } = useAuth();
+  const { bgPattern } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const fileInputRef = useRef(null);
@@ -405,23 +407,26 @@ const Create = () => {
     }
   };
 
-  const cardBackground = `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8a29e' fill-opacity='0.05'%3E%3Ccircle cx='10' cy='10' r='1'/%3E%3C/g%3E%3C/svg%3E")`;
+  // const cardBackground = ... (Removed per new design spec)
 
   return (
     <div
-      className="min-h-screen bg-transparent pt-24 pb-12 px-4 sm:px-6 relative"
+      className={`min-h-screen pt-24 pb-12 px-4 sm:px-6 relative transition-all duration-300 ${bgPattern === 'white' || bgPattern === 'none'
+          ? 'bg-stone-100 dark:bg-stone-950'
+          : 'bg-transparent'
+        }`}
     >
       <div className="max-w-3xl mx-auto relative z-10">
 
         {/* Header */}
         <div className="text-center mb-10 pt-20">
           <div className="mb-8">
-            <h1 className="inline-block text-6xl text-stone-900 dark:text-stone-100 tracking-tight bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-8 py-62 rounded-3xl ">
+            <h1 className="inline-block text-6xl text-black tracking-tight font-display mb-2">
               What are we learning today?
             </h1>
           </div>
           <div className="mb-10">
-            <p className="inline-block text-stone-500 dark:text-stone-400 text-lg bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-8 py-4 rounded-2xl max-w-2xl mx-auto leading-relaxed">
+            <p className="inline-block text-gray-600 text-lg max-w-2xl mx-auto leading-relaxed">
               Transform PDFs and ideas into structured engineering roadmaps.
             </p>
           </div>
@@ -429,8 +434,8 @@ const Create = () => {
 
         {/* Main Input Card */}
         <div
-          className="rounded-2xl shadow-xl border border-stone-300 dark:border-stone-700 overflow-hidden bg-white dark:bg-stone-900"
-          style={{ backgroundImage: cardBackground }}
+          className="rounded-2xl shadow-xl border border-gray-300 bg-white overflow-hidden"
+        // style removed
         >
 
           <div className="p-4 space-y-4">
@@ -447,8 +452,8 @@ const Create = () => {
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
                     className={`h-full border border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${isDragging
-                      ? 'border-stone-500 bg-stone-50 dark:bg-stone-800'
-                      : 'border-stone-300 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-500 hover:bg-stone-50 dark:hover:bg-stone-800'
+                      ? 'border-gray-500 bg-gray-50'
+                      : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                       }`}
                   >
                     <input
@@ -458,20 +463,20 @@ const Create = () => {
                       className="hidden"
                       accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
                     />
-                    <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-lg text-stone-500 dark:text-stone-400 mb-2">
+                    <div className="p-2 bg-gray-100 rounded-lg text-gray-400 mb-2">
                       <Paperclip className="w-5 h-5" />
                     </div>
-                    <p className="text-sm font-medium text-stone-900 dark:text-stone-100">Upload file</p>
+                    <p className="text-sm font-medium text-gray-900">Upload file</p>
 
                   </div>
                 ) : (
                   <div className={`h-full border rounded-lg p-4 flex flex-col items-center justify-center text-center relative group ${formData.fileUpload.size > 5 * 1024 * 1024
-                    ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/10'
-                    : 'border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-800'
+                    ? 'border-red-300 bg-red-50'
+                    : 'border-gray-200 bg-white'
                     }`}>
                     <div className={`p-2 border rounded-lg mb-2 shadow-sm ${formData.fileUpload.size > 5 * 1024 * 1024
-                      ? 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400'
-                      : 'bg-white dark:bg-stone-900 border-stone-300 dark:border-stone-700 text-[#FF4A1C]'
+                      ? 'bg-red-100 border-red-200 text-red-600'
+                      : 'bg-white border-gray-200 text-gray-900'
                       }`}>
                       {formData.fileUpload.size > 5 * 1024 * 1024 ? (
                         <X className="w-5 h-5" />
@@ -480,14 +485,14 @@ const Create = () => {
                       )}
                     </div>
                     <p className={`text-sm font-medium line-clamp-2 px-2 break-all ${formData.fileUpload.size > 5 * 1024 * 1024
-                      ? 'text-red-700 dark:text-red-300'
-                      : 'text-stone-900 dark:text-stone-100'
+                      ? 'text-red-700'
+                      : 'text-gray-900'
                       }`}>
                       {formData.fileUpload.name}
                     </p>
                     <p className={`text-xs mt-1 ${formData.fileUpload.size > 5 * 1024 * 1024
-                      ? 'text-red-500 dark:text-red-400 font-semibold'
-                      : 'text-stone-500 dark:text-stone-400'
+                      ? 'text-red-500 font-semibold'
+                      : 'text-gray-500'
                       }`}>
                       {formData.fileUpload.size > 5 * 1024 * 1024
                         ? `Too large (${(formData.fileUpload.size / (1024 * 1024)).toFixed(1)} MB)`
@@ -502,7 +507,7 @@ const Create = () => {
 
                     <button
                       onClick={(e) => { e.stopPropagation(); removeFile(); }}
-                      className="absolute top-2 right-2 p-1.5 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-md text-stone-500 dark:text-stone-400 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-900/50 transition-colors opacity-0 group-hover:opacity-100"
+                      className="absolute top-2 right-2 p-1.5 bg-white border border-gray-200 rounded-md text-gray-400 hover:text-red-600 hover:border-red-300 transition-colors opacity-0 group-hover:opacity-100"
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
@@ -520,22 +525,21 @@ const Create = () => {
                       ? "Share a quick summary of your document instead... "
                       : "Or add any specific context, problem details, or questions here..."
                   }
-                  className={`w-full h-full p-3 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-sm text-stone-900 dark:text-stone-100 resize-none focus:outline-none focus:border-stone-500 dark:focus:border-stone-400 focus:ring-0 leading-relaxed transition-all ${formData.fileUpload && formData.fileUpload.size > 5 * 1024 * 1024
-                    ? 'placeholder:text-[#FF4A1C] placeholder:font-medium placeholder:opacity-60'
-                    : 'placeholder:text-stone-400 dark:placeholder:text-stone-600'
+                  className={`w-full h-full p-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 resize-none focus:outline-none focus:border-gray-400 focus:ring-0 leading-relaxed transition-all ${formData.fileUpload && formData.fileUpload.size > 5 * 1024 * 1024
+                    ? 'placeholder:text-red-400 placeholder:font-medium placeholder:opacity-60'
+                    : 'placeholder:text-gray-400'
                     }`}
                 />
               </div>
 
             </div>
 
-            {/* Action Bar */}
-            <div className="flex items-center justify-between pt-4 border-t border-stone-300 dark:border-stone-700">
+            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
               <div className="flex gap-2">
                 {/* Static Classwork Button (decorative only) */}
                 <button
                   type="button"
-                  className="flex items-center gap-2 px-4 py-2 border rounded-lg font-medium text-sm transition-all shadow-sm bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-700 cursor-default"
+                  className="flex items-center gap-2 px-4 py-2 border rounded-lg font-medium text-sm transition-all shadow-sm bg-white text-gray-700 border-gray-200 cursor-default"
                 >
                   <BookOpen className="w-4 h-4" />
                   Classwork
@@ -549,8 +553,8 @@ const Create = () => {
                   onClick={() => setDevModeEnabled(!devModeEnabled)}
                   disabled={loading}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-sm transition-all border ${devModeEnabled
-                    ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700 hover:bg-orange-200 dark:hover:bg-orange-900/50'
-                    : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 border-stone-300 dark:border-stone-700 hover:bg-stone-200 dark:hover:bg-stone-700'
+                    ? 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100'
+                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-900'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   title={devModeEnabled
                     ? 'Dev Mode ON: Will automatically run full pipeline (analyze → structure → webhooks → search)'
@@ -575,8 +579,8 @@ const Create = () => {
                   onClick={handleSubmit}
                   disabled={loading || (formData.fileUpload && formData.fileUpload.size > 5 * 1024 * 1024)}
                   className={`flex items-center gap-2 px-4 py-2 border rounded-lg font-medium text-sm transition-all shadow-sm ${(loading || (formData.fileUpload && formData.fileUpload.size > 5 * 1024 * 1024))
-                    ? 'bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-600 border-stone-200 dark:border-stone-800 cursor-not-allowed'
-                    : 'bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700'
+                    ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                    : 'bg-black text-white border-transparent hover:bg-gray-800'
                     }`}
                 >
                   {loading ? (
@@ -600,9 +604,9 @@ const Create = () => {
         {/* Class Selection Card (Classwork Mode Only) */}
         {(formData.fileUpload || formData.textInput.trim().length > 0 || selectedClassId || isCreatingClass) && (
           <div className="mt-6 flex gap-6 items-start">
-            <div className="rounded-2xl shadow-xl border border-stone-300 dark:border-stone-700 overflow-hidden bg-white dark:bg-stone-900 max-w-[300px] w-full animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="rounded-2xl shadow-xl border border-gray-300 overflow-hidden bg-white max-w-[300px] w-full animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="p-5">
-                <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 mb-4 flex items-center gap-2">
+                <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
                   What class is this for?
                 </h3>
 
@@ -617,13 +621,13 @@ const Create = () => {
                       <div className={`
                         w-3 h-3 rounded-full border flex items-center justify-center transition-all flex-shrink-0
                         ${selectedClassId === cls.id
-                          ? 'border-[#FF4A1C] bg-[#FF4A1C]'
-                          : 'border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 group-hover:border-stone-400 dark:group-hover:border-stone-500'
+                          ? 'border-black bg-black'
+                          : 'border-gray-300 bg-white group-hover:border-gray-400'
                         }
                       `}>
                         {/* No inner dot needed if we fill the background */}
                       </div>
-                      <span className={`text-sm transition-colors truncate ${selectedClassId === cls.id ? 'text-stone-900 dark:text-stone-100 font-medium' : 'text-stone-600 dark:text-stone-400 group-hover:text-stone-900 dark:group-hover:text-stone-200'
+                      <span className={`text-sm transition-colors truncate ${selectedClassId === cls.id ? 'text-gray-900 font-medium' : 'text-gray-600 group-hover:text-gray-900'
                         }`}>
                         {cls.name}
                       </span>
@@ -632,7 +636,7 @@ const Create = () => {
 
                   {isCreatingClass ? (
                     <div ref={wrapperRef} className="flex items-center gap-3 pl-[0px] w-full animate-in fade-in slide-in-from-left-2">
-                      <div className="w-3 h-3 rounded-full border border-stone-300 dark:border-stone-600 flex-shrink-0 bg-white dark:bg-stone-800" />
+                      <div className="w-3 h-3 rounded-full border border-gray-300 flex-shrink-0 bg-white" />
                       <div className="flex-1 flex items-center gap-2">
                         <input
                           type="text"
@@ -640,7 +644,7 @@ const Create = () => {
                           onChange={(e) => setNewClassName(e.target.value)}
                           placeholder="Enter Class Name"
                           autoFocus
-                          className="w-full p-2 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:border-stone-500 dark:focus:border-stone-400 focus:ring-0 transition-all"
+                          className="w-full p-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-500 focus:ring-0 transition-all"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') confirmNewClassLocal();
                             if (e.key === 'Escape') cancelNewClass();
@@ -648,7 +652,7 @@ const Create = () => {
                         />
                         <button
                           onClick={cancelNewClass}
-                          className="p-1 rounded-full bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-300 dark:hover:bg-stone-600 transition-colors flex-shrink-0"
+                          className="p-1 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors flex-shrink-0"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -663,9 +667,9 @@ const Create = () => {
                       }}
                       className="group flex items-center gap-3 w-full text-left mt-1"
                     >
-                      <div className="w-3 h-3 rounded-full border border-stone-200 dark:border-stone-700 flex items-center justify-center transition-all flex-shrink-0 bg-white dark:bg-stone-800 group-hover:border-[#FF4A1C]/50">
+                      <div className="w-3 h-3 rounded-full border border-gray-200 flex items-center justify-center transition-all flex-shrink-0 bg-white group-hover:border-black/50">
                       </div>
-                      <span className="text-sm text-stone-600 dark:text-stone-400 group-hover:text-[#FF4A1C] transition-colors">
+                      <span className="text-sm text-gray-600 group-hover:text-black transition-colors">
                         Create a Class
                       </span>
                     </button>
@@ -676,9 +680,9 @@ const Create = () => {
 
             {/* Name This Blueprint (Progressive Disclosure) */}
             {(selectedClassId || isCreatingClass) && (
-              <div className="rounded-2xl shadow-xl border border-stone-300 dark:border-stone-700 overflow-hidden bg-white dark:bg-stone-900 flex-1 animate-in fade-in slide-in-from-left-4 duration-500">
+              <div className="rounded-2xl shadow-xl border border-gray-300 overflow-hidden bg-white flex-1 animate-in fade-in slide-in-from-left-4 duration-500">
                 <div className="p-5">
-                  <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 mb-4">
+                  <h3 className="text-sm font-bold text-gray-900 mb-4">
                     Name This Blueprint
                   </h3>
                   <div className="flex items-center gap-3 pl-[0px] w-full">
@@ -688,7 +692,7 @@ const Create = () => {
                       value={formData.blueprintName}
                       onChange={(e) => setFormData(prev => ({ ...prev, blueprintName: e.target.value }))}
                       placeholder="Enter Blueprint Name"
-                      className="w-full p-3 bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-700 rounded-lg text-sm text-stone-900 dark:text-stone-100 focus:outline-none focus:border-stone-500 dark:focus:border-stone-400 focus:ring-0 transition-all"
+                      className="w-full p-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:border-gray-500 focus:ring-0 transition-all"
                     />
                   </div>
                 </div>

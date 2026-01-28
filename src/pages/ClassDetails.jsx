@@ -15,6 +15,7 @@ import {
   Edit2
 } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { useTheme } from '../context/ThemeContext';
 import Sidebar from '../components/Sidebar';
 import ClassSidebar from '../components/ClassSidebar';
 
@@ -355,8 +356,10 @@ const ClassDetails = () => {
 
   if (!classData) return null;
 
+  const { bgPattern } = useTheme(); // Import theme
+
   return (
-    <div className="flex h-[calc(100vh-80px)] w-full bg-stone-100 p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden">
+    <div className="flex h-[calc(100vh-80px)] w-full bg-stone-200 dark:bg-stone-950 p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden transition-colors duration-300">
 
       {/* 1. Class Sidebar Bubble */}
       <div className="hidden lg:flex flex-col w-[250px] bg-stone-50 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
@@ -364,7 +367,12 @@ const ClassDetails = () => {
       </div>
 
       {/* 2. Main Content Bubble */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
+      <div className={`flex-1 flex flex-col min-w-0 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden transition-all duration-300 ${bgPattern === 'dots'
+        ? 'bg-stone-50 dark:bg-stone-900 bg-pattern-dots'
+        : bgPattern === 'grid'
+          ? 'bg-white dark:bg-stone-900 bg-[linear-gradient(to_right,#80808025_1px,transparent_1px),linear-gradient(to_bottom,#80808025_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,#ffffff25_1px,transparent_1px),linear-gradient(to_bottom,#ffffff25_1px,transparent_1px)]'
+          : 'bg-stone-100 dark:bg-stone-950'
+        }`}>
 
         {/* Modals & Dialogs (ensure z-index or place outside if needed, usually fixed works) */}
         <ConfirmDialog
@@ -428,7 +436,7 @@ const ClassDetails = () => {
         )}
 
         {/* Header Area */}
-        <header className="px-8 py-6 border-b border-gray-100 bg-white flex-shrink-0">
+        <header className="px-8 py-6 border-b border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-900 flex-shrink-0">
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="text-left">
