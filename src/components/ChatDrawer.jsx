@@ -432,7 +432,7 @@ const ChatDrawer = ({
 
     return (
         <div
-            className={`fixed inset-y-0 right-0 z-[100] w-full md:w-[450px] bg-white dark:bg-stone-900 shadow-2xl transform transition-transform duration-300 ease-in-out border-l border-stone-200 dark:border-stone-800 flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+            className={`absolute inset-y-0 right-0 z-20 w-full md:w-[450px] bg-white dark:bg-stone-900 shadow-2xl transform transition-transform duration-300 ease-in-out border-l border-stone-200 dark:border-stone-800 flex flex-col pt-[73px] ${isOpen ? 'translate-x-0 pointer-events-auto' : 'translate-x-full pointer-events-none'}`}
         >
             {/* Header */}
             <div className="h-[88px] flex items-center justify-between px-4 border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-10 transition-all">

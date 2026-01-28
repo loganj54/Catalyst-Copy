@@ -34,7 +34,7 @@ const Navbar = () => {
   }, []);
 
 
-  const rightMargin = chatState.isOpen ? 450 : 0;
+
 
   return (
     <nav className="lg:px-12 flex fixed z-50 bg-stone-100 dark:bg-stone-900/90 w-full border-stone-200 dark:border-stone-800 border-b py-3 top-0 backdrop-blur-sm items-center transition-all duration-300">
@@ -70,7 +70,6 @@ const Navbar = () => {
 
       <div
         className="flex items-center justify-end gap-4 flex-1 transition-all duration-300 ease-in-out"
-        style={{ marginRight: `${rightMargin}px` }}
       >
         {user ? (
           <>

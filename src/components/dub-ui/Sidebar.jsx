@@ -15,7 +15,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { Badge } from './Badge';
 
-export const Sidebar = ({ className = '', activeClassId = null }) => {
+export const Sidebar = ({ className = '', activeClassId = null, extraContent = null }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -118,6 +118,13 @@ export const Sidebar = ({ className = '', activeClassId = null }) => {
                         </button>
                     </div>
                 </div>
+
+                {/* Extra Content (e.g. Blueprint Sections) */}
+                {extraContent && (
+                    <div className="animate-fade-in">
+                        {extraContent}
+                    </div>
+                )}
 
             </div>
         </div>

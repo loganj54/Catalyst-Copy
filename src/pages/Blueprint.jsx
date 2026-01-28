@@ -3861,838 +3861,860 @@ const Blueprint = () => {
     <div className="flex h-full w-full py-3 pr-3 pl-0 gap-0 overflow-hidden transition-all duration-300 bg-stone-100 dark:bg-stone-950">
       {/* 1. Class Sidebar Bubble */}
       <div className="hidden lg:flex flex-col w-[250px] bg-white border-l border-stone-200 dark:border-stone-800 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
-        <Sidebar className="w-full h-full border-r-0 bg-white" activeClassId={blueprint?.class_id} />
+        <Sidebar
+          className="w-full h-full border-r-0 bg-white"
+          activeClassId={blueprint?.class_id}
+          extraContent={
+            tabs.length > 0 && (
+              <div className="pt-2">
+                <div className="px-2 mb-2">
+                  <h3 className="text-xs font-medium text-stone-500 uppercase tracking-wider">Blueprint Sections</h3>
+                </div>
+                <div className="space-y-0.5">
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        const el = document.getElementById('main-scroll-container');
+                        if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className={`
+                        w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm font-medium transition-colors
+                        ${activeTab === tab.id
+                          ? 'bg-stone-100 text-black'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+                      `}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <AlignLeft className="w-4 h-4 text-gray-400" />
+                        <span className="truncate">{tab.label}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          }
+        />
       </div>
 
-      {/* 2. Main Content Bubble */}
-      <div className={`flex-1 flex flex-col min-w-0 ml-3 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden relative transition-all duration-300 bg-white dark:bg-stone-950`}>
+      * 2. Main Content Bubble */}
+      iv className={`flex-1 flex flex-col min-w-0 ml-3 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden relative bg-white dark:bg-stone-950`}>
 
-        {/* Background Layer: Grid + Mask (Only visible if pattern is 'grid') */}
-        {bgPattern === 'grid' && (
-          <div className="absolute inset-0 pointer-events-none z-0">
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808025_1px,transparent_1px),linear-gradient(to_bottom,#80808025_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,#ffffff25_1px,transparent_1px),linear-gradient(to_bottom,#ffffff25_1px,transparent_1px)]"></div>
-            <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white dark:from-stone-900 dark:via-transparent dark:to-stone-900"></div>
+      {/* Background Layer: Grid + Mask (Only visible if pattern is 'grid') */}
+      {bgPattern === 'grid' && (
+        <div className="absolute inset-0 pointer-events-none z-0">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808025_1px,transparent_1px),linear-gradient(to_bottom,#80808025_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,#ffffff25_1px,transparent_1px),linear-gradient(to_bottom,#ffffff25_1px,transparent_1px)]"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white dark:from-stone-900 dark:via-transparent dark:to-stone-900"></div>
+        </div>
+      )}
+
+      {/* Background Layer: Dots (Only visible if pattern is 'dots') */}
+      {bgPattern === 'dots' && (
+        <div className="absolute inset-0 pointer-events-none z-0 bg-pattern-dots opacity-100"></div>
+      )}
+
+      {/* Chat Drawer - Moved inside main bubble for "pull out from under header" effect */}
+      <ChatDrawer
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        documentId={blueprint?.document_id || documentAnalysis?.document_id}
+        blueprintId={id}
+        contextTitle={doc ? (blueprint?.document?.name || "Uploaded Document") : "AI Assistant"}
+        hasDocument={!!doc}
+      />
+
+      {/* Header - Moved outside scroll container for correct z-index layering */}
+      <div className="relative z-30 w-full bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 transition-all duration-300">
+        <div className="px-6 py-5 relative">
+          <div className="flex items-center justify-between gap-4 relative z-10 pointer-events-none">
+            {/* Left: Title & Subtitle */}
+            <div className="text-left min-w-0 pointer-events-auto">
+              <h1 className="text-xl font-normal text-black dark:text-stone-100 tracking-tight leading-tight truncate">
+                {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
+              </h1>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2 shrink-0 pointer-events-auto">
+
+
+              {/* View Document Button */}
+              {(doc || blueprint.url || content.text) && (
+                <button
+                  onClick={handleViewDocument}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-xs font-medium transition-colors shadow-sm"
+                  title={content.text ? "View Text Input" : (doc?.name || "View Document")}
+                >
+                  {content.text ? <FileText className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">
+                    {content.text ? 'Text Input' : 'View Document'}
+                  </span>
+                </button>
+              )}
+
+              {/* Chat Toggle Button */}
+              <button
+                onClick={() => setIsChatOpen(!isChatOpen)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200 border shadow-sm
+                            ${isChatOpen
+                    ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600'
+                    : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700'
+                  }`}
+              >
+                {isChatOpen ? <X className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">{isChatOpen ? 'Close Chat' : 'Chat'}</span>
+              </button>
+            </div>
           </div>
-        )}
 
-        {/* Background Layer: Dots (Only visible if pattern is 'dots') */}
-        {bgPattern === 'dots' && (
-          <div className="absolute inset-0 pointer-events-none z-0 bg-pattern-dots opacity-100"></div>
-        )}
+          {/* Horizontal Tabs - REMOVED MOVED TO SIDEBAR */}
+        </div>
+      </div>
 
-        {/* Scrollable Content Area */}
-        <div id="main-scroll-container" onScroll={handleScroll} className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
-          <div className="w-full min-h-full">
-            <div className="sticky top-0 z-30 w-full bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 transition-all duration-300">
-              <div className="px-6 py-5 relative">
-                <div className="flex items-center justify-between gap-4 relative z-10 pointer-events-none">
-                  {/* Left: Title & Subtitle */}
-                  <div className="text-left min-w-0 pointer-events-auto">
-                    <h1 className="text-xl font-normal text-black dark:text-stone-100 tracking-tight leading-tight truncate">
-                      {blueprint.title || content.blueprintName || 'Untitled Blueprint'}
-                    </h1>
+      {/* Scrollable Content Area */}
+      <div id="main-scroll-container" onScroll={handleScroll} className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
+        <div className="w-full min-h-full">
+
+
+
+          {/* Content Wrapper for Centering in Window (balancing sidebars) */}
+          <div className="w-full lg:pr-[274px]">
+
+
+            <div id="blueprint-content-column" className="pt-32 pb-24 px-8 w-full max-w-5xl mx-auto space-y-12">
+
+              {/* Blueprint Description Only (Title removed) */}
+              {blueprint.description && (
+                <div className="text-center pb-8">
+                  <p className="text-xl text-stone-500 dark:text-stone-400 max-w-3xl mx-auto leading-relaxed">
+                    {blueprint.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Debug Panel */}
+              {showDebug && (
+                <div className="bg-stone-900 text-stone-100 rounded-xl p-6 shadow-lg font-mono text-xs overflow-auto">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-[#FF4A1C]">🐛 Debug Panel</h3>
+                    <button onClick={() => setShowDebug(false)} className="text-stone-400 hover:text-stone-200 transition-colors">✕</button>
                   </div>
+                  <pre className="bg-stone-950 p-3 rounded overflow-x-auto max-h-96">{JSON.stringify({ blueprint, structure, activeTab }, null, 2)}</pre>
+                </div>
+              )}
 
-                  {/* Right: Actions */}
-                  <div className="flex items-center gap-2 shrink-0 pointer-events-auto">
-
-
-                    {/* View Document Button */}
-                    {(doc || blueprint.url || content.text) && (
-                      <button
-                        onClick={handleViewDocument}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-xs font-medium transition-colors shadow-sm"
-                        title={content.text ? "View Text Input" : (doc?.name || "View Document")}
-                      >
-                        {content.text ? <FileText className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                        <span className="hidden sm:inline">
-                          {content.text ? 'Text Input' : 'View Document'}
-                        </span>
-                      </button>
-                    )}
-
-                    {/* Chat Toggle Button */}
+              {/* Progress Panel Modal */}
+              {showProgressPanel && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                  <div className="w-full max-w-2xl animate-scale-in">
+                    <StructureGenerationProgress
+                      blueprintId={id}
+                      authToken={session?.access_token}
+                      onComplete={handleProgressComplete}
+                      onError={handleProgressError}
+                    />
                     <button
-                      onClick={() => setIsChatOpen(!isChatOpen)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200 border shadow-sm
-                                ${isChatOpen
-                          ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600'
-                          : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700'
-                        }`}
+                      onClick={() => setShowProgressPanel(false)}
+                      className="mt-4 w-full px-4 py-2 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors text-sm font-medium"
                     >
-                      {isChatOpen ? <X className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
-                      <span className="hidden sm:inline">{isChatOpen ? 'Close Chat' : 'Chat'}</span>
+                      Close Panel
                     </button>
                   </div>
                 </div>
+              )}
 
-                {/* Horizontal Tabs - Absolutely Centered in Header (Inline) */}
-                <div className="absolute inset-0 pointer-events-none flex items-center justify-center w-full lg:pr-[274px] z-0">
-                  <div className="bg-stone-100 dark:bg-stone-800 p-1 rounded-lg inline-flex items-center h-fit pointer-events-auto">
-                    {tabs.map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => {
-                          setActiveTab(tab.id);
-                          const el = document.getElementById('main-scroll-container');
-                          if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id
-                          ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm'
-                          : 'text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
-                          }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+
+              {/* No Structure State */}
+              {!structure && (
+                <div className="text-center py-20">
+                  <h2 className="text-2xl font-bold text-stone-900 dark:text-stone-100 mb-2">No content structure yet.</h2>
+                  <p className="text-stone-500 max-w-md mx-auto mb-8">
+                    Start by analyzing your document, then generate the blueprint structure.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <button
+                      onClick={handleAnalyzeDocumentLegacy}
+                      disabled={generating}
+                      className="px-6 py-3 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-stone-700 rounded-xl font-medium hover:bg-stone-50 dark:hover:bg-stone-700 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {generating && generationStatus === 'analyzing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                      Start Document Analysis
+                    </button>
+
+                    <button
+                      onClick={handleGenerateStructureLegacy}
+                      disabled={generating}
+                      className="px-6 py-3 bg-[#FF4A1C] text-white rounded-xl font-bold hover:bg-[#FF4A1C]/90 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none disabled:shadow-none flex items-center gap-2"
+                    >
+                      {generating && generationStatus === 'generating' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      Start Blueprint Structure Generation
+                    </button>
+                  </div>
+
+                  {/* GROK BUTTONS ROW */}
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-4">
+                    <button
+                      onClick={handleAnalyzeDocumentGrok}
+                      disabled={generating}
+                      className="px-6 py-3 bg-stone-100 dark:bg-stone-900 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-stone-700 rounded-xl font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {generating && generationStatus === 'analyzing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-blue-500" />}
+                      Analyze (Grok 4.1)
+                    </button>
+
+                    <button
+                      onClick={handleGenerateStructureGrok}
+                      disabled={generating}
+                      className="px-6 py-3 bg-stone-100 dark:bg-stone-900 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-stone-700 rounded-xl font-medium hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {generating && generationStatus === 'generating' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 text-orange-500" />}
+                      Generate Structure (Grok 4.1)
+                    </button>
+                  </div>
+
+                  {/* Deep Dive Guide Button (Combined) */}
+                  <div className="flex justify-center mt-4">
+                    <button
+                      onClick={handleGenerateDeepDiveGuide}
+                      disabled={generating}
+                      className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none shadow-md flex items-center gap-3"
+                    >
+                      {generating && (generationStatus === 'analyzing' || generationStatus === 'generating') ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <BookOpen className="w-5 h-5" />
+                      )}
+                      Generate Deep Dive Guide
+                    </button>
+                  </div>
+
+                  {/* Status Indicator if analysis exists but structure doesn't */}
+                  {documentAnalysis && (
+                    <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-sm font-medium animate-fade-in">
+                      <Check className="w-4 h-4" />
+                      Document Analysis Complete
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Deep Dive Solution Display */}
+              {deepDiveSolutions['__blueprint__'] && (
+                <div className="w-full mt-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  <div className="bg-white/50 dark:bg-stone-900/50 rounded-3xl p-8 md:p-12">
+                    <div className="space-y-6 mb-8">
+                      <h2 className="text-4xl md:text-5xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
+                        📚 Solution Walkthrough
+                      </h2>
+                      <p className="text-lg text-stone-500 dark:text-stone-400">
+                        Detailed step-by-step solution generated by AI
+                      </p>
+                    </div>
+                    <div className="prose prose-lg dark:prose-invert max-w-none text-stone-700 dark:text-stone-300">
+                      <div className="whitespace-pre-wrap">
+                        <LatexText text={deepDiveSolutions['__blueprint__']} />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              )}
 
-            {/* Content Wrapper for Centering in Window (balancing sidebars) */}
-            <div className="w-full lg:pr-[274px]">
-
-
-              <div id="blueprint-content-column" className="pt-32 pb-24 px-8 w-full max-w-5xl mx-auto space-y-12">
-
-                {/* Blueprint Description Only (Title removed) */}
-                {blueprint.description && (
-                  <div className="text-center pb-8">
-                    <p className="text-xl text-stone-500 dark:text-stone-400 max-w-3xl mx-auto leading-relaxed">
-                      {blueprint.description}
-                    </p>
-                  </div>
-                )}
-
-                {/* Debug Panel */}
-                {showDebug && (
-                  <div className="bg-stone-900 text-stone-100 rounded-xl p-6 shadow-lg font-mono text-xs overflow-auto">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-bold text-[#FF4A1C]">🐛 Debug Panel</h3>
-                      <button onClick={() => setShowDebug(false)} className="text-stone-400 hover:text-stone-200 transition-colors">✕</button>
-                    </div>
-                    <pre className="bg-stone-950 p-3 rounded overflow-x-auto max-h-96">{JSON.stringify({ blueprint, structure, activeTab }, null, 2)}</pre>
-                  </div>
-                )}
-
-                {/* Progress Panel Modal */}
-                {showProgressPanel && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="w-full max-w-2xl animate-scale-in">
-                      <StructureGenerationProgress
-                        blueprintId={id}
-                        authToken={session?.access_token}
-                        onComplete={handleProgressComplete}
-                        onError={handleProgressError}
-                      />
-                      <button
-                        onClick={() => setShowProgressPanel(false)}
-                        className="mt-4 w-full px-4 py-2 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors text-sm font-medium"
-                      >
-                        Close Panel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-
-                {/* No Structure State */}
-                {!structure && (
-                  <div className="text-center py-20">
-                    <h2 className="text-2xl font-bold text-stone-900 dark:text-stone-100 mb-2">No content structure yet.</h2>
-                    <p className="text-stone-500 max-w-md mx-auto mb-8">
-                      Start by analyzing your document, then generate the blueprint structure.
-                    </p>
-
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                      <button
-                        onClick={handleAnalyzeDocumentLegacy}
-                        disabled={generating}
-                        className="px-6 py-3 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-stone-700 rounded-xl font-medium hover:bg-stone-50 dark:hover:bg-stone-700 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
-                      >
-                        {generating && generationStatus === 'analyzing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                        Start Document Analysis
-                      </button>
-
-                      <button
-                        onClick={handleGenerateStructureLegacy}
-                        disabled={generating}
-                        className="px-6 py-3 bg-[#FF4A1C] text-white rounded-xl font-bold hover:bg-[#FF4A1C]/90 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none disabled:shadow-none flex items-center gap-2"
-                      >
-                        {generating && generationStatus === 'generating' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                        Start Blueprint Structure Generation
-                      </button>
-                    </div>
-
-                    {/* GROK BUTTONS ROW */}
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-4">
-                      <button
-                        onClick={handleAnalyzeDocumentGrok}
-                        disabled={generating}
-                        className="px-6 py-3 bg-stone-100 dark:bg-stone-900 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-stone-700 rounded-xl font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
-                      >
-                        {generating && generationStatus === 'analyzing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-blue-500" />}
-                        Analyze (Grok 4.1)
-                      </button>
-
-                      <button
-                        onClick={handleGenerateStructureGrok}
-                        disabled={generating}
-                        className="px-6 py-3 bg-stone-100 dark:bg-stone-900 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-stone-700 rounded-xl font-medium hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
-                      >
-                        {generating && generationStatus === 'generating' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 text-orange-500" />}
-                        Generate Structure (Grok 4.1)
-                      </button>
-                    </div>
-
-                    {/* Deep Dive Guide Button (Combined) */}
-                    <div className="flex justify-center mt-4">
-                      <button
-                        onClick={handleGenerateDeepDiveGuide}
-                        disabled={generating}
-                        className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none shadow-md flex items-center gap-3"
-                      >
-                        {generating && (generationStatus === 'analyzing' || generationStatus === 'generating') ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <BookOpen className="w-5 h-5" />
-                        )}
-                        Generate Deep Dive Guide
-                      </button>
-                    </div>
-
-                    {/* Status Indicator if analysis exists but structure doesn't */}
-                    {documentAnalysis && (
-                      <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-sm font-medium animate-fade-in">
-                        <Check className="w-4 h-4" />
-                        Document Analysis Complete
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Deep Dive Solution Display */}
-                {deepDiveSolutions['__blueprint__'] && (
-                  <div className="w-full mt-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                    <div className="bg-white/50 dark:bg-stone-900/50 rounded-3xl p-8 md:p-12">
-                      <div className="space-y-6 mb-8">
-                        <h2 className="text-4xl md:text-5xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
-                          📚 Solution Walkthrough
-                        </h2>
-                        <p className="text-lg text-stone-500 dark:text-stone-400">
-                          Detailed step-by-step solution generated by AI
+              {/* Structure Content - TEXT THREAD LAYOUT */}
+              {structure && (
+                <div className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
+                  {/* Container wrapping header and content */}
+                  {/* Container wrapping header and content */}
+                  <div className="bg-white dark:bg-stone-900 rounded-2xl p-8 md:p-12 shadow-xl border border-stone-200 dark:border-stone-700">
+                    {/* 1. Problem Header (Active Section) */}
+                    <div className="space-y-6 mb-16">
+                      <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
+                        {currentSectionTitle}
+                      </h2>
+                      {currentSectionTitle === 'Prerequisites' && (
+                        <p className="text-xl text-stone-500 italic max-w-2xl font-light">
+                          You must be comfortable with the following topics before moving forward.
                         </p>
-                      </div>
-                      <div className="prose prose-lg dark:prose-invert max-w-none text-stone-700 dark:text-stone-300">
-                        <div className="whitespace-pre-wrap">
-                          <LatexText text={deepDiveSolutions['__blueprint__']} />
-                        </div>
-                      </div>
+                      )}
                     </div>
-                  </div>
-                )}
 
-                {/* Structure Content - TEXT THREAD LAYOUT */}
-                {structure && (
-                  <div className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
-                    {/* Container wrapping header and content */}
-                    {/* Container wrapping header and content */}
-                    <div className="bg-white dark:bg-stone-900 rounded-2xl p-8 md:p-12 shadow-xl border border-stone-200 dark:border-stone-700">
-                      {/* 1. Problem Header (Active Section) */}
-                      <div className="space-y-6 mb-16">
-                        <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
-                          {currentSectionTitle}
-                        </h2>
-                        {currentSectionTitle === 'Prerequisites' && (
-                          <p className="text-xl text-stone-500 italic max-w-2xl font-light">
-                            You must be comfortable with the following topics before moving forward.
-                          </p>
-                        )}
-                      </div>
+                    {/* 2. Concepts Loop (Sequential) */}
+                    <div className="space-y-24 relative transition-all">
+                      {currentUnits.filter(u => u.unit_type !== 'solution').map((unit, index) => {
+                        const unitEquations = topicEquations[unit.unit_id] || [];
+                        const unitResources = topicResources[unit.unit_id] || [];
 
-                      {/* 2. Concepts Loop (Sequential) */}
-                      <div className="space-y-24 relative transition-all">
-                        {currentUnits.filter(u => u.unit_type !== 'solution').map((unit, index) => {
-                          const unitEquations = topicEquations[unit.unit_id] || [];
-                          const unitResources = topicResources[unit.unit_id] || [];
-
-                          // DEBUG: Inspect resources during render
-                          if (unitResources.length > 0) {
-                            console.log(`[Blueprint] 🟢 Rendering unit: ${unit.topic} (${unit.unit_id})`);
-                            console.log(`[Blueprint]   Total resources: ${unitResources.length}`);
-                            unitResources.forEach((r, idx) => {
-                              console.log(`[Blueprint]     Resource ${idx}:`, {
-                                title: r.title,
-                                type: r.type,
-                                url: r.url,
-                                is_hidden: r.is_hidden,
-                                platform: r.platform
-                              });
+                        // DEBUG: Inspect resources during render
+                        if (unitResources.length > 0) {
+                          console.log(`[Blueprint] 🟢 Rendering unit: ${unit.topic} (${unit.unit_id})`);
+                          console.log(`[Blueprint]   Total resources: ${unitResources.length}`);
+                          unitResources.forEach((r, idx) => {
+                            console.log(`[Blueprint]     Resource ${idx}:`, {
+                              title: r.title,
+                              type: r.type,
+                              url: r.url,
+                              is_hidden: r.is_hidden,
+                              platform: r.platform
                             });
-                          }
-
-                          // Find primary video - most recent non-hidden YouTube video
-                          // This ensures the re-rolled video persists correctly
-                          const visibleVideos = unitResources
-                            .filter(r => !r.is_hidden && (
-                              r.type === 'video' ||
-                              r.type === 'youtube' ||
-                              r.url?.includes('youtube.com') ||
-                              r.url?.includes('youtu.be')
-                            ))
-                            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-
-                          const primaryVideo = visibleVideos[0];
-
-                          if (unitResources.length > 0 && !primaryVideo) {
-                            console.warn(`[Blueprint] ⚠️ Has resources but NO visible video found for unit ${unit.unit_id}`);
-                          }
-                          const hasMoreVideos = visibleVideos.length > 1;
-
-                          return (
-                            <div key={unit.unit_id} className="relative group">
-
-                              <div className="space-y-8">
-                                {/* Concept Header & Text Content */}
-                                <div>
-                                  <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
-                                    {unit.topic}
-                                  </h3>
-
-
-                                </div>
-
-                                {/* Solution Walkthrough - MOVED TO TOP */}
-                                {unit.solutionWalkthrough && (
-                                  <div className="mt-12 mb-16">
-                                    <div className="mb-8">
-                                      <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 flex items-center gap-4">
-                                        <BookOpen className="w-8 h-8 md:w-10 md:h-10 text-stone-400 stroke-[1.5]" />
-                                        Complete Solution Walkthrough
-                                      </h3>
-                                    </div>
-
-                                    <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
-                                      <ReactMarkdown
-                                        components={{
-                                          // Helper function to extract text from children
-                                          // Custom renderer for paragraphs to handle LaTeX
-                                          p: ({ node, children }) => {
-                                            // Extract text content from children (handles nested objects)
-                                            const extractText = (child) => {
-                                              if (typeof child === 'string') return child;
-                                              if (Array.isArray(child)) return child.map(extractText).join('');
-                                              if (child?.props?.children) return extractText(child.props.children);
-                                              return '';
-                                            };
-                                            const textContent = Array.isArray(children)
-                                              ? children.map(extractText).join('')
-                                              : extractText(children);
-
-                                            return (
-                                              <p className="mb-6 text-stone-600 dark:text-stone-400 text-lg leading-relaxed">
-                                                <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
-                                              </p>
-                                            );
-                                          },
-                                          // Custom renderer for list items
-                                          li: ({ node, children }) => {
-                                            const extractText = (child) => {
-                                              if (typeof child === 'string') return child;
-                                              if (Array.isArray(child)) return child.map(extractText).join('');
-                                              if (child?.props?.children) return extractText(child.props.children);
-                                              return '';
-                                            };
-                                            const textContent = Array.isArray(children)
-                                              ? children.map(extractText).join('')
-                                              : extractText(children);
-
-                                            return (
-                                              <li className="text-stone-600 dark:text-stone-400 text-lg leading-relaxed mb-2">
-                                                <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
-                                              </li>
-                                            );
-                                          },
-                                          // Headers matched to Blueprint design (font-light, tracking-tight)
-                                          h1: ({ node, children }) => (
-                                            <h1 className="text-4xl font-light tracking-tight text-stone-900 dark:text-stone-100 mt-12 mb-6 border-b border-stone-200 dark:border-stone-800 pb-4">
-                                              {children}
-                                            </h1>
-                                          ),
-                                          h2: ({ node, children }) => (
-                                            <h2 className="text-3xl font-light tracking-tight text-stone-900 dark:text-stone-100 mt-12 mb-6">
-                                              {children}
-                                            </h2>
-                                          ),
-                                          h3: ({ node, children }) => (
-                                            <h3 className="text-2xl font-medium tracking-tight text-stone-900 dark:text-stone-100 mt-8 mb-4">
-                                              {children}
-                                            </h3>
-                                          ),
-                                          h4: ({ node, children }) => (
-                                            <h4 className="text-xl font-bold text-stone-900 dark:text-stone-100 mt-6 mb-3">
-                                              {children}
-                                            </h4>
-                                          ),
-                                        }}
-                                      >
-                                        {unit.solutionWalkthrough}
-                                      </ReactMarkdown>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Tutor Guidance / Intro Text - SECOND */}
-                                <div className="mb-12 prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none space-y-6">
-                                  {/* Render Tutor Guidance if available */}
-                                  {unit.tutor_guidance && (
-                                    <div className="mb-4 whitespace-pre-wrap">
-                                      <LatexText text={unit.tutor_guidance} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
-                                    </div>
-                                  )}
-
-                                  {/* Render Concept Summary */}
-                                  {unit.concept_summary && (
-                                    <div className="whitespace-pre-wrap">
-                                      <LatexText text={unit.concept_summary} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
-                                    </div>
-                                  )}
-
-                                  {/* Fallback to description if no specific fields */}
-                                  {!unit.tutor_guidance && !unit.concept_summary && unit.description && (
-                                    <div className="whitespace-pre-wrap">
-                                      <LatexText text={unit.description} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Video Module - Horizontal Layout */}
-                                {primaryVideo ? (
-                                  <div
-                                    onClick={() => window.open(primaryVideo.url, '_blank')}
-                                    className="bg-white dark:bg-stone-900 rounded-xl border border-gray-300 dark:border-stone-800 shadow-sm overflow-hidden hover:border-gray-400 hover:shadow-md transition-all cursor-pointer group/card"
-                                  >
-                                    {/* Card Header: Title & Re-roll */}
-                                    <div className="px-5 py-4 border-b border-stone-100 dark:border-stone-800 flex items-start justify-between gap-4">
-                                      <h4 className="text-lg font-medium text-stone-900 dark:text-stone-100 line-clamp-1 group-hover/card:text-[#FF4A1C] transition-colors">
-                                        {primaryVideo.title}
-                                      </h4>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleRerollVideo(unit.unit_id, unitResources);
-                                        }}
-                                        disabled={rerollingUnits.has(unit.unit_id) || !hasMoreVideos}
-                                        className={`transition-colors p-1 ${hasMoreVideos ? 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300' : 'text-stone-300 cursor-not-allowed'}`}
-                                        title={hasMoreVideos ? "Show next video" : "No more videos available"}
-                                      >
-                                        <RefreshCw className={`w-4 h-4 ${rerollingUnits.has(unit.unit_id) ? 'animate-spin' : ''}`} />
-                                      </button>
-                                    </div>
-
-                                    {/* Card Body: Split Layout */}
-                                    <div className="p-5 flex flex-col md:flex-row gap-6">
-                                      {/* Left: Thumbnail & Rating */}
-                                      <div className="flex-shrink-0 w-full md:w-48 space-y-3">
-                                        <div className="relative aspect-video rounded-lg overflow-hidden bg-black group/video shadow-sm">
-                                          <img
-                                            src={`https://img.youtube.com/vi/${primaryVideo.url.split('v=')[1]?.split('&')[0]}/mqdefault.jpg`}
-                                            alt={primaryVideo.title}
-                                            className="w-full h-full object-cover opacity-90 group-hover/card:opacity-100 transition-opacity"
-                                          />
-                                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/card:bg-black/10 transition-colors">
-                                            <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white">
-                                              <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
-                                            </div>
-                                          </div>
-                                          {/* Initial duration placeholder if not available */}
-                                          <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/70 text-white text-[10px] font-medium rounded">
-                                            12:55
-                                          </div>
-                                        </div>
-
-                                        {/* Interactive Star Rating */}
-                                        <div
-                                          className="flex items-center justify-center gap-1"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          {[1, 2, 3, 4, 5].map((star) => {
-                                            const rating = resourceRatings[primaryVideo.id || primaryVideo.url] || 0;
-                                            return (
-                                              <button
-                                                key={star}
-                                                onClick={() => setResourceRatings(prev => ({ ...prev, [primaryVideo.id || primaryVideo.url]: star }))}
-                                                className="focus:outline-none transition-transform hover:scale-110"
-                                              >
-                                                <Star
-                                                  className={`w-4 h-4 ${star <= rating ? 'fill-orange-400 text-orange-400' : 'text-stone-300 dark:text-stone-600'}`}
-                                                />
-                                              </button>
-                                            );
-                                          })}
-                                          <span className="text-xs text-stone-400 ml-1">
-                                            {(resourceRatings[primaryVideo.id || primaryVideo.url] || 0).toFixed(1)}
-                                          </span>
-                                        </div>
-                                      </div>
-
-                                      {/* Right: Description & Meta */}
-                                      <div className="flex-1 flex flex-col justify-between min-w-0">
-                                        <div className="space-y-3">
-                                          {primaryVideo.resource_explanation ? (
-                                            <p className="text-sm text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-3">
-                                              {primaryVideo.resource_explanation}
-                                            </p>
-                                          ) : (
-                                            <p className="text-sm text-stone-500 italic">No explanation available for this resource.</p>
-                                          )}
-                                        </div>
-
-                                        <div className="flex items-center justify-between pt-4 mt-2">
-                                          <div className="flex items-center gap-2">
-                                            <span className="px-2 py-1 bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 text-[10px] font-bold uppercase tracking-wider rounded">
-                                              YOUTUBE
-                                            </span>
-                                            {/* DEBUG BUTTON: Always available manually */}
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                console.log('[Blueprint] 🖱️ "Webhook (Debug)" clicked for unit:', unit.topic);
-                                                handleTriggerWebhook(unit);
-                                              }}
-                                              className="p-1 px-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded text-xs text-stone-400 font-medium flex items-center gap-1"
-                                              title="Manually trigger webhook (Debug)"
-                                            >
-                                              <Zap className="w-3 h-3" />
-                                              <span className="hidden sm:inline">Webhook</span>
-                                            </button>
-                                          </div>
-
-                                          <span className="flex items-center gap-1.5 text-xs font-bold text-[#FF4A1C] group-hover/card:text-[#e0390c] transition-colors uppercase tracking-wide">
-                                            OPEN
-                                            <ExternalLink className="w-3 h-3" />
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="rounded-xl border-2 border-dashed border-gray-300 dark:border-stone-800 aspect-video flex flex-col items-center justify-center p-8 text-center space-y-6 bg-stone-50 dark:bg-stone-900/50 group-hover:border-[#FF4A1C]/30 transition-colors">
-                                    <div className="w-16 h-16 rounded-full bg-white dark:bg-stone-800 shadow-sm flex items-center justify-center">
-                                      <Play className="w-6 h-6 text-stone-300 dark:text-stone-600 ml-1" />
-                                    </div>
-                                    <div className="space-y-2">
-                                      <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100">No Video Available</h3>
-                                      <p className="text-xl text-stone-500 dark:text-stone-400 text-sm max-w-sm mx-auto">
-                                        We couldn't find a curated video for this topic.
-                                      </p>
-                                    </div>
-                                    <div className="flex flex-wrap gap-3 justify-center">
-                                      <button
-                                        onClick={() => handleGenerateBlueprint(unit, 'database')}
-                                        disabled={searchingTopics.has(unit.unit_id)}
-                                        className="px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-sm font-medium hover:bg-stone-50 hover:text-[#FF4A1C] transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                                        {searchingTopics.has(unit.unit_id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                                        Search Database
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          console.log('[Blueprint] 🖱️ "Activate Webhook" button clicked manually for unit:', unit.topic);
-                                          handleTriggerWebhook(unit);
-                                        }}
-                                        className="px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border border-transparent rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shadow-sm flex items-center gap-2"
-                                      >
-                                        <Zap className="w-4 h-4" />
-                                        Activate Webhook
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Generated Deep Dive Solution */}
-                                {deepDiveSolutions[unit.unit_id] && (
-                                  <div className="mt-8 bg-white dark:bg-stone-900 rounded-xl p-6 border border-gray-300 dark:border-stone-800 shadow-sm animate-in fade-in slide-in-from-bottom-4">
-                                    <div className="flex items-center gap-3 mb-6">
-                                      <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                                        <Sparkles className="w-4 h-4 text-blue-500" />
-                                      </div>
-                                      <h4 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-                                        Deep Dive Solution
-                                      </h4>
-                                    </div>
-                                    <div className="space-y-8">
-                                      {deepDiveSolutions[unit.unit_id].map((section, idx) => (
-                                        <div key={idx}>
-                                          <h5 className="text-md font-bold text-stone-800 dark:text-stone-200 mb-3">{section.title}</h5>
-                                          <div className="prose dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
-                                            <LatexText text={section.content} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Generate Deep Dive Button (if not generated and is problem type) */}
-                                {unit.unit_type === 'problem' && !deepDiveSolutions[unit.unit_id] && !unit.deep_dive_explanation && (
-                                  <div className="mt-8 flex justify-end">
-                                    <button
-                                      onClick={() => handleGenerateDeepDive(unit)}
-                                      disabled={generatingDeepDive.has(unit.unit_id)}
-                                      className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 flex items-center gap-2 transition-all disabled:opacity-50"
-                                    >
-                                      {generatingDeepDive.has(unit.unit_id) ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <Sparkles className="w-4 h-4" />
-                                      )}
-                                      Generate Deep Dive Solution
-                                    </button>
-                                  </div>
-                                )}
-
-                                {/* Deep Dive Solution - Generated and Persisted */}
-                                {deepDiveSolutions[unit.unit_id] && (
-                                  <div className="mt-8 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 rounded-2xl p-6 md:p-8 border border-blue-200/60 dark:border-blue-700/60">
-                                    <div className="flex items-center gap-3 mb-4">
-                                      <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                                        <BookOpen className="w-4 h-4 text-blue-500" />
-                                      </div>
-                                      <h4 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-                                        📚 Deep Dive Solution
-                                      </h4>
-                                    </div>
-                                    <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
-                                      <ReactMarkdown>
-                                        {deepDiveSolutions[unit.unit_id]}
-                                      </ReactMarkdown>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Deep Dive Explanation - Cohesive narrative connecting concepts */}
-                                {unit.deep_dive_explanation && (
-                                  <div className="mt-8 bg-gradient-to-br from-stone-50 to-stone-100/50 dark:from-stone-800/50 dark:to-stone-900/50 rounded-2xl p-6 md:p-8 border border-stone-200/60 dark:border-stone-700/60">
-                                    <div className="flex items-center gap-3 mb-4">
-                                      <div className="w-8 h-8 rounded-lg bg-[#FF4A1C]/10 flex items-center justify-center">
-                                        <BookOpen className="w-4 h-4 text-[#FF4A1C]" />
-                                      </div>
-                                      <h4 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
-                                        Deep Dive: Applying This Concept
-                                      </h4>
-                                    </div>
-                                    <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
-                                      <div className="whitespace-pre-wrap">
-                                        <LatexText text={unit.deep_dive_explanation} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-
-
-                                {/* Equations Module */}
-                                {unitEquations.length > 0 && (
-                                  <div className="w-full flex justify-center py-6">
-                                    <EquationDisplay equations={unitEquations} context={currentSectionTitle} />
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* 3. Solution Section (If available) */}
-                      {(() => {
-                        // Extract solution info again for this Scope
-                        const solutionUnit = currentUnits.find(u => u.unit_type === 'solution');
-                        if (solutionUnit && solutionUnit.solutionData) {
-                          return (
-                            <div className="mt-24 pt-12 border-t border-stone-200 dark:border-stone-800">
-                              {/* Solution Steps */}
-                              <div className="mb-20">
-                                <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
-                                  Solution Approach
-                                </h3>
-                                <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
-                                  {Array.isArray(solutionUnit.solutionData.approach) ? (
-                                    <div className="space-y-6">
-                                      {solutionUnit.solutionData.approach.map((step, i) => (
-                                        <div key={i} className="flex gap-4 items-start">
-                                          <span className="text-[#FF4A1C] shrink-0 select-none">
-                                            {i + 1}.
-                                          </span>
-                                          <div className="whitespace-pre-wrap">
-                                            <LatexText text={step} context={currentSectionTitle} />
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <div className="whitespace-pre-wrap">
-                                      <LatexText text={String(solutionUnit.solutionData.approach || '')} context={currentSectionTitle} />
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Common Mistakes */}
-                              {/* Common Mistakes */}
-                              <div className="mb-20">
-                                <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
-                                  Common Mistakes
-                                </h3>
-                                <ul className="space-y-6">
-                                  {solutionUnit.solutionData.mistakes.map((mistake, idx) => (
-                                    <li key={idx} className="flex gap-4 items-start">
-                                      <div className="shrink-0 mt-3 w-2 h-2 rounded-full bg-red-500" />
-                                      <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed">
-                                        <span>
-                                          "{mistake.mistake || mistake}"
-                                        </span>
-                                        {mistake.correction && (
-                                          <span> — {mistake.correction}</span>
-                                        )}
-                                      </div>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            </div>
-                          );
+                          });
                         }
-                        return null;
-                      })()}
 
-                      {/* 4. Practice Problems Section */}
-                      {(() => {
-                        const representativeUnit = currentUnits.find(u => u.unit_type !== 'solution');
-                        if (!representativeUnit) return null;
+                        // Find primary video - most recent non-hidden YouTube video
+                        // This ensures the re-rolled video persists correctly
+                        const visibleVideos = unitResources
+                          .filter(r => !r.is_hidden && (
+                            r.type === 'video' ||
+                            r.type === 'youtube' ||
+                            r.url?.includes('youtube.com') ||
+                            r.url?.includes('youtu.be')
+                          ))
+                          .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
-                        const problems = practiceProblems[representativeUnit.unit_id] || [];
+                        const primaryVideo = visibleVideos[0];
+
+                        if (unitResources.length > 0 && !primaryVideo) {
+                          console.warn(`[Blueprint] ⚠️ Has resources but NO visible video found for unit ${unit.unit_id}`);
+                        }
+                        const hasMoreVideos = visibleVideos.length > 1;
 
                         return (
-                          <div className="mt-24 pt-12 border-t border-stone-200 dark:border-stone-800">
-                            <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
-                              Ready to Practice?
-                            </h3>
+                          <div key={unit.unit_id} className="relative group">
 
-                            <div>
-                              {problems.length > 0 ? (
-                                <div className="space-y-6">
-                                  {problems.map((prob, pIdx) => (
-                                    <div key={pIdx} className="bg-white dark:bg-stone-800 p-6 rounded-xl border border-gray-300 dark:border-stone-700 shadow-sm transition-all hover:border-gray-400 hover:shadow-md">
-                                      <h5 className="font-bold text-stone-900 dark:text-stone-100 mb-2">Practice Problem {pIdx + 1}</h5>
-                                      <div className="prose dark:prose-invert max-w-none">
-                                        <LatexText text={prob.practice_problem} context={currentSectionTitle} />
+                            <div className="space-y-8">
+                              {/* Concept Header & Text Content */}
+                              <div>
+                                <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
+                                  {unit.topic}
+                                </h3>
+
+
+                              </div>
+
+                              {/* Solution Walkthrough - MOVED TO TOP */}
+                              {unit.solutionWalkthrough && (
+                                <div className="mt-12 mb-16">
+                                  <div className="mb-8">
+                                    <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 flex items-center gap-4">
+                                      <BookOpen className="w-8 h-8 md:w-10 md:h-10 text-stone-400 stroke-[1.5]" />
+                                      Complete Solution Walkthrough
+                                    </h3>
+                                  </div>
+
+                                  <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                                    <ReactMarkdown
+                                      components={{
+                                        // Helper function to extract text from children
+                                        // Custom renderer for paragraphs to handle LaTeX
+                                        p: ({ node, children }) => {
+                                          // Extract text content from children (handles nested objects)
+                                          const extractText = (child) => {
+                                            if (typeof child === 'string') return child;
+                                            if (Array.isArray(child)) return child.map(extractText).join('');
+                                            if (child?.props?.children) return extractText(child.props.children);
+                                            return '';
+                                          };
+                                          const textContent = Array.isArray(children)
+                                            ? children.map(extractText).join('')
+                                            : extractText(children);
+
+                                          return (
+                                            <p className="mb-6 text-stone-600 dark:text-stone-400 text-lg leading-relaxed">
+                                              <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                            </p>
+                                          );
+                                        },
+                                        // Custom renderer for list items
+                                        li: ({ node, children }) => {
+                                          const extractText = (child) => {
+                                            if (typeof child === 'string') return child;
+                                            if (Array.isArray(child)) return child.map(extractText).join('');
+                                            if (child?.props?.children) return extractText(child.props.children);
+                                            return '';
+                                          };
+                                          const textContent = Array.isArray(children)
+                                            ? children.map(extractText).join('')
+                                            : extractText(children);
+
+                                          return (
+                                            <li className="text-stone-600 dark:text-stone-400 text-lg leading-relaxed mb-2">
+                                              <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                            </li>
+                                          );
+                                        },
+                                        // Headers matched to Blueprint design (font-light, tracking-tight)
+                                        h1: ({ node, children }) => (
+                                          <h1 className="text-4xl font-light tracking-tight text-stone-900 dark:text-stone-100 mt-12 mb-6 border-b border-stone-200 dark:border-stone-800 pb-4">
+                                            {children}
+                                          </h1>
+                                        ),
+                                        h2: ({ node, children }) => (
+                                          <h2 className="text-3xl font-light tracking-tight text-stone-900 dark:text-stone-100 mt-12 mb-6">
+                                            {children}
+                                          </h2>
+                                        ),
+                                        h3: ({ node, children }) => (
+                                          <h3 className="text-2xl font-medium tracking-tight text-stone-900 dark:text-stone-100 mt-8 mb-4">
+                                            {children}
+                                          </h3>
+                                        ),
+                                        h4: ({ node, children }) => (
+                                          <h4 className="text-xl font-bold text-stone-900 dark:text-stone-100 mt-6 mb-3">
+                                            {children}
+                                          </h4>
+                                        ),
+                                      }}
+                                    >
+                                      {unit.solutionWalkthrough}
+                                    </ReactMarkdown>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Tutor Guidance / Intro Text - SECOND */}
+                              <div className="mb-12 prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none space-y-6">
+                                {/* Render Tutor Guidance if available */}
+                                {unit.tutor_guidance && (
+                                  <div className="mb-4 whitespace-pre-wrap">
+                                    <LatexText text={unit.tutor_guidance} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                  </div>
+                                )}
+
+                                {/* Render Concept Summary */}
+                                {unit.concept_summary && (
+                                  <div className="whitespace-pre-wrap">
+                                    <LatexText text={unit.concept_summary} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                  </div>
+                                )}
+
+                                {/* Fallback to description if no specific fields */}
+                                {!unit.tutor_guidance && !unit.concept_summary && unit.description && (
+                                  <div className="whitespace-pre-wrap">
+                                    <LatexText text={unit.description} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Video Module - Horizontal Layout */}
+                              {primaryVideo ? (
+                                <div
+                                  onClick={() => window.open(primaryVideo.url, '_blank')}
+                                  className="bg-white dark:bg-stone-900 rounded-xl border border-gray-300 dark:border-stone-800 shadow-sm overflow-hidden hover:border-gray-400 hover:shadow-md transition-all cursor-pointer group/card"
+                                >
+                                  {/* Card Header: Title & Re-roll */}
+                                  <div className="px-5 py-4 border-b border-stone-100 dark:border-stone-800 flex items-start justify-between gap-4">
+                                    <h4 className="text-lg font-medium text-stone-900 dark:text-stone-100 line-clamp-1 group-hover/card:text-[#FF4A1C] transition-colors">
+                                      {primaryVideo.title}
+                                    </h4>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRerollVideo(unit.unit_id, unitResources);
+                                      }}
+                                      disabled={rerollingUnits.has(unit.unit_id) || !hasMoreVideos}
+                                      className={`transition-colors p-1 ${hasMoreVideos ? 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300' : 'text-stone-300 cursor-not-allowed'}`}
+                                      title={hasMoreVideos ? "Show next video" : "No more videos available"}
+                                    >
+                                      <RefreshCw className={`w-4 h-4 ${rerollingUnits.has(unit.unit_id) ? 'animate-spin' : ''}`} />
+                                    </button>
+                                  </div>
+
+                                  {/* Card Body: Split Layout */}
+                                  <div className="p-5 flex flex-col md:flex-row gap-6">
+                                    {/* Left: Thumbnail & Rating */}
+                                    <div className="flex-shrink-0 w-full md:w-48 space-y-3">
+                                      <div className="relative aspect-video rounded-lg overflow-hidden bg-black group/video shadow-sm">
+                                        <img
+                                          src={`https://img.youtube.com/vi/${primaryVideo.url.split('v=')[1]?.split('&')[0]}/mqdefault.jpg`}
+                                          alt={primaryVideo.title}
+                                          className="w-full h-full object-cover opacity-90 group-hover/card:opacity-100 transition-opacity"
+                                        />
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/card:bg-black/10 transition-colors">
+                                          <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white">
+                                            <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                                          </div>
+                                        </div>
+                                        {/* Initial duration placeholder if not available */}
+                                        <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/70 text-white text-[10px] font-medium rounded">
+                                          12:55
+                                        </div>
+                                      </div>
+
+                                      {/* Interactive Star Rating */}
+                                      <div
+                                        className="flex items-center justify-center gap-1"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {[1, 2, 3, 4, 5].map((star) => {
+                                          const rating = resourceRatings[primaryVideo.id || primaryVideo.url] || 0;
+                                          return (
+                                            <button
+                                              key={star}
+                                              onClick={() => setResourceRatings(prev => ({ ...prev, [primaryVideo.id || primaryVideo.url]: star }))}
+                                              className="focus:outline-none transition-transform hover:scale-110"
+                                            >
+                                              <Star
+                                                className={`w-4 h-4 ${star <= rating ? 'fill-orange-400 text-orange-400' : 'text-stone-300 dark:text-stone-600'}`}
+                                              />
+                                            </button>
+                                          );
+                                        })}
+                                        <span className="text-xs text-stone-400 ml-1">
+                                          {(resourceRatings[primaryVideo.id || primaryVideo.url] || 0).toFixed(1)}
+                                        </span>
                                       </div>
                                     </div>
-                                  ))}
-                                  <div className="pt-4 flex justify-center border-t border-stone-200 dark:border-stone-800">
-                                    <button
-                                      onClick={() => handleGeneratePracticeProblem(representativeUnit)}
-                                      disabled={generatingPractice.has(representativeUnit.unit_id)}
-                                      className="px-6 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg text-sm font-bold hover:scale-105 transition-transform disabled:opacity-50"
-                                    >
-                                      {generatingPractice.has(representativeUnit.unit_id) ? (
-                                        <span className="flex items-center gap-2"><Loader2 className="animate-spin w-4 h-4" /> Generating...</span>
-                                      ) : (
-                                        "Generate Another Problem"
-                                      )}
-                                    </button>
+
+                                    {/* Right: Description & Meta */}
+                                    <div className="flex-1 flex flex-col justify-between min-w-0">
+                                      <div className="space-y-3">
+                                        {primaryVideo.resource_explanation ? (
+                                          <p className="text-sm text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-3">
+                                            {primaryVideo.resource_explanation}
+                                          </p>
+                                        ) : (
+                                          <p className="text-sm text-stone-500 italic">No explanation available for this resource.</p>
+                                        )}
+                                      </div>
+
+                                      <div className="flex items-center justify-between pt-4 mt-2">
+                                        <div className="flex items-center gap-2">
+                                          <span className="px-2 py-1 bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 text-[10px] font-bold uppercase tracking-wider rounded">
+                                            YOUTUBE
+                                          </span>
+                                          {/* DEBUG BUTTON: Always available manually */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              console.log('[Blueprint] 🖱️ "Webhook (Debug)" clicked for unit:', unit.topic);
+                                              handleTriggerWebhook(unit);
+                                            }}
+                                            className="p-1 px-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded text-xs text-stone-400 font-medium flex items-center gap-1"
+                                            title="Manually trigger webhook (Debug)"
+                                          >
+                                            <Zap className="w-3 h-3" />
+                                            <span className="hidden sm:inline">Webhook</span>
+                                          </button>
+                                        </div>
+
+                                        <span className="flex items-center gap-1.5 text-xs font-bold text-[#FF4A1C] group-hover/card:text-[#e0390c] transition-colors uppercase tracking-wide">
+                                          OPEN
+                                          <ExternalLink className="w-3 h-3" />
+                                        </span>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="text-center py-8">
-                                  <p className="text-stone-500 dark:text-stone-400 mb-6 max-w-lg mx-auto">
-                                    Generate a similar practice problem based on the concepts in this section to test your understanding.
-                                  </p>
+                                <div className="rounded-xl border-2 border-dashed border-gray-300 dark:border-stone-800 aspect-video flex flex-col items-center justify-center p-8 text-center space-y-6 bg-stone-50 dark:bg-stone-900/50 group-hover:border-[#FF4A1C]/30 transition-colors">
+                                  <div className="w-16 h-16 rounded-full bg-white dark:bg-stone-800 shadow-sm flex items-center justify-center">
+                                    <Play className="w-6 h-6 text-stone-300 dark:text-stone-600 ml-1" />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100">No Video Available</h3>
+                                    <p className="text-xl text-stone-500 dark:text-stone-400 text-sm max-w-sm mx-auto">
+                                      We couldn't find a curated video for this topic.
+                                    </p>
+                                  </div>
+                                  <div className="flex flex-wrap gap-3 justify-center">
+                                    <button
+                                      onClick={() => handleGenerateBlueprint(unit, 'database')}
+                                      disabled={searchingTopics.has(unit.unit_id)}
+                                      className="px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-sm font-medium hover:bg-stone-50 hover:text-[#FF4A1C] transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                      {searchingTopics.has(unit.unit_id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                                      Search Database
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        console.log('[Blueprint] 🖱️ "Activate Webhook" button clicked manually for unit:', unit.topic);
+                                        handleTriggerWebhook(unit);
+                                      }}
+                                      className="px-4 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border border-transparent rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shadow-sm flex items-center gap-2"
+                                    >
+                                      <Zap className="w-4 h-4" />
+                                      Activate Webhook
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Generated Deep Dive Solution */}
+                              {deepDiveSolutions[unit.unit_id] && (
+                                <div className="mt-8 bg-white dark:bg-stone-900 rounded-xl p-6 border border-gray-300 dark:border-stone-800 shadow-sm animate-in fade-in slide-in-from-bottom-4">
+                                  <div className="flex items-center gap-3 mb-6">
+                                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                                      <Sparkles className="w-4 h-4 text-blue-500" />
+                                    </div>
+                                    <h4 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+                                      Deep Dive Solution
+                                    </h4>
+                                  </div>
+                                  <div className="space-y-8">
+                                    {deepDiveSolutions[unit.unit_id].map((section, idx) => (
+                                      <div key={idx}>
+                                        <h5 className="text-md font-bold text-stone-800 dark:text-stone-200 mb-3">{section.title}</h5>
+                                        <div className="prose dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                                          <LatexText text={section.content} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Generate Deep Dive Button (if not generated and is problem type) */}
+                              {unit.unit_type === 'problem' && !deepDiveSolutions[unit.unit_id] && !unit.deep_dive_explanation && (
+                                <div className="mt-8 flex justify-end">
                                   <button
-                                    onClick={() => handleGeneratePracticeProblem(representativeUnit)}
-                                    disabled={generatingPractice.has(representativeUnit.unit_id)}
-                                    className="px-6 py-3 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-bold hover:scale-105 transition-transform disabled:opacity-50"
+                                    onClick={() => handleGenerateDeepDive(unit)}
+                                    disabled={generatingDeepDive.has(unit.unit_id)}
+                                    className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 flex items-center gap-2 transition-all disabled:opacity-50"
                                   >
-                                    {generatingPractice.has(representativeUnit.unit_id) ? (
-                                      <span className="flex items-center gap-2"><Loader2 className="animate-spin" /> Generating...</span>
+                                    {generatingDeepDive.has(unit.unit_id) ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
                                     ) : (
-                                      "Generate Practice Problem"
+                                      <Sparkles className="w-4 h-4" />
                                     )}
+                                    Generate Deep Dive Solution
                                   </button>
+                                </div>
+                              )}
+
+                              {/* Deep Dive Solution - Generated and Persisted */}
+                              {deepDiveSolutions[unit.unit_id] && (
+                                <div className="mt-8 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-900/20 dark:to-blue-800/20 rounded-2xl p-6 md:p-8 border border-blue-200/60 dark:border-blue-700/60">
+                                  <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                                      <BookOpen className="w-4 h-4 text-blue-500" />
+                                    </div>
+                                    <h4 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+                                      📚 Deep Dive Solution
+                                    </h4>
+                                  </div>
+                                  <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                                    <ReactMarkdown>
+                                      {deepDiveSolutions[unit.unit_id]}
+                                    </ReactMarkdown>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Deep Dive Explanation - Cohesive narrative connecting concepts */}
+                              {unit.deep_dive_explanation && (
+                                <div className="mt-8 bg-gradient-to-br from-stone-50 to-stone-100/50 dark:from-stone-800/50 dark:to-stone-900/50 rounded-2xl p-6 md:p-8 border border-stone-200/60 dark:border-stone-700/60">
+                                  <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-[#FF4A1C]/10 flex items-center justify-center">
+                                      <BookOpen className="w-4 h-4 text-[#FF4A1C]" />
+                                    </div>
+                                    <h4 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+                                      Deep Dive: Applying This Concept
+                                    </h4>
+                                  </div>
+                                  <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                                    <div className="whitespace-pre-wrap">
+                                      <LatexText text={unit.deep_dive_explanation} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+
+
+                              {/* Equations Module */}
+                              {unitEquations.length > 0 && (
+                                <div className="w-full flex justify-center py-6">
+                                  <EquationDisplay equations={unitEquations} context={currentSectionTitle} />
                                 </div>
                               )}
                             </div>
                           </div>
                         );
-                      })()}
-
+                      })}
                     </div>
-                  </div>
-                )}
 
-                {/* Debug Data Views */}
-                <div className="pt-12 border-t border-stone-200 dark:border-stone-800">
-                  <DebugObjectDisplay data={documentAnalysis} title="Analysis Object Dump" />
-                  <DebugObjectDisplay data={learningStructure} title="Blueprint Structure Dump" />
+                    {/* 3. Solution Section (If available) */}
+                    {(() => {
+                      // Extract solution info again for this Scope
+                      const solutionUnit = currentUnits.find(u => u.unit_type === 'solution');
+                      if (solutionUnit && solutionUnit.solutionData) {
+                        return (
+                          <div className="mt-24 pt-12 border-t border-stone-200 dark:border-stone-800">
+                            {/* Solution Steps */}
+                            <div className="mb-20">
+                              <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
+                                Solution Approach
+                              </h3>
+                              <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                                {Array.isArray(solutionUnit.solutionData.approach) ? (
+                                  <div className="space-y-6">
+                                    {solutionUnit.solutionData.approach.map((step, i) => (
+                                      <div key={i} className="flex gap-4 items-start">
+                                        <span className="text-[#FF4A1C] shrink-0 select-none">
+                                          {i + 1}.
+                                        </span>
+                                        <div className="whitespace-pre-wrap">
+                                          <LatexText text={step} context={currentSectionTitle} />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="whitespace-pre-wrap">
+                                    <LatexText text={String(solutionUnit.solutionData.approach || '')} context={currentSectionTitle} />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Common Mistakes */}
+                            {/* Common Mistakes */}
+                            <div className="mb-20">
+                              <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
+                                Common Mistakes
+                              </h3>
+                              <ul className="space-y-6">
+                                {solutionUnit.solutionData.mistakes.map((mistake, idx) => (
+                                  <li key={idx} className="flex gap-4 items-start">
+                                    <div className="shrink-0 mt-3 w-2 h-2 rounded-full bg-red-500" />
+                                    <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed">
+                                      <span>
+                                        "{mistake.mistake || mistake}"
+                                      </span>
+                                      {mistake.correction && (
+                                        <span> — {mistake.correction}</span>
+                                      )}
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
+                    {/* 4. Practice Problems Section */}
+                    {(() => {
+                      const representativeUnit = currentUnits.find(u => u.unit_type !== 'solution');
+                      if (!representativeUnit) return null;
+
+                      const problems = practiceProblems[representativeUnit.unit_id] || [];
+
+                      return (
+                        <div className="mt-24 pt-12 border-t border-stone-200 dark:border-stone-800">
+                          <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
+                            Ready to Practice?
+                          </h3>
+
+                          <div>
+                            {problems.length > 0 ? (
+                              <div className="space-y-6">
+                                {problems.map((prob, pIdx) => (
+                                  <div key={pIdx} className="bg-white dark:bg-stone-800 p-6 rounded-xl border border-gray-300 dark:border-stone-700 shadow-sm transition-all hover:border-gray-400 hover:shadow-md">
+                                    <h5 className="font-bold text-stone-900 dark:text-stone-100 mb-2">Practice Problem {pIdx + 1}</h5>
+                                    <div className="prose dark:prose-invert max-w-none">
+                                      <LatexText text={prob.practice_problem} context={currentSectionTitle} />
+                                    </div>
+                                  </div>
+                                ))}
+                                <div className="pt-4 flex justify-center border-t border-stone-200 dark:border-stone-800">
+                                  <button
+                                    onClick={() => handleGeneratePracticeProblem(representativeUnit)}
+                                    disabled={generatingPractice.has(representativeUnit.unit_id)}
+                                    className="px-6 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg text-sm font-bold hover:scale-105 transition-transform disabled:opacity-50"
+                                  >
+                                    {generatingPractice.has(representativeUnit.unit_id) ? (
+                                      <span className="flex items-center gap-2"><Loader2 className="animate-spin w-4 h-4" /> Generating...</span>
+                                    ) : (
+                                      "Generate Another Problem"
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center py-8">
+                                <p className="text-stone-500 dark:text-stone-400 mb-6 max-w-lg mx-auto">
+                                  Generate a similar practice problem based on the concepts in this section to test your understanding.
+                                </p>
+                                <button
+                                  onClick={() => handleGeneratePracticeProblem(representativeUnit)}
+                                  disabled={generatingPractice.has(representativeUnit.unit_id)}
+                                  className="px-6 py-3 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-bold hover:scale-105 transition-transform disabled:opacity-50"
+                                >
+                                  {generatingPractice.has(representativeUnit.unit_id) ? (
+                                    <span className="flex items-center gap-2"><Loader2 className="animate-spin" /> Generating...</span>
+                                  ) : (
+                                    "Generate Practice Problem"
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                  </div>
                 </div>
+              )}
+
+              {/* Debug Data Views */}
+              <div className="pt-12 border-t border-stone-200 dark:border-stone-800">
+                <DebugObjectDisplay data={documentAnalysis} title="Analysis Object Dump" />
+                <DebugObjectDisplay data={learningStructure} title="Blueprint Structure Dump" />
               </div>
             </div>
-            {/* End Content Wrapper */}
           </div>
+          {/* End Content Wrapper */}
+        </div>
 
-          {/* Floating Chat Toggle Button - Always rendered */}
+        {/* Floating Chat Toggle Button - Always rendered */}
 
 
-          {/* Chat Drawer */}
-          <ChatDrawer
-            isOpen={isChatOpen}
-            onClose={() => setIsChatOpen(false)}
-            documentId={blueprint?.document_id || documentAnalysis?.document_id}
-            blueprintId={id}
-            contextTitle={doc ? (blueprint?.document?.name || "Uploaded Document") : "AI Assistant"}
-            hasDocument={!!doc}
-          />
+        {/* Chat Drawer */}
 
-          {/* Text Input Popover */}
-          {showInputPopover && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-              <div className="bg-white dark:bg-stone-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 flex flex-col max-h-[85vh] animate-scale-in">
-                <div className="flex items-center justify-between p-6 border-b border-stone-100 dark:border-stone-800">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-lg">
-                      <FileText className="w-5 h-5 text-stone-600 dark:text-stone-400" />
-                    </div>
-                    <h3 className="text-xl font-bold text-stone-900 dark:text-stone-100">Text Input</h3>
+
+        {/* Text Input Popover */}
+        {showInputPopover && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white dark:bg-stone-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 flex flex-col max-h-[85vh] animate-scale-in">
+              <div className="flex items-center justify-between p-6 border-b border-stone-100 dark:border-stone-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-lg">
+                    <FileText className="w-5 h-5 text-stone-600 dark:text-stone-400" />
                   </div>
-                  <button
-                    onClick={() => setShowInputPopover(false)}
-                    className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors text-stone-500"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+                  <h3 className="text-xl font-bold text-stone-900 dark:text-stone-100">Text Input</h3>
                 </div>
-                <div className="p-6 overflow-y-auto custom-scrollbar">
-                  <div className="prose dark:prose-invert max-w-none text-stone-600 dark:text-stone-300 whitespace-pre-wrap leading-relaxed">
-                    {blueprint.content?.text}
-                  </div>
-                </div>
-                <div className="p-4 border-t border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/50 rounded-b-2xl flex justify-end">
-                  <button
-                    onClick={() => setShowInputPopover(false)}
-                    className="px-6 py-2.5 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-medium shadow-sm hover:shadow-md transition-all active:scale-95"
-                  >
-                    Close
-                  </button>
+                <button
+                  onClick={() => setShowInputPopover(false)}
+                  className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors text-stone-500"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto custom-scrollbar">
+                <div className="prose dark:prose-invert max-w-none text-stone-600 dark:text-stone-300 whitespace-pre-wrap leading-relaxed">
+                  {blueprint.content?.text}
                 </div>
               </div>
+              <div className="p-4 border-t border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/50 rounded-b-2xl flex justify-end">
+                <button
+                  onClick={() => setShowInputPopover(false)}
+                  className="px-6 py-2.5 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-medium shadow-sm hover:shadow-md transition-all active:scale-95"
+                >
+                  Close
+                </button>
+              </div>
             </div>
-          )}
-          <ExplainerOverlay />
-        </div>
+          </div>
+        )}
+        <ExplainerOverlay />
       </div>
     </div>
+    </div >
   );
 };
 
