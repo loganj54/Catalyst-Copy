@@ -3859,20 +3859,20 @@ const Blueprint = () => {
   } : null);
 
   return (
-    <div className="flex h-[calc(100vh-80px)] w-full p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden transition-all duration-300 bg-stone-200 dark:bg-stone-950">
+    <div className="flex h-[calc(100vh-80px)] w-full p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden transition-all duration-300 bg-stone-100 dark:bg-stone-950">
       {/* 1. Class Sidebar Bubble */}
-      <div className="hidden lg:flex flex-col w-[250px] bg-[#eeedec] rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
-        <ClassSidebar className="w-full h-full border-r-0 bg-[#eeedec]" />
+      <div className="hidden lg:flex flex-col w-[250px] bg-stone-50 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
+        <ClassSidebar className="w-full h-full border-r-0 bg-stone-50" />
       </div>
 
       {/* 2. Main Content Bubble */}
-      <div className={`flex-1 flex flex-col min-w-0 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden relative transition-all duration-300 bg-stone-100 dark:bg-stone-950`}>
+      <div className={`flex-1 flex flex-col min-w-0 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden relative transition-all duration-300 bg-white dark:bg-stone-950`}>
 
         {/* Background Layer: Grid + Mask (Only visible if pattern is 'grid') */}
         {bgPattern === 'grid' && (
           <div className="absolute inset-0 pointer-events-none z-0">
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808025_1px,transparent_1px),linear-gradient(to_bottom,#80808025_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,#ffffff25_1px,transparent_1px),linear-gradient(to_bottom,#ffffff25_1px,transparent_1px)]"></div>
-            <div className="absolute inset-0 bg-gradient-to-b from-stone-100 via-transparent to-stone-100 dark:from-stone-900 dark:via-transparent dark:to-stone-900"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white dark:from-stone-900 dark:via-transparent dark:to-stone-900"></div>
           </div>
         )}
 
@@ -3884,7 +3884,7 @@ const Blueprint = () => {
         {/* Scrollable Content Area */}
         <div id="main-scroll-container" onScroll={handleScroll} className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
           <div className="w-full min-h-full">
-            <div className="sticky top-0 z-30 w-full bg-stone-100 dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 transition-all duration-300">
+            <div className="sticky top-0 z-30 w-full bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 transition-all duration-300">
               <div className="px-8 py-6 relative">
                 <div className="flex items-center justify-between gap-4 relative z-10 pointer-events-none">
                   {/* Left: Title & Subtitle */}

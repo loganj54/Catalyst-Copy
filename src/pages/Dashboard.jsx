@@ -167,21 +167,21 @@ const Dashboard = () => {
   const { bgPattern } = useTheme(); // Import theme
 
   return (
-    <div className="flex h-[calc(100vh-80px)] w-full bg-stone-200 dark:bg-stone-950 p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden transition-colors duration-300">
+    <div className="flex h-[calc(100vh-80px)] w-full bg-stone-100 dark:bg-stone-950 p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden transition-colors duration-300">
 
       {/* 1. Sidebar Bubble */}
-      <div className="hidden lg:flex flex-col w-[250px] bg-[#eeedec] rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
-        <Sidebar className="w-full h-full border-r-0 bg-[#eeedec]" />
+      <div className="hidden lg:flex flex-col w-[250px] bg-stone-50 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
+        <Sidebar className="w-full h-full border-r-0 bg-stone-50" />
       </div>
 
       {/* 2. Main Content Bubble */}
-      <div className={`flex-1 flex flex-col min-w-0 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden transition-all duration-300 relative bg-stone-100 dark:bg-stone-950`}>
+      <div className={`flex-1 flex flex-col min-w-0 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden transition-all duration-300 relative bg-white dark:bg-stone-950`}>
 
         {/* Background Layer: Grid + Mask (Only visible if pattern is 'grid') */}
         {bgPattern === 'grid' && (
           <div className="absolute inset-0 pointer-events-none z-0">
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808025_1px,transparent_1px),linear-gradient(to_bottom,#80808025_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,#ffffff25_1px,transparent_1px),linear-gradient(to_bottom,#ffffff25_1px,transparent_1px)]"></div>
-            <div className="absolute inset-0 bg-gradient-to-b from-stone-100 via-transparent to-stone-100 dark:from-stone-900 dark:via-transparent dark:to-stone-900"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-white dark:from-stone-900 dark:via-transparent dark:to-stone-900"></div>
           </div>
         )}
 
@@ -191,7 +191,7 @@ const Dashboard = () => {
         )}
 
         {/* Header Area */}
-        <header className="px-8 py-6 border-b border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-900 flex-shrink-0 relative z-10">
+        <header className="px-8 py-6 border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex-shrink-0 relative z-10">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-semibold text-black tracking-tight">Classwork Dashboard</h1>
@@ -237,7 +237,7 @@ const Dashboard = () => {
             {recentBlueprints.length > 0 ? (
               <Table>
                 <Thead>
-                  <Tr className="bg-white dark:bg-stone-900 border-inherit">
+                  <Tr className="bg-stone-100 dark:bg-stone-900 border-inherit">
                     <Th>Blueprint</Th>
                     <Th>Class</Th>
                     <Th>Last Viewed</Th>

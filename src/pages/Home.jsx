@@ -23,14 +23,14 @@ const Home = () => {
 
           {/* Headline */}
           <h1 className="text-5xl md:text-7xl tracking-tight text-stone-900 dark:text-white mb-6 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100 max-w-4xl mx-auto leading-[1.1]">
-            <span className="bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-4 rounded-2xl decoration-clone leading-[1.4] box-decoration-clone">
+            <span className="leading-[1.4]">
               The learn <span className="text-[#FF4A1C]">engineering</span> app
             </span>
           </h1>
 
           {/* Subheadline */}
           <p className="text-xl text-stone-500 dark:text-stone-400 mb-10 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200 leading-relaxed">
-            <span className="bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm px-4 py-2 rounded-2xl decoration-clone box-decoration-clone">
+            <span>
               Catalyst is the modern learning platform for engineering students.
               Create study blueprints, track your projects, and master your coursework with AI-powered guidance.
             </span>

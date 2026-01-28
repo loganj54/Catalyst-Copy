@@ -37,7 +37,7 @@ const Navbar = () => {
   const rightMargin = chatState.isOpen ? 450 : 0;
 
   return (
-    <nav className="lg:px-12 flex fixed z-50 bg-white/90 dark:bg-stone-900/90 w-full border-stone-200 dark:border-stone-800 border-b py-3 top-0 backdrop-blur-sm items-center transition-all duration-300">
+    <nav className="lg:px-12 flex fixed z-50 bg-stone-100 dark:bg-stone-900/90 w-full border-stone-200 dark:border-stone-800 border-b py-3 top-0 backdrop-blur-sm items-center transition-all duration-300">
       <div className="flex items-center flex-1">
         <Link to="/" className="flex items-center gap-2">
           <img
@@ -61,7 +61,7 @@ const Navbar = () => {
       </div>
 
       <div
-        className="hidden lg:flex items-center justify-center gap-12 text-sm font-medium text-black/60 dark:text-white/60 absolute left-1/2 -translate-x-1/2 transition-all duration-300"
+        className="hidden lg:flex items-center justify-center gap-12 text-sm font-medium text-black dark:text-white/60 absolute left-1/2 -translate-x-1/2 transition-all duration-300"
       >
         <Link to="/create" className="hover:text-black dark:hover:text-white transition-colors">
           Create
@@ -76,7 +76,7 @@ const Navbar = () => {
           <>
             <button
               onClick={toggleTheme}
-              className="p-2 mr-2 rounded-lg text-black/60 dark:text-white/60 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-black dark:hover:text-white transition-colors"
+              className="p-2 mr-2 rounded-lg text-black dark:text-white/60 hover:bg-stone-200 dark:hover:bg-stone-800 hover:text-black dark:hover:text-white transition-colors"
               title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
             >
               {theme === 'light' ? (
@@ -90,8 +90,8 @@ const Navbar = () => {
               <button
                 onClick={() => setBgPattern('grid')}
                 className={`p-2 rounded-lg transition-colors ${bgPattern === 'grid'
-                  ? 'bg-stone-100 dark:bg-stone-800 text-[#FF4A1C]'
-                  : 'text-black/60 dark:text-white/60 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-black dark:hover:text-white'}`}
+                  ? 'bg-stone-200 dark:bg-stone-800 text-[#FF4A1C]'
+                  : 'text-black dark:text-white/60 hover:bg-stone-200 dark:hover:bg-stone-800 hover:text-black dark:hover:text-white'}`}
                 title="Grid Background"
               >
                 <Grid className="w-5 h-5" />
@@ -100,8 +100,8 @@ const Navbar = () => {
               <button
                 onClick={() => setBgPattern('dots')}
                 className={`p-2 rounded-lg transition-colors ${bgPattern === 'dots'
-                  ? 'bg-stone-100 dark:bg-stone-800 text-[#FF4A1C]'
-                  : 'text-black/60 dark:text-white/60 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-black dark:hover:text-white'}`}
+                  ? 'bg-stone-200 dark:bg-stone-800 text-[#FF4A1C]'
+                  : 'text-black dark:text-white/60 hover:bg-stone-200 dark:hover:bg-stone-800 hover:text-black dark:hover:text-white'}`}
                 title="Dot Pattern"
               >
                 <Circle className="w-5 h-5" />
@@ -110,14 +110,14 @@ const Navbar = () => {
               <button
                 onClick={() => setBgPattern('white')}
                 className={`p-2 rounded-lg transition-colors ${bgPattern === 'white' || bgPattern === 'none'
-                  ? 'bg-stone-100 dark:bg-stone-800 text-[#FF4A1C]'
-                  : 'text-black/60 dark:text-white/60 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-black dark:hover:text-white'}`}
+                  ? 'bg-stone-200 dark:bg-stone-800 text-[#FF4A1C]'
+                  : 'text-black dark:text-white/60 hover:bg-stone-200 dark:hover:bg-stone-800 hover:text-black dark:hover:text-white'}`}
                 title="Plain Background"
               >
                 <Layout className="w-5 h-5" />
               </button>
             </div>
-            <Link to="/classes" className="text-sm font-medium text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors pr-6">
+            <Link to="/classes" className="text-sm font-medium text-black dark:text-white/60 hover:text-black dark:hover:text-white transition-colors pr-6">
               Dashboard
             </Link>
             <div className="relative" ref={dropdownRef}>
@@ -125,7 +125,7 @@ const Navbar = () => {
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center gap-2 text-sm font-medium text-black dark:text-white hover:text-black dark:hover:text-white transition-colors focus:outline-none"
               >
-                <span className="pr-4 max-w-[150px] truncate hidden sm:block hidden lg:flex items-center justify-center gap-12 text-sm font-medium text-black/60 dark:text-white/60 flex-1">{user.email?.split('@')[0]}</span>
+                <span className="pr-4 max-w-[150px] truncate hidden sm:block hidden lg:flex items-center justify-center gap-12 text-sm font-medium text-black dark:text-white/60 flex-1">{user.email?.split('@')[0]}</span>
               </button>
 
               {isDropdownOpen && (
