@@ -3861,8 +3861,8 @@ const Blueprint = () => {
   return (
     <div className="flex h-[calc(100vh-80px)] w-full p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden transition-all duration-300 bg-stone-200 dark:bg-stone-950">
       {/* 1. Class Sidebar Bubble */}
-      <div className="hidden lg:flex flex-col w-[250px] bg-stone-50 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
-        <ClassSidebar className="w-full h-full border-r-0 bg-stone-50" />
+      <div className="hidden lg:flex flex-col w-[250px] bg-[#eeedec] rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
+        <ClassSidebar className="w-full h-full border-r-0 bg-[#eeedec]" />
       </div>
 
       {/* 2. Main Content Bubble */}

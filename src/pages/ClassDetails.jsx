@@ -362,17 +362,25 @@ const ClassDetails = () => {
     <div className="flex h-[calc(100vh-80px)] w-full bg-stone-200 dark:bg-stone-950 p-4 lg:p-6 gap-4 lg:gap-6 overflow-hidden transition-colors duration-300">
 
       {/* 1. Class Sidebar Bubble */}
-      <div className="hidden lg:flex flex-col w-[250px] bg-stone-50 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
-        <ClassSidebar className="w-full h-full border-r-0 bg-stone-50" />
+      <div className="hidden lg:flex flex-col w-[250px] bg-[#eeedec] rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
+        <ClassSidebar className="w-full h-full border-r-0 bg-[#eeedec]" />
       </div>
 
       {/* 2. Main Content Bubble */}
-      <div className={`flex-1 flex flex-col min-w-0 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden transition-all duration-300 ${bgPattern === 'dots'
-        ? 'bg-stone-50 dark:bg-stone-900 bg-pattern-dots'
-        : bgPattern === 'grid'
-          ? 'bg-white dark:bg-stone-900 bg-[linear-gradient(to_right,#80808025_1px,transparent_1px),linear-gradient(to_bottom,#80808025_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,#ffffff25_1px,transparent_1px),linear-gradient(to_bottom,#ffffff25_1px,transparent_1px)]'
-          : 'bg-stone-100 dark:bg-stone-950'
-        }`}>
+      <div className={`flex-1 flex flex-col min-w-0 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden transition-all duration-300 relative bg-stone-100 dark:bg-stone-950`}>
+
+        {/* Background Layer: Grid + Mask (Only visible if pattern is 'grid') */}
+        {bgPattern === 'grid' && (
+          <div className="absolute inset-0 pointer-events-none z-0">
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808025_1px,transparent_1px),linear-gradient(to_bottom,#80808025_1px,transparent_1px)] bg-[size:24px_24px] dark:bg-[linear-gradient(to_right,#ffffff25_1px,transparent_1px),linear-gradient(to_bottom,#ffffff25_1px,transparent_1px)]"></div>
+            <div className="absolute inset-0 bg-gradient-to-b from-stone-100 via-transparent to-stone-100 dark:from-stone-900 dark:via-transparent dark:to-stone-900"></div>
+          </div>
+        )}
+
+        {/* Background Layer: Dots (Only visible if pattern is 'dots') */}
+        {bgPattern === 'dots' && (
+          <div className="absolute inset-0 pointer-events-none z-0 bg-pattern-dots opacity-100"></div>
+        )}
 
         {/* Modals & Dialogs (ensure z-index or place outside if needed, usually fixed works) */}
         <ConfirmDialog
@@ -436,7 +444,7 @@ const ClassDetails = () => {
         )}
 
         {/* Header Area */}
-        <header className="px-8 py-6 border-b border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-900 flex-shrink-0">
+        <header className="px-8 py-6 border-b border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-900 flex-shrink-0 relative z-10">
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="text-left">
@@ -470,7 +478,7 @@ const ClassDetails = () => {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-8 bg-gray-50/50">
+        <main className="flex-1 overflow-y-auto p-8 bg-transparent relative z-10">
 
           {/* Content Logic */}
           <div className="min-h-[400px]">

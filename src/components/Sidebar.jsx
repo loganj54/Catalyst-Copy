@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  BookOpen, 
-  Briefcase, 
-  Trophy, 
-  GraduationCap, 
+import {
+  BookOpen,
+  Briefcase,
+  Trophy,
+  GraduationCap,
   Settings,
   HelpCircle
 } from 'lucide-react';
@@ -26,21 +26,19 @@ const Sidebar = ({ collapsed = false }) => {
 
   const NavItem = ({ item }) => {
     const isActive = location.pathname === item.path;
-    
+
     return (
       <Link
         to={item.path}
         title={collapsed ? item.label : ''}
-        className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-normal transition-all border ${
-          isActive 
-            ? 'bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600 shadow-sm' 
-            : 'text-stone-500 dark:text-stone-400 border-transparent hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-stone-100'
-        } ${collapsed ? 'justify-center px-2' : ''}`}
+        className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-normal transition-all border ${isActive
+            ? 'bg-stone-200 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-stone-300 dark:border-stone-600 shadow-sm'
+            : 'text-stone-500 dark:text-stone-400 border-transparent hover:bg-stone-200 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-stone-100'
+          } ${collapsed ? 'justify-center px-2' : ''}`}
       >
-        <item.icon className={`w-5 h-5 transition-colors ${
-          isActive ? 'text-stone-900 dark:text-stone-100' : 'text-stone-400 dark:text-stone-500 group-hover:text-stone-900 dark:group-hover:text-stone-100'
-        }`} />
-        
+        <item.icon className={`w-5 h-5 transition-colors ${isActive ? 'text-stone-900 dark:text-stone-100' : 'text-stone-400 dark:text-stone-500 group-hover:text-stone-900 dark:group-hover:text-stone-100'
+          }`} />
+
         {!collapsed && (
           <span className="whitespace-nowrap overflow-hidden transition-all duration-300">
             {item.label}
@@ -51,15 +49,14 @@ const Sidebar = ({ collapsed = false }) => {
   };
 
   return (
-    <div 
-      className={`h-[calc(100vh-80px)] bg-stone-50 dark:bg-stone-900 border-r border-stone-200 dark:border-stone-700 flex flex-col pt-6 pb-6 transition-all duration-300 ${
-        collapsed ? 'w-20' : 'w-56'
-      }`}
+    <div
+      className={`h-[calc(100vh-80px)] bg-[#eeedec] dark:bg-stone-900 border-r border-stone-200 dark:border-stone-700 flex flex-col pt-6 pb-6 transition-all duration-300 ${collapsed ? 'w-20' : 'w-56'
+        }`}
     >
       {/* Main Navigation */}
       <div className="flex-1 px-3 space-y-2">
-        
-        
+
+
         {menuItems.map((item) => (
           <NavItem key={item.path} item={item} />
         ))}

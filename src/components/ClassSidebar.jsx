@@ -95,13 +95,13 @@ const ClassSidebar = ({ className = '' }) => {
   };
 
   return (
-    <div className={`flex flex-col h-full bg-stone-50 ${className}`}>
+    <div className={`flex flex-col h-full bg-[#eeedec] ${className}`}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex justify-between items-center">
         <h2 className="font-medium text-sm text-gray-500 uppercase tracking-wider pl-2">My Classes</h2>
         <Link
           to="/create"
-          className="p-1.5 hover:bg-gray-200 rounded-md text-gray-400 hover:text-gray-700 transition-colors"
+          className="p-1.5 hover:bg-stone-200 rounded-md text-gray-400 hover:text-gray-700 transition-colors"
           title="Create New Class"
         >
           <Plus className="w-4 h-4" />
@@ -131,8 +131,8 @@ const ClassSidebar = ({ className = '' }) => {
                       }
                     }}
                     className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm font-medium transition-all group ${isCurrentClassActive
-                      ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                      : 'text-gray-600 border border-transparent hover:bg-gray-200/50 hover:text-gray-900'
+                      ? 'bg-stone-200 text-gray-900 shadow-sm border border-gray-200'
+                      : 'text-gray-600 border border-transparent hover:bg-stone-200 hover:text-gray-900'
                       }`}
                   >
                     <BookOpen className={`w-4 h-4 flex-shrink-0 ${isCurrentClassActive ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-500'
@@ -158,8 +158,8 @@ const ClassSidebar = ({ className = '' }) => {
                               key={bp.id}
                               to={`/blueprint/${bp.id}`}
                               className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors block w-full text-left ${isBpActive
-                                ? 'text-gray-900 bg-gray-100 font-medium'
-                                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                                ? 'text-gray-900 bg-stone-200 font-medium'
+                                : 'text-gray-500 hover:text-gray-900 hover:bg-stone-200'
                                 }`}
                             >
                               <PenTool className={`w-3 h-3 shrink-0 ${isBpActive ? 'text-gray-900' : 'text-gray-400'}`} />
