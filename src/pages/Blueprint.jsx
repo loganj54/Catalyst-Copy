@@ -19,6 +19,7 @@ import FigureDisplay from '../components/FigureDisplay';
 import { Sidebar } from '../components/dub-ui/Sidebar';
 import StructureGenerationProgress from '../components/StructureGenerationProgress';
 import ChatInterface from '../components/ChatInterface';
+import PracticeProblemsChat from '../components/PracticeProblemsChat';
 import RelatedMaterialModule from '../components/RelatedMaterialModule';
 import TopicCard from '../components/TopicCard';
 import LatexText from '../components/LatexText';
@@ -1384,6 +1385,7 @@ const Blueprint = () => {
 
   const [expandedTopics, setExpandedTopics] = useState({});
   const [showChatHistory, setShowChatHistory] = useState(false);
+  const [selectedPracticeSections, setSelectedPracticeSections] = useState(new Set());
   const [showInputPopover, setShowInputPopover] = useState(false);
 
   // Generation State
@@ -3942,6 +3944,25 @@ const Blueprint = () => {
                       <span className="truncate">Chat with your document</span>
                     </div>
                   </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab('practice-problems-chat');
+                      const el = document.getElementById('main-scroll-container');
+                      if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`
+                        w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm font-medium transition-colors
+                        ${activeTab === 'practice-problems-chat'
+                        ? 'bg-stone-100 text-black'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+                      `}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Sparkles className="w-4 h-4 text-gray-400" />
+                      <span className="truncate">Generate Practice Problems</span>
+                    </div>
+                  </button>
                 </div>
               </div>
             </>
@@ -3975,10 +3996,21 @@ const Blueprint = () => {
         <div className="relative z-30 w-full bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 transition-all duration-300">
           <div className="px-6 py-5 relative">
             {/* Centered Chat Title (Absolute) */}
-            {activeTab === 'chat' && activeThreadId && (
+            {(activeTab === 'chat' || activeTab === 'practice-problems-chat') && activeThreadId && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 pr-[80px] lg:pr-[330px]">
                 <h2 className="text-lg font-medium text-stone-900 dark:text-stone-100 bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full truncate max-w-[40%]">
                   {chatTitle}
+                </h2>
+              </div>
+            )}
+
+            {/* Centered Section Title (Absolute) */}
+            {/* Centered Section Title (Absolute) */}
+            {/* Centered Section Title (Absolute) */}
+            {activeTab !== 'chat' && activeTab !== 'practice-problems-chat' && (tabs.find(t => t.id === activeTab)?.label || activeTab === 'practice-generator') && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 pr-[80px] lg:pr-[330px]">
+                <h2 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full truncate max-w-[40%]">
+                  {tabs.find(t => t.id === activeTab)?.label || (activeTab === 'practice-generator' ? 'Generate Practice Problems' : '')}
                 </h2>
               </div>
             )}
@@ -3995,7 +4027,7 @@ const Blueprint = () => {
               <div className="flex items-center gap-2 shrink-0 pointer-events-auto">
 
                 {/* Chat Actions */}
-                {activeTab === 'chat' && activeThreadId && (
+                {(activeTab === 'chat' || activeTab === 'practice-problems-chat') && activeThreadId && (
                   <>
                     <button
                       onClick={() => setShowChatHistory(!showChatHistory)}
@@ -4043,13 +4075,13 @@ const Blueprint = () => {
         </div>
 
         {/* Scrollable Content Area */}
-        <div id="main-scroll-container" onScroll={handleScroll} className={`flex-1 custom-scrollbar relative z-10 ${activeTab === 'chat' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-          <div className={`w-full ${activeTab === 'chat' ? 'h-full' : 'min-h-full'}`}>
+        <div id="main-scroll-container" onScroll={handleScroll} className={`flex-1 custom-scrollbar relative z-10 ${(activeTab === 'chat' || activeTab === 'practice-problems-chat') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+          <div className={`w-full ${(activeTab === 'chat' || activeTab === 'practice-problems-chat') ? 'h-full' : 'min-h-full'}`}>
 
 
 
             {/* Content Wrapper for Centering in Window (balancing sidebars) */}
-            <div className={`w-full ${activeTab === 'chat' ? 'h-full' : 'lg:pr-[274px]'}`}>
+            <div className={`w-full ${(activeTab === 'chat' || activeTab === 'practice-problems-chat') ? 'h-full' : 'lg:pr-[274px]'}`}>
 
 
               {activeTab === 'chat' ? (
@@ -4066,6 +4098,23 @@ const Blueprint = () => {
                       setChatTitle(title);
                       setActiveThreadId(threadId);
                     }}
+                  />
+                </div>
+              ) : activeTab === 'practice-problems-chat' ? (
+                <div className="w-full h-full">
+                  <PracticeProblemsChat
+                    ref={chatRef}
+                    blueprintId={id}
+                    documentId={blueprint.document_id}
+                    hasDocument={!!blueprint.document_id}
+                    initialQuery={blueprint.content?.text || ""}
+                    showHistory={showChatHistory}
+                    onToggleHistory={() => setShowChatHistory(!showChatHistory)}
+                    onThreadChange={(title, threadId) => {
+                      setChatTitle(title);
+                      setActiveThreadId(threadId);
+                    }}
+                    tabs={tabs} // Pass tabs for section selection
                   />
                 </div>
               ) : (

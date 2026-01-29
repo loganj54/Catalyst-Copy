@@ -9,7 +9,7 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { supabase } from '../lib/supabase';
 
-const ChatInterface = forwardRef(({
+const PracticeProblemsChat = forwardRef(({
     documentId,
     blueprintId,
     contextTitle = "Document Context",
@@ -17,7 +17,8 @@ const ChatInterface = forwardRef(({
     initialQuery = "",
     onThreadChange, // Callback (title, threadId)
     showHistory: propShowHistory,
-    onToggleHistory: propOnToggleHistory
+    onToggleHistory: propOnToggleHistory,
+    tabs = [] // New prop for sections
 }, ref) => {
     // History Sidebar State
     const [internalShowHistory, setInternalShowHistory] = useState(false);
@@ -63,6 +64,7 @@ const ChatInterface = forwardRef(({
     const [isResolvingDocId, setIsResolvingDocId] = useState(false);
     const [classId, setClassId] = useState(null);
     const [useClassContext, setUseClassContext] = useState(false);
+    const [selectedSections, setSelectedSections] = useState(new Set()); // State for selected practice sections
 
     const activeDocumentId = documentId || fetchedDocumentId;
 
@@ -263,8 +265,9 @@ const ChatInterface = forwardRef(({
 
     // --- MESSAGING ---
 
-    const handleSend = async () => {
-        if (!input.trim() || isLoading) return;
+    const handleSend = async (manualContent = null) => {
+        const contentToSend = (typeof manualContent === 'string' ? manualContent : input).trim();
+        if (!contentToSend || isLoading) return;
 
         let currentThreadId = activeThreadId;
         if (!currentThreadId) {
@@ -275,7 +278,9 @@ const ChatInterface = forwardRef(({
                     .insert({
                         blueprint_id: blueprintId,
                         user_id: user.id,
-                        title: input.trim().substring(0, 30) + '...'
+                        blueprint_id: blueprintId,
+                        user_id: user.id,
+                        title: contentToSend.substring(0, 30) + '...'
                     })
                     .select()
                     .single();
@@ -291,7 +296,7 @@ const ChatInterface = forwardRef(({
             }
         }
 
-        const userMessageContent = input.trim();
+        const userMessageContent = contentToSend;
         const userMessage = { role: 'user', content: userMessageContent };
 
         setMessages(prev => [...prev, userMessage]);
@@ -481,81 +486,108 @@ const ChatInterface = forwardRef(({
                     {/* Header */}
                     <div className="text-center mb-10">
                         <h1 className="inline-block text-4xl md:text-5xl text-black dark:text-white tracking-tight font-display mb-3 pb-6">
-                            Ask anything about your document
+                            Ready for some practice?
                         </h1>
                         <p className="text-gray-600 dark:text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
-                            I've analyzed your materials. What would you like to know?
+                            Select sections from your blueprint to generate tailored practice problems.
                         </p>
                     </div>
 
                     {/* Main Input Card */}
-                    <div className="w-full max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 relative z-10">
+                    <div className="w-full max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 relative z-10 opacity-100">
                         <div className="rounded-2xl shadow-xl border border-gray-300 dark:border-stone-700 bg-white dark:bg-stone-900 overflow-hidden">
-                            <div className="p-4 space-y-4">
-                                <div className="h-[172px]">
-                                    <textarea
-                                        ref={mainInputRef}
-                                        value={input}
-                                        onChange={(e) => setInput(e.target.value)}
-                                        onKeyDown={handleKeyDown}
-                                        placeholder="Or add any specific context, problem details, or questions here..."
-                                        disabled={isLoading}
-                                        className="w-full h-full p-3 bg-white dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 resize-none focus:outline-none focus:border-gray-400 dark:focus:border-stone-500 focus:ring-0 leading-relaxed placeholder:text-gray-400 dark:placeholder:text-stone-500"
-                                    />
-                                </div>
-
-                                {/* Bottom Bar */}
-                                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-stone-700">
-                                    <div className="flex items-center gap-2">
-
-                                        {/* HISTORY TOGGLE BUTTON (As Requested) */}
+                            <div className="p-5">
+                                <div className="border border-stone-200 dark:border-stone-800 rounded-lg p-3">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100 tracking-wider">
+                                            Based on...
+                                        </h2>
                                         <button
-                                            onClick={() => toggleHistory()}
-                                            className={`flex items-center gap-2 px-3 py-2 border rounded-lg font-medium text-sm transition-all shadow-sm ${showHistory
-                                                ? 'bg-black text-white border-black'
-                                                : 'bg-white dark:bg-stone-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-stone-700 hover:bg-gray-50'
-                                                }`}
+                                            onClick={() => {
+                                                const practiceTabs = tabs.filter(t => t.id !== 'prerequisites');
+                                                if (selectedSections.size === practiceTabs.length) {
+                                                    setSelectedSections(new Set());
+                                                } else {
+                                                    setSelectedSections(new Set(practiceTabs.map(t => t.id)));
+                                                }
+                                            }}
+                                            className="text-xs font-medium text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 transition-colors"
                                         >
-                                            {showHistory ? <X className="w-4 h-4" /> : <Folder className="w-4 h-4" />}
-                                            <span>{showHistory ? "Close" : "History"}</span>
-                                        </button>
-
-
-                                        {/* Context Toggle */}
-                                        {classId && (
-                                            <button
-                                                onClick={() => setUseClassContext(!useClassContext)}
-                                                className={`flex items-center gap-2 px-3 py-2 border rounded-lg font-medium text-sm transition-all shadow-sm ${useClassContext
-                                                    ? 'bg-[#FF4A1C]/10 text-[#FF4A1C] border-[#FF4A1C]/20'
-                                                    : 'bg-white dark:bg-stone-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-stone-700 hover:text-gray-900'
-                                                    }`}
-                                            >
-                                                <Library className="w-4 h-4" />
-                                                {useClassContext ? "Searching Class" : "Classwork"}
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={handleSend}
-                                            disabled={!input.trim() || isLoading}
-                                            className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg font-medium text-sm border border-transparent shadow-sm hover:opacity-80 transition-all"
-                                        >
-                                            {isLoading ? (
-                                                <>
-                                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                                    Thinking...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <span>Send Message</span>
-                                                    <ArrowRight className="w-4 h-4" />
-                                                </>
-                                            )}
+                                            {selectedSections.size === tabs.filter(t => t.id !== 'prerequisites').length ? 'Deselect All' : 'Select All'}
                                         </button>
                                     </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
+                                        {tabs.filter(t => t.id !== 'prerequisites').map((tab) => {
+                                            const isSelected = selectedSections.has(tab.id);
+                                            return (
+                                                <button
+                                                    key={tab.id}
+                                                    onClick={() => {
+                                                        setSelectedSections(prev => {
+                                                            const next = new Set(prev);
+                                                            if (next.has(tab.id)) next.delete(tab.id);
+                                                            else next.add(tab.id);
+                                                            return next;
+                                                        });
+                                                    }}
+                                                    className="flex items-center gap-4 py-2 px-1 transition-all text-left group"
+                                                >
+                                                    <div className={`
+                                                    w-3 h-3 rounded-full border flex items-center justify-center transition-all flex-shrink-0
+                                                    ${isSelected
+                                                            ? 'border-black dark:border-white bg-black dark:bg-white'
+                                                            : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 group-hover:border-stone-400 dark:group-hover:border-stone-500'}
+                                                `}>
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className={`text-sm transition-colors truncate text-stone-900 dark:text-stone-100 ${isSelected ? 'font-medium' : ''}`}>
+                                                            {tab.label}
+                                                        </p>
+                                                        <p className="text-xs text-stone-400 dark:text-stone-500 truncate">
+                                                            {tab.fullTitle}
+                                                        </p>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
+                            </div>
+                            {/* Bottom Bar */}
+                            <div className="px-5 pb-5">
+                                <div className="w-full border-t border-stone-200 dark:border-stone-800 mb-5" />
+                                <button
+                                    onClick={() => {
+                                        if (selectedSections.size === 0 || isLoading) return;
+                                        const sectionsList = tabs
+                                            .filter(t => selectedSections.has(t.id))
+                                            .map(t => `- ${t.fullTitle} (${t.label})`)
+                                            .join('\n');
+                                        handleSend(`Generate practice problems based on the following sections:\n${sectionsList}`);
+                                    }}
+                                    className={`w-full flex items-center justify-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg font-medium text-sm border border-transparent shadow-sm hover:opacity-80 transition-all ${selectedSections.size === 0 ? 'cursor-not-allowed' : ''
+                                        }`}
+                                >
+                                    {isLoading ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Thinking...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>
+                                                {selectedSections.size === 0
+                                                    ? 'Select sections above'
+                                                    : selectedSections.size === tabs.filter(t => t.id !== 'prerequisites').length
+                                                        ? 'Generate a practice problem based on full document'
+                                                        : `Generate practice problems based on ${selectedSections.size} sections`
+                                                }
+                                            </span>
+                                            <ArrowRight className="w-4 h-4" />
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -620,4 +652,4 @@ const ChatInterface = forwardRef(({
     );
 });
 
-export default ChatInterface;
+export default PracticeProblemsChat;

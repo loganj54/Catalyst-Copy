@@ -411,7 +411,7 @@ const Create = () => {
 
   return (
     <div
-      className="min-h-[calc(100vh-5rem)] w-full flex flex-col items-center pt-[max(2rem,calc(50vh-22rem))] p-6 relative transition-all duration-300"
+      className="min-h-[calc(100vh-5rem)] w-full flex flex-col items-center pt-[max(2rem,calc(50vh-20.5rem))] p-6 relative transition-all duration-300"
     >
       <div className="w-full max-w-3xl relative z-10 space-y-8">
 
@@ -424,7 +424,7 @@ const Create = () => {
           </div>
           <div className="mb-4">
             <p className="inline-block text-gray-600 text-lg max-w-2xl mx-auto leading-relaxed">
-              Transform PDFs and ideas into structured engineering roadmaps.
+              Turn homework, notes, or ideas into a clear learning blueprint
             </p>
           </div>
         </div>

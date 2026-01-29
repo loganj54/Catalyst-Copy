@@ -386,7 +386,7 @@ const CreateBlueprint = () => {
                             </div>
                             <div className="mb-4">
                                 <p className="inline-block text-gray-600 text-lg max-w-2xl mx-auto leading-relaxed">
-                                    Transform PDFs and ideas into structured engineering roadmaps.
+                                    Turn homework, notes, or ideas into a clear learning blueprint
                                 </p>
                             </div>
                         </div>

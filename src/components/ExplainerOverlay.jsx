@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useUiState } from '../context/UiStateContext';
-import { X, Sparkles, Play, RefreshCw, Star, ExternalLink } from 'lucide-react';
+import { X, Sparkles, Play, RefreshCw, Star, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 /**
@@ -24,6 +24,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
     // Explanation specific state
     const [explanation, setExplanation] = useState(null);
     const [isLoadingExplanation, setIsLoadingExplanation] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(true); // Default to expanded
 
     const handleReroll = (e) => {
         e.stopPropagation();
@@ -371,7 +372,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                                 {explainer.type === 'video' ?
                                     (currentVideo ? currentVideo.title : 'Searching for videos...') :
                                     explainer.type === 'question' ? `Ask a question about ${explainer.term}` :
-                                        explainer.term
+                                        `${explainer.term} explained`
                                 }
                             </h3>
                         </div>
@@ -544,7 +545,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <p className="text-stone-600 dark:text-stone-300 leading-relaxed">
+                                <div className={`text-stone-600 dark:text-stone-300 leading-relaxed overflow-hidden transition-all duration-300 relative ${isExpanded ? '' : 'max-h-24'}`}>
                                     {isLoadingExplanation ? (
                                         <span className="flex items-center gap-2 text-stone-500 italic">
                                             <Sparkles className="w-4 h-4 animate-spin" />
@@ -552,12 +553,35 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                                         </span>
                                     ) : (
                                         explanation ? (
-                                            <span dangerouslySetInnerHTML={{ __html: explanation.replace(/\n/g, '<br />') }} />
+                                            <>
+                                                <span dangerouslySetInnerHTML={{ __html: explanation.replace(/\n/g, '<br />') }} />
+                                                {!isExpanded && (
+                                                    <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-white dark:from-black to-transparent pointer-events-none" />
+                                                )}
+                                            </>
                                         ) : (
                                             "Waiting for explanation..."
                                         )
                                     )}
-                                </p>
+                                </div>
+                                {explanation && !isLoadingExplanation && (
+                                    <button
+                                        onClick={() => setIsExpanded(!isExpanded)}
+                                        className="text-xs font-bold text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 uppercase tracking-wide flex items-center gap-1 transition-colors"
+                                    >
+                                        {isExpanded ? (
+                                            <>
+                                                Show less
+                                                <ChevronUp className="w-3 h-3" />
+                                            </>
+                                        ) : (
+                                            <>
+                                                Show more
+                                                <ChevronDown className="w-3 h-3" />
+                                            </>
+                                        )}
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
