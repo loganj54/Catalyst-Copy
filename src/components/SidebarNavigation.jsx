@@ -49,7 +49,7 @@ const SidebarNavigation = () => {
                         ? 'bg-white text-black dark:bg-stone-800 dark:text-white shadow-sm ring-1 ring-gray-200 dark:ring-stone-700'
                         : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-800'
                         }`}
-                    title="Classes"
+                    title="Class Work"
                 >
                     <BookOpen strokeWidth={2.5} className="w-6 h-6" />
                 </button>

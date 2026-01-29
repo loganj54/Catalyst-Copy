@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLoaderData } from 'react-router-dom';
 import {
   Plus, MoreVertical, Edit2, Trash2, Loader2, BookOpen, ExternalLink, MoreHorizontal
 } from 'lucide-react';
@@ -22,26 +22,22 @@ import { Table, Thead, Tr, Th, Td } from '../components/dub-ui/Table';
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  // Initialize from loader data
+  const { classes: initialClasses, recentBlueprints: initialBlueprints } = useLoaderData();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
 
-  const [classes, setClasses] = useState([]);
-  const [recentBlueprints, setRecentBlueprints] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [classes, setClasses] = useState(initialClasses);
+  const [recentBlueprints, setRecentBlueprints] = useState(initialBlueprints);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, classId: null });
 
-  // --- LOGIC SECTION (Preserved) ---
+  // No loading state needed - logic is pre-fetched
 
-  useEffect(() => {
-    if (user) {
-      fetchClasses();
-      fetchRecentBlueprints();
-    }
-  }, [user]);
-
-  const fetchClasses = async () => {
+  // Helper to refresh classes after mutations
+  const refreshClasses = async () => {
     try {
       const { data, error } = await supabase
         .from('classes')
@@ -61,26 +57,7 @@ const Dashboard = () => {
 
       setClasses(formattedClasses);
     } catch (error) {
-      console.error('Error fetching classes:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchRecentBlueprints = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('blueprints')
-        .select('*, classes(name)')
-        .eq('user_id', user.id)
-        .neq('title', 'Untitled Blueprint')
-        .order('last_viewed_at', { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
-      setRecentBlueprints(data || []);
-    } catch (error) {
-      console.error('Error fetching recent blueprints:', error);
+      console.error('Error refreshing classes:', error);
     }
   };
 
@@ -109,7 +86,7 @@ const Dashboard = () => {
           .insert([{ user_id: user.id, name: classData.className, professor: classData.professor }]);
         if (error) throw error;
       }
-      fetchClasses();
+      refreshClasses();
       setEditingClass(null);
     } catch (error) {
       console.error('Error saving class:', error);
@@ -156,22 +133,14 @@ const Dashboard = () => {
     setEditingClass(null);
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-      </div>
-    );
-  }
-
-  const { bgPattern } = useTheme(); // Import theme
+  const { bgPattern } = useTheme();
 
   return (
     <div className="flex h-full w-full bg-stone-100 dark:bg-stone-950 py-3 pr-3 pl-0 gap-0 overflow-hidden transition-colors duration-300">
 
       {/* 1. Sidebar Bubble */}
       <div className="hidden lg:flex flex-col w-[250px] bg-white border-l border-stone-200 dark:border-stone-800 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
-        <Sidebar className="w-full h-full border-r-0 bg-white" />
+        <Sidebar className="w-full h-full border-r-0 bg-white" classes={classes} />
       </div>
 
       {/* 2. Main Content Bubble */}
@@ -194,7 +163,7 @@ const Dashboard = () => {
         <header className="px-6 pt-5 pb-7 border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex-shrink-0 relative z-10">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-normal text-black dark:text-stone-100 tracking-tight leading-tight">Classes</h1>
+              <h1 className="text-xl font-normal text-black dark:text-stone-100 tracking-tight leading-tight">Dashboard</h1>
             </div>
           </div>
         </header>

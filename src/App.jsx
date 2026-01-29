@@ -1,29 +1,41 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { UiStateProvider } from './context/UiStateContext';
-// import ThemeToggle from './components/ThemeToggle'; // Dormant
-import Background from './components/Background';
-import ProtectedRoute from './components/ProtectedRoute';
-import Navbar from './components/Navbar';
+
+// Pages
 import Home from './pages/Home';
+import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
+import Create from './pages/Create';
+import CreateBlueprint from './pages/CreateBlueprint';
+import Blueprint from './pages/Blueprint';
 import Projects from './pages/Projects';
 import Career from './pages/Career';
 import Skills from './pages/Skills';
-import Auth from './pages/Auth';
-import Blueprint from './pages/Blueprint';
-import Create from './pages/Create';
+import Settings from './pages/Settings';
 import ClassDetails from './pages/ClassDetails';
 
+// Components
+import Navbar from './components/Navbar';
 import SidebarNavigation from './components/SidebarNavigation';
+import ProtectedRoute from './components/ProtectedRoute';
+import Background from './components/Background';
 
-function Layout() {
+// Loaders
+import { dashboardLoader } from './loaders/dashboardLoader';
+import { classDetailsLoader } from './loaders/classDetailsLoader';
+import { blueprintLoader } from './loaders/blueprintLoader';
+import { createBlueprintLoader } from './loaders/createBlueprintLoader';
+
+// Root Layout Component
+const RootLayout = () => {
   const location = useLocation();
+  const sidebarRoutes = ['/classes', '/blueprint'];
 
-  // Define routes that should use the Sidebar instead of Navbar
-  const sidebarRoutes = ['/classes', '/create', '/blueprint'];
+  // Check if current path starts with any of the sidebarRoutes OR is a specific class page
+  // The original logic was: location.pathname.startsWith(route) || location.pathname.startsWith('/class/')
   const isSidebarPage = sidebarRoutes.some(route => location.pathname.startsWith(route)) || location.pathname.startsWith('/class/');
 
   return (
@@ -39,67 +51,81 @@ function Layout() {
       {!isSidebarPage && <Background />}
 
       <div className={`${isSidebarPage ? 'pl-[68px] h-screen overflow-hidden' : ''}`}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/classes" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/projects" element={
-            <ProtectedRoute>
-              <Projects />
-            </ProtectedRoute>
-          } />
-          <Route path="/career" element={
-            <ProtectedRoute>
-              <Career />
-            </ProtectedRoute>
-          } />
-          <Route path="/skills" element={
-            <ProtectedRoute>
-              <Skills />
-            </ProtectedRoute>
-          } />
-          <Route
-            path="/create"
-            element={
-              <ProtectedRoute>
-                <Create />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/class/:id"
-            element={
-              <ProtectedRoute>
-                <ClassDetails />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/blueprint/:id"
-            element={
-              <ProtectedRoute>
-                <Blueprint />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
+        <Outlet />
       </div>
     </div>
   );
-}
+};
+
+// Router Configuration
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <RootLayout />,
+    children: [
+      {
+        index: true,
+        element: <Home />
+      },
+      {
+        path: 'auth',
+        element: <Auth />
+      },
+      {
+        path: 'dashboard',
+        element: <ProtectedRoute><Dashboard /></ProtectedRoute>,
+        loader: dashboardLoader
+      },
+      {
+        path: 'classes',
+        element: <ProtectedRoute><Dashboard /></ProtectedRoute>,
+        loader: dashboardLoader
+      },
+      {
+        path: 'class/:id',
+        element: <ProtectedRoute><ClassDetails /></ProtectedRoute>,
+        loader: classDetailsLoader
+      },
+      {
+        path: 'create',
+        element: <ProtectedRoute><Create /></ProtectedRoute>
+      },
+      {
+        path: 'classes/create',
+        element: <ProtectedRoute><CreateBlueprint /></ProtectedRoute>,
+        loader: createBlueprintLoader
+      },
+      {
+        path: 'blueprint/:id',
+        element: <ProtectedRoute><Blueprint /></ProtectedRoute>,
+        loader: blueprintLoader
+      },
+      {
+        path: 'projects',
+        element: <ProtectedRoute><Projects /></ProtectedRoute>
+      },
+      {
+        path: 'career',
+        element: <ProtectedRoute><Career /></ProtectedRoute>
+      },
+      {
+        path: 'skills',
+        element: <ProtectedRoute><Skills /></ProtectedRoute>
+      },
+      {
+        path: 'settings',
+        element: <ProtectedRoute><Settings /></ProtectedRoute>
+      }
+    ]
+  }
+]);
 
 function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
         <UiStateProvider>
-          <Router>
-            <Layout />
-          </Router>
+          <RouterProvider router={router} />
         </UiStateProvider>
       </ThemeProvider>
     </AuthProvider>

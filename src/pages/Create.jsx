@@ -411,21 +411,18 @@ const Create = () => {
 
   return (
     <div
-      className={`h-screen overflow-y-auto pb-12 px-4 sm:px-6 relative transition-all duration-300 ${bgPattern === 'white' || bgPattern === 'none'
-        ? 'bg-stone-100 dark:bg-stone-950'
-        : 'bg-transparent'
-        }`}
+      className="min-h-[calc(100vh-5rem)] w-full flex flex-col items-center pt-[max(2rem,calc(50vh-22rem))] p-6 relative transition-all duration-300"
     >
-      <div className="max-w-3xl mx-auto relative z-10">
+      <div className="w-full max-w-3xl relative z-10 space-y-8">
 
         {/* Header */}
-        <div className="text-center mb-10 pt-20">
+        <div className="text-center">
           <div className="mb-8">
             <h1 className="inline-block text-6xl text-black tracking-tight font-display mb-2">
               What are we learning today?
             </h1>
           </div>
-          <div className="mb-10">
+          <div className="mb-4">
             <p className="inline-block text-gray-600 text-lg max-w-2xl mx-auto leading-relaxed">
               Transform PDFs and ideas into structured engineering roadmaps.
             </p>
