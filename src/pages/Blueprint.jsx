@@ -5,7 +5,7 @@ import {
   ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp,
   ChevronRight, Bug, Check, Play, Youtube, Clock, Star, Zap, HelpCircle,
   Layout, Grid, Circle, Eye, Info, Database, ToggleLeft, ToggleRight, Timer,
-  AlignLeft, X, MessageSquare, ArrowUpRight, Search, ArrowRight, Calculator, Square
+  AlignLeft, X, MessageSquare, ArrowUpRight, Search, ArrowRight, Calculator, Square, Library
 } from 'lucide-react';
 import { InlineMath, BlockMath } from 'react-katex';
 import ReactMarkdown from 'react-markdown';
@@ -1310,6 +1310,7 @@ const Blueprint = () => {
   const chatRef = useRef(null);
   const [chatTitle, setChatTitle] = useState('');
   const [activeThreadId, setActiveThreadId] = useState(null);
+  const [showProblemBank, setShowProblemBank] = useState(false); // Toggle for Problem Bank sidebar
 
   const handleScroll = (e) => {
     const scrollPosition = e.currentTarget.scrollTop;
@@ -4051,6 +4052,24 @@ const Blueprint = () => {
                   </>
                 )}
 
+                {/* Problem Bank Button */}
+                {activeTab === 'practice-problems-chat' && (
+                  <button
+                    onClick={() => {
+                      setShowProblemBank(!showProblemBank);
+                      if (!showProblemBank) setShowChatHistory(false);
+                    }}
+                    className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-xs font-medium transition-all shadow-sm active:scale-95 ${showProblemBank
+                      ? 'bg-black text-white border-black hover:bg-stone-800'
+                      : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700'
+                      }`}
+                    title={showProblemBank ? "Close Problem Bank" : "Problem Bank"}
+                  >
+                    <Library className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{showProblemBank ? 'Close' : 'Problem Bank'}</span>
+                  </button>
+                )}
+
 
                 {/* View Document Button */}
                 {(doc || blueprint.url || content.text) && (
@@ -4115,6 +4134,10 @@ const Blueprint = () => {
                       setActiveThreadId(threadId);
                     }}
                     tabs={tabs} // Pass tabs for section selection
+                    practiceProblems={practiceProblems}
+                    structure={structure}
+                    showProblemBank={showProblemBank}
+                    onToggleProblemBank={() => setShowProblemBank(!showProblemBank)}
                   />
                 </div>
               ) : (

@@ -18,7 +18,11 @@ const PracticeProblemsChat = forwardRef(({
     onThreadChange, // Callback (title, threadId)
     showHistory: propShowHistory,
     onToggleHistory: propOnToggleHistory,
-    tabs = [] // New prop for sections
+    tabs = [], // New prop for sections
+    practiceProblems = {},
+    structure = {},
+    showProblemBank = false,
+    onToggleProblemBank
 }, ref) => {
     // History Sidebar State
     const [internalShowHistory, setInternalShowHistory] = useState(false);
@@ -431,49 +435,107 @@ const PracticeProblemsChat = forwardRef(({
         <div className="w-full h-full relative overflow-hidden flex flex-col">
 
             {/* Sidebar Overlay (Inlined) */}
-            <div className={`absolute top-0 right-0 h-full w-80 bg-white dark:bg-stone-900 border-l border-stone-200 dark:border-stone-800 transform transition-transform duration-300 z-[60] ${showHistory ? 'translate-x-0 shadow-2xl' : 'translate-x-full shadow-none'}`}>
+            <div className={`absolute top-0 right-0 h-full w-80 bg-white dark:bg-stone-900 border-l border-stone-200 dark:border-stone-800 transform transition-transform duration-300 z-[60] ${(showHistory || showProblemBank) ? 'translate-x-0 shadow-2xl' : 'translate-x-full shadow-none'}`}>
                 <div className="flex flex-col h-full bg-white dark:bg-stone-900">
-                    <div className="px-6 pb-6 pt-10">
-                        <h2 className="text-xl font-normal text-black dark:text-white tracking-tight leading-tight">Past threads</h2>
-                    </div>
-                    <div className="flex-1 overflow-y-auto pt-5 px-3 space-y-0.5">
-                        {threads.length === 0 ? (
-                            <div className="px-2 py-2 text-sm text-stone-400 italic">
-                                No history yet.
-                            </div>
-                        ) : (
-                            threads.map(thread => (
-                                <button
-                                    key={thread.id}
-                                    onClick={() => handleThreadClick(thread.id)}
-                                    className={`
-                                        w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm font-medium transition-colors text-left group
-                                        ${activeThreadId === thread.id
-                                            ? 'bg-stone-100 text-black'
-                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
-                                    `}
-                                >
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                        <MessageSquare className="w-4 h-4 text-gray-400 group-hover:text-gray-500 shrink-0" />
-                                        <span className="truncate">{thread.title || 'Conversation'}</span>
-                                    </div>
-                                    <span className="text-[10px] text-gray-400 shrink-0 ml-2">
-                                        {new Date(thread.updated_at).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}
-                                    </span>
-                                </button>
-                            ))
+                    <div className="px-6 pb-6 pt-10 flex items-center justify-between">
+                        <h2 className="text-xl font-normal text-black dark:text-white tracking-tight leading-tight">
+                            {showProblemBank ? 'Problem Bank' : 'Past threads'}
+                        </h2>
+                        {showProblemBank && (
+                            <button onClick={onToggleProblemBank} className="text-stone-400 hover:text-stone-600">
+                                <X className="w-5 h-5" />
+                            </button>
                         )}
                     </div>
-                    {/* New Chat Button in Sidebar */}
-                    <div className="p-4 pb-6 border-t border-stone-100 dark:border-stone-800">
-                        <button
-                            onClick={createNewThread}
-                            className="w-full flex items-center justify-center gap-2 py-2 bg-stone-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
-                        >
-                            <Plus className="w-4 h-4" />
-                            New Chat
-                        </button>
-                    </div>
+                    {showProblemBank ? (
+                        /* PROBLEM BANK CONTENT */
+                        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
+                            {Object.keys(practiceProblems).length === 0 ? (
+                                <div className="px-2 py-2 text-sm text-stone-400 italic">
+                                    No practice problems generated yet.
+                                </div>
+                            ) : (
+                                Object.entries(practiceProblems).map(([unitId, problems]) => {
+                                    // Resolve unit title
+                                    let unitTitle = "Unknown Section";
+                                    // Try to find in structure
+                                    if (structure?.content_sections) {
+                                        for (const section of structure.content_sections) {
+                                            const unit = section.learning_units?.find(u => u.unit_id === unitId);
+                                            if (unit) {
+                                                unitTitle = unit.topic;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    return (
+                                        <div key={unitId} className="space-y-2">
+                                            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 pl-2">
+                                                {unitTitle}
+                                            </h3>
+                                            <div className="space-y-2">
+                                                {(Array.isArray(problems) ? problems : [problems]).map((prob, idx) => (
+                                                    <div key={idx} className="p-3 bg-stone-50 dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700 text-sm">
+                                                        <div className="line-clamp-3 text-stone-700 dark:text-stone-300 mb-2">
+                                                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                                                {prob.practice_problem}
+                                                            </ReactMarkdown>
+                                                        </div>
+                                                        <div className="text-[10px] text-stone-400 text-right">
+                                                            Problem {idx + 1}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    ) : (
+                        /* CHAT HISTORY CONTENT */
+                        <div className="flex-1 overflow-y-auto pt-5 px-3 space-y-0.5">
+                            {threads.length === 0 ? (
+                                <div className="px-2 py-2 text-sm text-stone-400 italic">
+                                    No history yet.
+                                </div>
+                            ) : (
+                                threads.map(thread => (
+                                    <button
+                                        key={thread.id}
+                                        onClick={() => handleThreadClick(thread.id)}
+                                        className={`
+                                        w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm font-medium transition-colors text-left group
+                                        ${activeThreadId === thread.id
+                                                ? 'bg-stone-100 text-black'
+                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+                                    `}
+                                    >
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <MessageSquare className="w-4 h-4 text-gray-400 group-hover:text-gray-500 shrink-0" />
+                                            <span className="truncate">{thread.title || 'Conversation'}</span>
+                                        </div>
+                                        <span className="text-[10px] text-gray-400 shrink-0 ml-2">
+                                            {new Date(thread.updated_at).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}
+                                        </span>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    )}
+                    {/* New Chat Button in Sidebar (Only for History) */}
+                    {!showProblemBank && (
+                        <div className="p-4 pb-6 border-t border-stone-100 dark:border-stone-800">
+                            <button
+                                onClick={createNewThread}
+                                className="w-full flex items-center justify-center gap-2 py-2 bg-stone-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+                            >
+                                <Plus className="w-4 h-4" />
+                                New Chat
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
