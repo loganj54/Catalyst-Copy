@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useSearchParams, useLoaderData } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -23,22 +23,13 @@ const ClassDetails = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const { bgPattern } = useTheme();
   const fileInputRef = useRef(null);
 
-  // Use loader data
-  const { classData: initialClassData, blueprints: initialBlueprints, documents: initialDocuments, allClasses } = useLoaderData();
-
-  const [classData, setClassData] = useState(initialClassData);
-  const [blueprints, setBlueprints] = useState(initialBlueprints);
-  const [documents, setDocuments] = useState(initialDocuments);
-
-  // Sync state with loader data changes (navigation between classes)
-  useEffect(() => {
-    setClassData(initialClassData);
-    setBlueprints(initialBlueprints);
-    setDocuments(initialDocuments);
-  }, [initialClassData, initialBlueprints, initialDocuments]);
-  // Loading state removed as data is pre-fetched
+  const [classData, setClassData] = useState(null);
+  const [blueprints, setBlueprints] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'blueprints'); // blueprints, documents, help
   const [openDropdownId, setOpenDropdownId] = useState(null);
@@ -47,9 +38,52 @@ const ClassDetails = () => {
   const [newBlueprintName, setNewBlueprintName] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
 
-  // Moved fetch logic to loader.
-  // Note: If you need to refresh data (e.g. after upload), you can manually fetch or use useRevalidator()
-  // For simplicity, we just manipulate local state after mutations (like in handleDocumentUpload).
+  useEffect(() => {
+    if (user && id) {
+      fetchClassDetails();
+    }
+  }, [user, id]);
+
+  const fetchClassDetails = async () => {
+    try {
+      // Fetch class details
+      const { data: classResult, error: classError } = await supabase
+        .from('classes')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (classError) throw classError;
+      setClassData(classResult);
+
+      // Fetch blueprints for this class
+      const { data: blueprintsResult, error: blueprintsError } = await supabase
+        .from('blueprints')
+        .select('*')
+        .eq('class_id', id)
+        .order('created_at', { ascending: false });
+
+      if (blueprintsError) console.error('Error fetching blueprints:', blueprintsError);
+      if (blueprintsResult) setBlueprints(blueprintsResult);
+
+      // Fetch documents for this class
+      const { data: documentsResult, error: documentsError } = await supabase
+        .from('class_documents')
+        .select('*')
+        .eq('class_id', id)
+        .order('created_at', { ascending: false });
+
+      if (documentsError) console.error('Error fetching documents:', documentsError);
+      if (documentsResult) setDocuments(documentsResult);
+
+    } catch (error) {
+      console.error('Error fetching class details:', error);
+      // Navigate back to dashboard on error or if class not found
+      navigate('/dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDocumentUpload = async (e) => {
     const file = e.target.files[0];
@@ -312,18 +346,24 @@ const ClassDetails = () => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-stone-900 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#FF4A1C]" />
+      </div>
+    );
+  }
 
   if (!classData) return null;
 
-  const { bgPattern } = useTheme(); // Import theme
+
 
   return (
     <div className="flex h-full w-full bg-stone-100 dark:bg-stone-950 py-3 pr-3 pl-0 gap-0 overflow-hidden transition-colors duration-300">
 
       {/* 1. Class Sidebar Bubble */}
       <div className="hidden lg:flex flex-col w-[250px] bg-white border-l border-stone-200 dark:border-stone-800 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
-        <Sidebar className="w-full h-full border-r-0 bg-white" activeClassId={id} classes={allClasses} />
+        <Sidebar className="w-full h-full border-r-0 bg-white" activeClassId={id} />
       </div>
 
       {/* 2. Main Content Bubble */}

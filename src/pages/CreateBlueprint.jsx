@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation, useLoaderData } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
     Upload, FileText, Trash2, Sparkles, BookOpen,
     ArrowRight, Layers, Command, Loader2, Paperclip, Plus, Check, X,
@@ -17,7 +17,6 @@ const CreateBlueprint = () => {
     const { bgPattern } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
-    const { allClasses } = useLoaderData();
     const fileInputRef = useRef(null);
 
     // State
@@ -29,8 +28,7 @@ const CreateBlueprint = () => {
     const [devModeEnabled, setDevModeEnabled] = useState(false);
 
     // Class Selection State
-    const [classes, setClasses] = useState(allClasses);
-
+    const [classes, setClasses] = useState([]);
     const [selectedClassId, setSelectedClassId] = useState(null);
     const [isCreatingClass, setIsCreatingClass] = useState(false);
     const [newClassName, setNewClassName] = useState('');
@@ -162,7 +160,27 @@ const CreateBlueprint = () => {
         }
     };
 
+    // Fetch Classes
+    useEffect(() => {
+        if (user) {
+            fetchClasses();
+        }
+    }, [user]);
 
+    const fetchClasses = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('classes')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setClasses(data || []);
+        } catch (error) {
+            console.error('Error fetching classes:', error);
+        }
+    };
 
     // Submit Handler
     const handleSubmit = async () => {
@@ -335,7 +353,7 @@ const CreateBlueprint = () => {
 
             {/* 1. Create Sidebar Bubble */}
             <div className="hidden lg:flex flex-col w-[250px] bg-white border-l border-stone-200 dark:border-stone-800 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
-                <Sidebar className="w-full h-full border-r-0 bg-white" classes={allClasses} />
+                <Sidebar className="w-full h-full border-r-0 bg-white" />
             </div>
 
             {/* 2. Main Content Bubble */}

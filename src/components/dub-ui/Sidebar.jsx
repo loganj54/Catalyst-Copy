@@ -15,25 +15,21 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { Badge } from './Badge';
 
-export const Sidebar = ({ className = '', activeClassId = null, extraContent = null, title = 'Classwork', uniqueContent = null, classes: preloadedClasses = null }) => {
+export const Sidebar = ({ className = '', activeClassId = null, extraContent = null, title = 'Classwork', uniqueContent = null }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const [classes, setClasses] = useState(preloadedClasses || []);
-    const [loading, setLoading] = useState(!preloadedClasses);
+    const [classes, setClasses] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (preloadedClasses) {
-            setClasses(preloadedClasses);
-            setLoading(false);
-        } else if (user && !uniqueContent) {
+        if (user && !uniqueContent) {
             fetchClasses();
         }
-    }, [user, uniqueContent, preloadedClasses]);
+    }, [user, uniqueContent]);
 
     const fetchClasses = async () => {
         try {
-            setLoading(true);
             const { data, error } = await supabase
                 .from('classes')
                 .select('id, name')

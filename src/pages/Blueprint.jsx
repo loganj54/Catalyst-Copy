@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useParams, useNavigate, useSearchParams, useLoaderData, useRevalidator } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, BookOpen, Target, Calendar, FileText, Loader2, Download, Plus, Folder,
   ExternalLink, RefreshCw, AlertCircle, Sparkles, ChevronDown, ChevronUp,
@@ -1164,170 +1164,70 @@ const TopicListItem = ({
   );
 };
 
+const BlueprintSkeleton = () => {
+  return (
+    <div className="min-h-screen bg-transparent text-outline relative animate-pulse">
+      {/* Sidebars */}
+      <div className="fixed top-0 left-0 h-full z-20 hidden lg:block w-56 bg-white dark:bg-stone-900 border-r border-stone-200 dark:border-stone-800">
+        <div className="p-6 space-y-6">
+          <div className="h-6 w-32 bg-stone-200 dark:bg-stone-800 rounded" />
+          <div className="space-y-3">
+            <div className="h-4 w-full bg-stone-100 dark:bg-stone-800/50 rounded" />
+            <div className="h-4 w-3/4 bg-stone-100 dark:bg-stone-800/50 rounded" />
+            <div className="h-4 w-5/6 bg-stone-100 dark:bg-stone-800/50 rounded" />
+          </div>
+        </div>
+      </div>
 
+      <div className="min-w-0 lg:ml-[224px] transition-all duration-300 ease-in-out">
+        {/* Sticky Header */}
+        <div className="sticky top-20 z-50 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md">
+          <div className="py-6">
+            <div className="px-6 lg:px-12 max-w-7xl mx-auto">
+              <div className="mb-6">
+                {/* Back Button */}
+                <div className="h-4 w-24 bg-stone-200 dark:bg-stone-800 rounded mb-3" />
+
+                {/* Title */}
+                <div className="h-10 w-2/3 bg-stone-200 dark:bg-stone-800 rounded mb-2" />
+
+                {/* Class Name */}
+                <div className="h-6 w-1/3 bg-stone-100 dark:bg-stone-800/50 rounded" />
+
+                {/* Tabs */}
+                <div className="mt-5 flex gap-2 overflow-hidden">
+                  {[1, 2, 3, 4, 5].map(i => (
+                    <div key={i} className="h-8 w-24 bg-stone-200 dark:bg-stone-800 rounded-md shrink-0" />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="px-6 lg:px-12 pb-20 max-w-7xl mx-auto space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl p-4">
+              <div className="flex items-center gap-4">
+                <div className="h-6 w-6 bg-stone-200 dark:bg-stone-800 rounded-full" />
+                <div className="space-y-2 flex-1">
+                  <div className="h-5 w-1/3 bg-stone-200 dark:bg-stone-800 rounded" />
+                  <div className="h-3 w-1/2 bg-stone-100 dark:bg-stone-800/50 rounded" />
+                </div>
+                <div className="h-8 w-8 bg-stone-200 dark:bg-stone-800 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ============================================================================
 // MAIN BLUEPRINT COMPONENT
 // ============================================================================
-
-// ============================================================================
-// DATA PROCESSOR (LOADER TO STATE)
-// ============================================================================
-const processLoaderData = (bp) => {
-  if (!bp) return {};
-
-  const result = {
-    blueprint: bp,
-    learningStructure: null,
-    structureGenerationResult: null,
-    documentAnalysis: null,
-    topicResponses: {},
-    topicResources: {},
-    topicEquations: {},
-    topicFigures: {},
-    practiceProblems: {}, // { unitId: [] }
-    deepDiveSolutions: {}, // { unitId: markdown }
-    generationStatus: bp.generation_status || 'pending',
-    generationError: bp.generation_error
-  };
-
-  // 1. Structure
-  const structData = bp.blueprint_structures?.[0]; // Assuming 1:1 or taking first
-  if (structData) {
-    result.learningStructure = structData;
-    result.structureGenerationResult = {
-      success: true,
-      structure_id: structData.id,
-      structure: structData.structure_data || structData.structure,
-      metrics: {
-        total_prerequisites: structData.total_prerequisites,
-        total_sections: structData.total_sections,
-        total_learning_units: structData.total_learning_units,
-        total_search_queries: structData.total_search_queries,
-      },
-      created_at: structData.created_at,
-      from_cache: structData.from_cache || false,
-      model_used: structData.model_used || 'claude-haiku-4-5',
-    };
-  }
-
-  // 2. Document Analysis
-  // Prioritize one with document_id if available, but usually we just take the first valid one
-  if (bp.document_analyses && bp.document_analyses.length > 0) {
-    const analysis = bp.document_analyses[0];
-    result.documentAnalysis = {
-      success: true,
-      analysis_id: analysis.id,
-      document_id: analysis.document_id,
-      document_type: analysis.raw_analysis?.document_type,
-      subject_area: analysis.raw_analysis?.subject_area,
-      raw_analysis: analysis.raw_analysis,
-      analyzed_at: analysis.created_at,
-      source: analysis.document_id ? 'document_id' : 'blueprint_id',
-    };
-  }
-
-  // 3. Responses
-  if (bp.topic_responses) {
-    bp.topic_responses.forEach(r => {
-      result.topicResponses[r.unit_id] = r;
-    });
-  }
-
-  // 4. Resources
-  if (bp.blueprint_topic_resources) {
-    const resourcesMap = {};
-    bp.blueprint_topic_resources.forEach(r => {
-      if (!resourcesMap[r.unit_id]) resourcesMap[r.unit_id] = [];
-      if (r.resources_from_make) {
-        const explanation = r.resource_explanation?.toLowerCase() || '';
-        const isExplicitlyIrrelevant = explanation === 'not_relevant' ||
-          explanation.includes('does not contain relevant content') ||
-          explanation.includes('not actually relevant to');
-
-        if (!isExplicitlyIrrelevant && !r.is_hidden) {
-          resourcesMap[r.unit_id].push({
-            ...r.resources_from_make,
-            relevance_score: r.relevance_score,
-            from_cache: r.from_cache,
-            resource_explanation: r.resource_explanation,
-            is_hidden: r.is_hidden,
-            link_id: r.id,
-            created_at: r.created_at
-          });
-        }
-      }
-    });
-
-    // Sort by created_at descending
-    for (const [unitId, resources] of Object.entries(resourcesMap)) {
-      if (resources.length > 1) {
-        resources.sort((a, b) => {
-          const dateA = new Date(a.created_at || 0);
-          const dateB = new Date(b.created_at || 0);
-          return dateB - dateA;
-        });
-      }
-    }
-    result.topicResources = resourcesMap;
-  }
-
-  // 5. Equations
-  if (bp.blueprint_unit_equations) {
-    bp.blueprint_unit_equations.forEach(e => {
-      if (!result.topicEquations[e.unit_id]) result.topicEquations[e.unit_id] = [];
-      if (e.curated_equations) {
-        result.topicEquations[e.unit_id].push({
-          ...e.curated_equations,
-          index: e.display_index
-        });
-      }
-    });
-    // Sort logic handled by loader order usually, but can sort by index here if needed
-    for (const unitId in result.topicEquations) {
-      result.topicEquations[unitId].sort((a, b) => (a.index || 0) - (b.index || 0));
-    }
-  }
-
-  // 6. Figures
-  if (bp.blueprint_unit_figures) {
-    bp.blueprint_unit_figures.forEach(f => {
-      if (!result.topicFigures[f.unit_id]) result.topicFigures[f.unit_id] = [];
-      if (f.curated_figures) {
-        result.topicFigures[f.unit_id].push({
-          ...f.curated_figures,
-          index: f.display_index
-        });
-      }
-    });
-    for (const unitId in result.topicFigures) {
-      result.topicFigures[unitId].sort((a, b) => (a.index || 0) - (b.index || 0));
-    }
-  }
-
-  // 7. Practice Problems
-  if (bp.blueprint_practice_problems) {
-    bp.blueprint_practice_problems.forEach(p => {
-      if (!result.practiceProblems[p.unit_id]) result.practiceProblems[p.unit_id] = [];
-      if (p.cached_problem) {
-        result.practiceProblems[p.unit_id].push({
-          ...p.cached_problem,
-          solving: false
-        });
-      }
-    });
-  }
-
-  // 8. Deep Dive Solutions
-  if (bp.blueprint_deep_dive_solutions) {
-    bp.blueprint_deep_dive_solutions.forEach(s => {
-      result.deepDiveSolutions[s.unit_id] = s.solution_markdown;
-    });
-  }
-
-  return result;
-};
-
 
 // ============================================================================
 // DEBUG OBJECT DISPLAY
@@ -1398,14 +1298,9 @@ const DebugObjectDisplay = ({ data, title }) => {
 const Blueprint = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const revalidator = useRevalidator();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, session } = useAuth();
   const { bgPattern, setBgPattern } = useTheme();
-
-  // Pre-load data from router loader
-  const { blueprint: loadedBlueprint, allClasses } = useLoaderData();
-  const initialData = useMemo(() => processLoaderData(loadedBlueprint), [loadedBlueprint]);
 
   // Sticky Header State
   const [isScrolled, setIsScrolled] = useState(false);
@@ -1431,15 +1326,15 @@ const Blueprint = () => {
   }, []);
 
   // Data State
-  const [blueprint, setBlueprint] = useState(initialData.blueprint);
-  // loading state removed
-  const [learningStructure, setLearningStructure] = useState(initialData.learningStructure);
-  const [topicResponses, setTopicResponses] = useState(initialData.topicResponses);
-  const [topicResources, setTopicResources] = useState(initialData.topicResources);
-  const [topicEquations, setTopicEquations] = useState(initialData.topicEquations);
-  const [topicFigures, setTopicFigures] = useState(initialData.topicFigures);
-  const [practiceProblems, setPracticeProblems] = useState(initialData.practiceProblems); // { unitId: { problem, hints, answer } }
-  const [deepDiveSolutions, setDeepDiveSolutions] = useState(initialData.deepDiveSolutions); // { unitId: markdown string }
+  const [blueprint, setBlueprint] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [learningStructure, setLearningStructure] = useState(null);
+  const [topicResponses, setTopicResponses] = useState({});
+  const [topicResources, setTopicResources] = useState({});
+  const [topicEquations, setTopicEquations] = useState({});
+  const [topicFigures, setTopicFigures] = useState({});
+  const [practiceProblems, setPracticeProblems] = useState({}); // { unitId: { problem, hints, answer } }
+  const [deepDiveSolutions, setDeepDiveSolutions] = useState({}); // { unitId: markdown string }
   const [generatingDeepDive, setGeneratingDeepDive] = useState(new Set()); // Set of unitIds
 
   // Track resources that are currently being loaded to prevent overwrites
@@ -1493,8 +1388,8 @@ const Blueprint = () => {
 
   // Generation State
   const [generating, setGenerating] = useState(false);
-  const [generationStatus, setGenerationStatus] = useState(initialData.generationStatus);
-  const [generationError, setGenerationError] = useState(initialData.generationError);
+  const [generationStatus, setGenerationStatus] = useState('pending');
+  const [generationError, setGenerationError] = useState(null);
   const [searchingTopics, setSearchingTopics] = useState(new Set());
   const [resourceRatings, setResourceRatings] = useState({}); // { [resourceId]: rating }
   const [rerollingUnits, setRerollingUnits] = useState(new Set()); // Track which units are being rerolled
@@ -1789,8 +1684,8 @@ const Blueprint = () => {
 
   // Debug State
   const [showDebug, setShowDebug] = useState(false);
-  const [documentAnalysis, setDocumentAnalysis] = useState(initialData.documentAnalysis);
-  const [structureGenerationResult, setStructureGenerationResult] = useState(initialData.structureGenerationResult);
+  const [documentAnalysis, setDocumentAnalysis] = useState(null);
+  const [structureGenerationResult, setStructureGenerationResult] = useState(null);
 
   // Progress Panel State
   const [showProgressPanel, setShowProgressPanel] = useState(false);
@@ -1813,7 +1708,357 @@ const Blueprint = () => {
   });
   const devModeTimerRef = useRef(null);
 
+  // Fetch blueprint data
+  const fetchBlueprint = useCallback(async () => {
+    try {
+      // 1. Fetch main Blueprint data first
+      const { data: bp, error: bpError } = await supabase
+        .from('blueprints')
+        .select(`
+        *,
+          class: classes(id, name, professor)
+            `)
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
 
+      if (bpError) throw bpError;
+
+      // Update access time immediately
+      supabase.from('blueprints')
+        .update({ last_viewed_at: new Date().toISOString() })
+        .eq('id', id)
+        .then(() => { }); // Fire and forget
+
+      setBlueprint(bp);
+      setGenerationStatus(bp.generation_status || 'pending');
+      setGenerationError(bp.generation_error);
+
+      // 2. Prepare Parallel Fetches
+      const promises = [];
+
+      // A. Document Fetch (if linked)
+      if (bp.document_id) {
+        promises.push(
+          supabase
+            .from('class_documents')
+            .select('*')
+            .eq('id', bp.document_id)
+            .single()
+            .then(({ data }) => ({ type: 'document', data }))
+            .catch(err => ({ type: 'document', error: err }))
+        );
+      }
+
+      // B. Structure Fetch
+      promises.push(
+        supabase
+          .from('blueprint_structures')
+          .select('*')
+          .eq('blueprint_id', id)
+          .maybeSingle()
+          .then(({ data }) => ({ type: 'structure', data }))
+      );
+
+      // C. Document Analysis
+      // Try by document_id first if available, else blueprint_id
+      if (bp.document_id) {
+        promises.push(
+          supabase
+            .from('document_analyses')
+            .select('*')
+            .eq('document_id', bp.document_id)
+            .maybeSingle()
+            .then(({ data }) => ({ type: 'analysis_doc', data }))
+        );
+      }
+      // Always fetch by blueprint_id as backup or primary
+      promises.push(
+        supabase
+          .from('document_analyses')
+          .select('*')
+          .eq('blueprint_id', id)
+          .maybeSingle()
+          .then(({ data }) => ({ type: 'analysis_bp', data }))
+      );
+
+      // D. Topic Responses
+      promises.push(
+        supabase
+          .from('topic_responses')
+          .select('*')
+          .eq('blueprint_id', id)
+          .eq('user_id', user.id)
+          .then(({ data }) => ({ type: 'responses', data }))
+      );
+
+      // E. Resources
+      promises.push(
+        supabase
+          .from('blueprint_topic_resources')
+          .select(`*, resources_from_make(*)`)
+          .eq('blueprint_id', id)
+          .then(({ data }) => ({ type: 'resources', data }))
+      );
+
+      // F. Equations
+      promises.push(
+        supabase
+          .from('blueprint_unit_equations')
+          .select(`*, curated_equations(*)`)
+          .eq('blueprint_id', id)
+          .order('display_index', { ascending: true })
+          .then(({ data }) => ({ type: 'equations', data }))
+      );
+
+      // G. Figures
+      promises.push(
+        supabase
+          .from('blueprint_unit_figures')
+          .select(`*, curated_figures(*)`)
+          .eq('blueprint_id', id)
+          .order('display_index', { ascending: true })
+          .then(({ data }) => ({ type: 'figures', data }))
+      );
+
+      // H. Practice Problems (from cache link table)
+      promises.push(
+        supabase
+          .from('blueprint_practice_problems')
+          .select(`
+            unit_id,
+          cached_problem: practice_problems_cache(
+            problem_statement,
+            given_values,
+            hints,
+            solution_steps,
+            final_answer
+          )
+            `)
+          .eq('blueprint_id', id)
+          .order('created_at', { ascending: true })
+          .then(({ data }) => ({ type: 'practice_problems', data }))
+      );
+
+      // I. Deep Dive Solutions
+      promises.push(
+        supabase
+          .from('blueprint_deep_dive_solutions')
+          .select('unit_id, solution_markdown')
+          .eq('blueprint_id', id)
+          .then(({ data }) => ({ type: 'deep_dive_solutions', data }))
+      );
+
+      // 3. Execute Parallel Fetches
+      const results = await Promise.all(promises);
+
+      // 4. Process Results
+      let docData = null;
+      let structureData = null;
+      let analysisData = null;
+
+      // Helper to extract data from results array
+      const getResult = (type) => results.find(r => r && r.type === type)?.data;
+
+      // Process Document
+      docData = getResult('document');
+      if (docData) {
+        setBlueprint(prev => ({ ...prev, document: docData }));
+      }
+
+      // Process Structure
+      structureData = getResult('structure');
+      if (structureData) {
+        // DEBUG: Log the raw structure data to see if suggested_figures exists
+        console.log('[Blueprint] RAW structureData from DB:', structureData);
+        const struct = structureData.structure_data || structureData.structure;
+        if (struct?.content_sections?.[0]?.learning_units?.[0]) {
+          console.log('[Blueprint] RAW first unit from DB:', struct.content_sections[0].learning_units[0]);
+          console.log('[Blueprint] RAW first unit keys:', Object.keys(struct.content_sections[0].learning_units[0]));
+        }
+
+        setLearningStructure(structureData);
+        setStructureGenerationResult({
+          success: true,
+          structure_id: structureData.id,
+          structure: structureData.structure_data || structureData.structure,
+          metrics: {
+            total_prerequisites: structureData.total_prerequisites,
+            total_sections: structureData.total_sections,
+            total_learning_units: structureData.total_learning_units,
+            total_search_queries: structureData.total_search_queries,
+          },
+          created_at: structureData.created_at,
+          from_cache: structureData.from_cache || false,
+          model_used: structureData.model_used || 'claude-haiku-4-5',
+        });
+      }
+
+      // Process Analysis (Prioritize document_id match)
+      const analysisDoc = getResult('analysis_doc');
+      const analysisBp = getResult('analysis_bp');
+      analysisData = analysisDoc || analysisBp;
+
+      if (analysisData) {
+        setDocumentAnalysis({
+          success: true,
+          analysis_id: analysisData.id,
+          document_id: analysisData.document_id,
+          document_type: analysisData.raw_analysis?.document_type,
+          subject_area: analysisData.raw_analysis?.subject_area,
+          raw_analysis: analysisData.raw_analysis,
+          analyzed_at: analysisData.created_at,
+          source: analysisData.document_id ? 'document_id' : 'blueprint_id',
+        });
+      }
+
+      // Process Responses
+      const responsesData = getResult('responses');
+      if (responsesData) {
+        const responsesMap = {};
+        responsesData.forEach(r => responsesMap[r.unit_id] = r);
+        setTopicResponses(responsesMap);
+      }
+
+      // Process Resources
+      const resourcesData = getResult('resources');
+      if (resourcesData) {
+        const resourcesMap = {};
+        let count = 0;
+
+        resourcesData.forEach(r => {
+          if (!resourcesMap[r.unit_id]) resourcesMap[r.unit_id] = [];
+          if (r.resources_from_make) {
+            const explanation = r.resource_explanation?.toLowerCase() || '';
+            const isExplicitlyIrrelevant =
+              explanation === 'not_relevant' ||
+              explanation.includes('does not contain relevant content') ||
+              explanation.includes('not actually relevant to');
+
+            if (!isExplicitlyIrrelevant && !r.is_hidden) {
+              resourcesMap[r.unit_id].push({
+                ...r.resources_from_make,
+                relevance_score: r.relevance_score,
+                from_cache: r.from_cache,
+                resource_explanation: r.resource_explanation,
+                is_hidden: r.is_hidden,
+                link_id: r.id, // Link ID for updates
+                created_at: r.created_at // Track when it was added
+              });
+              count++;
+            }
+          }
+        });
+
+        // NOTE: We no longer filter to just one resource per unit.
+        // The display logic (line ~3580) picks the most recent non-hidden video.
+        // This preserves the full queue for re-rolling.
+        // 
+        // Sort resources by created_at so the display logic sees them in order
+        for (const [unitId, resources] of Object.entries(resourcesMap)) {
+          if (resources.length > 1) {
+            // Sort by created_at descending (most recent first)
+            resources.sort((a, b) => {
+              const dateA = new Date(a.created_at || 0);
+              const dateB = new Date(b.created_at || 0);
+              return dateB - dateA;
+            });
+            console.log(`[Blueprint] Unit ${unitId}: Loaded ${resources.length} resources(sorted by recency)`);
+          }
+        }
+
+        console.log(`[Blueprint] Loaded ${count} resources in parallel(showing most recent per unit)`);
+
+        // Intelligent Merge: Don't overwrite what might be loading
+        setTopicResources(prev => {
+          const updated = { ...prev };
+          for (const [unitId, resources] of Object.entries(resourcesMap)) {
+            if (!loadingResourcesRef.current.has(unitId)) {
+              updated[unitId] = resources;
+            }
+          }
+          return updated;
+        });
+      }
+
+      // Process Equations
+      const equationsData = getResult('equations');
+      if (equationsData) {
+        const equationsMap = {};
+        equationsData.forEach(e => {
+          if (!equationsMap[e.unit_id]) equationsMap[e.unit_id] = [];
+          if (e.curated_equations) {
+            equationsMap[e.unit_id].push({
+              ...e.curated_equations,
+              index: e.display_index
+            });
+          }
+        });
+        setTopicEquations(equationsMap);
+      }
+
+      // Process Figures
+      const figuresData = getResult('figures');
+      if (figuresData) {
+        const figuresMap = {};
+        figuresData.forEach(f => {
+          if (!figuresMap[f.unit_id]) figuresMap[f.unit_id] = [];
+          if (f.curated_figures) {
+            figuresMap[f.unit_id].push({
+              ...f.curated_figures,
+              relevance_explanation: f.relevance_explanation,
+              from_cache: f.from_cache,
+            });
+          }
+        });
+        setTopicFigures(figuresMap);
+      }
+
+      // Process Practice Problems (from cache)
+      const practiceData = getResult('practice_problems');
+      if (practiceData && practiceData.length > 0) {
+        const problemsMap = {};
+        let count = 0;
+        practiceData.forEach(p => {
+          if (p.cached_problem) {
+            if (!problemsMap[p.unit_id]) problemsMap[p.unit_id] = [];
+            problemsMap[p.unit_id].push({
+              practice_problem: p.cached_problem.problem_statement,
+              given_values: p.cached_problem.given_values,
+              hints: p.cached_problem.hints,
+              solution_steps: p.cached_problem.solution_steps,
+              final_answer: p.cached_problem.final_answer,
+              solving: false
+            });
+            count++;
+          }
+        });
+        console.log(`[Blueprint] Loaded ${count} practice problems from cache`);
+        setPracticeProblems(problemsMap);
+      }
+
+      // Process Deep Dive Solutions
+      const deepDiveData = getResult('deep_dive_solutions');
+      if (deepDiveData && deepDiveData.length > 0) {
+        const solutionsMap = {};
+        deepDiveData.forEach(s => {
+          solutionsMap[s.unit_id] = s.solution_markdown;
+        });
+        console.log(`[Blueprint] Loaded ${deepDiveData.length} deep dive solutions from database`);
+        setDeepDiveSolutions(solutionsMap);
+      }
+
+    } catch (error) {
+      console.error('Error fetching blueprint:', error);
+      navigate('/dashboard');
+    } finally {
+      setLoading(false);
+    }
+  }, [id, user?.id, navigate]);
+
+  useEffect(() => {
+    if (user && id) fetchBlueprint();
+  }, [user, id, fetchBlueprint]);
 
   // SYNC GENERATED STRUCTURE TO DISPLAY STATE
   useEffect(() => {
@@ -1829,32 +2074,35 @@ const Blueprint = () => {
     }
   }, [structureGenerationResult]);
 
-  // Sync state with pre-loaded data when it changes
+  // Reset state when blueprint ID changes
   useEffect(() => {
-    // Data State
-    setBlueprint(initialData.blueprint);
-    setLearningStructure(initialData.learningStructure);
-    setTopicResponses(initialData.topicResponses);
-    setTopicResources(initialData.topicResources);
-    setTopicEquations(initialData.topicEquations);
-    setTopicFigures(initialData.topicFigures);
-    setPracticeProblems(initialData.practiceProblems);
-    setDeepDiveSolutions(initialData.deepDiveSolutions);
-
-    // Debug & Analysis State
-    setDocumentAnalysis(initialData.documentAnalysis);
-    setStructureGenerationResult(initialData.structureGenerationResult);
-
-    // Generation State
-    setGenerationStatus(initialData.generationStatus);
-    setGenerationError(initialData.generationError);
-
-    // UI State Reset
+    // UI State
+    // activeTab and selectedUnitId are now URL-driven, so they reset automatically if the URL changes 
+    // or will be re-initialized by the effect below if missing.
     setExpandedTopics({});
     setIsScrolled(false);
+
+    // Data State
+    setBlueprint(null);
+    setLoading(true);
+    setLearningStructure(null);
+    setTopicResponses({});
+    setTopicResources({});
+    setTopicEquations({});
+    setTopicFigures({});
+
+    // Debug & Analysis State
+    setDocumentAnalysis(null);
+    setStructureGenerationResult(null); // Clear previous structure debug info
+
+    // Generation State
+    setGenerationStatus('pending');
+    setGenerationError(null);
     setSearchingTopics(new Set());
+
+    // Refs
     loadingResourcesRef.current = new Set();
-  }, [initialData]);
+  }, [id]);
 
   // Set initial active tab when structure loads
   useEffect(() => {
@@ -2983,7 +3231,7 @@ const Blueprint = () => {
       if (!data.success) throw new Error(data.error);
       setStructureGenerationResult(data);
 
-      revalidator.revalidate();
+      await fetchBlueprint();
     } catch (error) {
       setGenerationError(error.message);
       setGenerationStatus('failed');
@@ -3121,7 +3369,7 @@ const Blueprint = () => {
         console.log('[Blueprint] Document analysis complete (merged)');
         setDocumentAnalysis(data);
         setGenerationStatus('analyzed');
-        revalidator.revalidate();
+        await fetchBlueprint();
 
       } else {
         // LEGACY SINGLE FILE / TEXT MODE
@@ -3142,7 +3390,7 @@ const Blueprint = () => {
         console.log('[Blueprint] Document analysis complete');
         setDocumentAnalysis(data);
         setGenerationStatus('analyzed');
-        revalidator.revalidate();
+        await fetchBlueprint();
       }
 
     } catch (error) {
@@ -3393,7 +3641,7 @@ const Blueprint = () => {
 
     // Reload blueprint data to show new structure
     console.log('[Blueprint] Fetching updated blueprint data...');
-    revalidator.revalidate();
+    await fetchBlueprint();
 
     // Auto-close progress panel after 3 seconds
     setTimeout(() => {
@@ -3410,7 +3658,7 @@ const Blueprint = () => {
     setIsGeneratingWithProgress(false);
 
     // Reload to get updated status from backend
-    revalidator.revalidate();
+    await fetchBlueprint();
   };
 
   const toggleTopic = (unitId) => {
@@ -3615,7 +3863,9 @@ const Blueprint = () => {
     }, []);
   }, [currentUnits, topicFigures]);
 
-
+  if (loading) {
+    return <BlueprintSkeleton />;
+  }
   if (!blueprint) return null;
 
   const content = blueprint.content || {};
@@ -3635,7 +3885,6 @@ const Blueprint = () => {
         <Sidebar
           className="w-full h-full border-r-0 bg-white"
           activeClassId={blueprint?.class_id}
-          classes={allClasses}
           extraContent={
             <>
               {tabs.length > 0 && (

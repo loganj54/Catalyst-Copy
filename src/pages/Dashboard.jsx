@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLoaderData } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus, MoreVertical, Edit2, Trash2, Loader2, BookOpen, ExternalLink, MoreHorizontal
 } from 'lucide-react';
@@ -22,22 +22,26 @@ import { Table, Thead, Tr, Th, Td } from '../components/dub-ui/Table';
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  // Initialize from loader data
-  const { classes: initialClasses, recentBlueprints: initialBlueprints } = useLoaderData();
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
 
-  const [classes, setClasses] = useState(initialClasses);
-  const [recentBlueprints, setRecentBlueprints] = useState(initialBlueprints);
+  const [classes, setClasses] = useState([]);
+  const [recentBlueprints, setRecentBlueprints] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, classId: null });
 
-  // No loading state needed - logic is pre-fetched
+  // --- LOGIC SECTION (Preserved) ---
 
-  // Helper to refresh classes after mutations
-  const refreshClasses = async () => {
+  useEffect(() => {
+    if (user) {
+      fetchClasses();
+      fetchRecentBlueprints();
+    }
+  }, [user]);
+
+  const fetchClasses = async () => {
     try {
       const { data, error } = await supabase
         .from('classes')
@@ -57,7 +61,26 @@ const Dashboard = () => {
 
       setClasses(formattedClasses);
     } catch (error) {
-      console.error('Error refreshing classes:', error);
+      console.error('Error fetching classes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRecentBlueprints = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('blueprints')
+        .select('*, classes(name)')
+        .eq('user_id', user.id)
+        .neq('title', 'Untitled Blueprint')
+        .order('last_viewed_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setRecentBlueprints(data || []);
+    } catch (error) {
+      console.error('Error fetching recent blueprints:', error);
     }
   };
 
@@ -86,7 +109,7 @@ const Dashboard = () => {
           .insert([{ user_id: user.id, name: classData.className, professor: classData.professor }]);
         if (error) throw error;
       }
-      refreshClasses();
+      fetchClasses();
       setEditingClass(null);
     } catch (error) {
       console.error('Error saving class:', error);
@@ -133,14 +156,22 @@ const Dashboard = () => {
     setEditingClass(null);
   };
 
-  const { bgPattern } = useTheme();
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  const { bgPattern } = useTheme(); // Import theme
 
   return (
     <div className="flex h-full w-full bg-stone-100 dark:bg-stone-950 py-3 pr-3 pl-0 gap-0 overflow-hidden transition-colors duration-300">
 
       {/* 1. Sidebar Bubble */}
       <div className="hidden lg:flex flex-col w-[250px] bg-white border-l border-stone-200 dark:border-stone-800 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
-        <Sidebar className="w-full h-full border-r-0 bg-white" classes={classes} />
+        <Sidebar className="w-full h-full border-r-0 bg-white" />
       </div>
 
       {/* 2. Main Content Bubble */}
