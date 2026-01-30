@@ -1338,9 +1338,11 @@ const Blueprint = () => {
   const [practiceProblems, setPracticeProblems] = useState({}); // { unitId: { problem, hints, answer } }
   const [deepDiveSolutions, setDeepDiveSolutions] = useState({}); // { unitId: markdown string }
   const [generatingDeepDive, setGeneratingDeepDive] = useState(new Set()); // Set of unitIds
+  const [savedVideoSelections, setSavedVideoSelections] = useState({}); // { unitId: { video_url, video_title, ... } }
 
   // Track resources that are currently being loaded to prevent overwrites
   const loadingResourcesRef = useRef(new Set());
+  const savedVideoUnitsRef = useRef(new Set()); // Track units we've auto-saved videos for (prevent duplicate saves)
   const [generatingPractice, setGeneratingPractice] = useState(new Set()); // Set of unitIds
 
   // UI State
@@ -1396,6 +1398,39 @@ const Blueprint = () => {
   const [searchingTopics, setSearchingTopics] = useState(new Set());
   const [resourceRatings, setResourceRatings] = useState({}); // { [resourceId]: rating }
   const [rerollingUnits, setRerollingUnits] = useState(new Set()); // Track which units are being rerolled
+
+  // Save a video selection to the database (fire-and-forget for performance)
+  const saveVideoSelection = useCallback(async (unitId, video) => {
+    if (!video?.url || !id) return;
+
+    try {
+      const { error } = await supabase
+        .from('blueprint_video_selections')
+        .upsert({
+          blueprint_id: id,
+          unit_id: unitId,
+          video_url: video.url,
+          video_title: video.title || null,
+          video_thumbnail_url: video.thumbnail_url || null,
+          video_duration: video.duration || null,
+          video_channel_name: video.channel_name || video.author || null,
+          selected_by: user?.id || null,
+        }, { onConflict: 'blueprint_id,unit_id' });
+
+      if (error) {
+        console.error('[Blueprint] Failed to save video selection:', error);
+      } else {
+        console.log(`[Blueprint] Saved video selection for unit ${unitId}: ${video.title}`);
+        // Update local state to prevent re-saving
+        setSavedVideoSelections(prev => ({
+          ...prev,
+          [unitId]: { video_url: video.url, video_title: video.title }
+        }));
+      }
+    } catch (err) {
+      console.error('[Blueprint] Error saving video selection:', err);
+    }
+  }, [id, user?.id]);
 
   // Handle Re-rolling a Video (swap to next video in queue, persist selection)
   const handleRerollVideo = async (unitId, unitResources) => {
@@ -1494,6 +1529,9 @@ const Blueprint = () => {
         }
         return updated;
       });
+
+      // Save the new video selection to persist across sessions
+      saveVideoSelection(unitId, nextVideo);
 
       console.log(`[Blueprint] Re-roll complete! Now showing: ${nextVideo.title}`);
 
@@ -1852,6 +1890,15 @@ const Blueprint = () => {
           .then(({ data }) => ({ type: 'deep_dive_solutions', data }))
       );
 
+      // J. Video Selections (persist video choices across sessions)
+      promises.push(
+        supabase
+          .from('blueprint_video_selections')
+          .select('unit_id, video_url, video_title, video_thumbnail_url, video_duration, video_channel_name')
+          .eq('blueprint_id', id)
+          .then(({ data }) => ({ type: 'video_selections', data }))
+      );
+
       // 3. Execute Parallel Fetches
       const results = await Promise.all(promises);
 
@@ -2049,6 +2096,19 @@ const Blueprint = () => {
         });
         console.log(`[Blueprint] Loaded ${deepDiveData.length} deep dive solutions from database`);
         setDeepDiveSolutions(solutionsMap);
+      }
+
+      // Process Video Selections (persist video choices across sessions)
+      const videoSelectionsData = getResult('video_selections');
+      if (videoSelectionsData && videoSelectionsData.length > 0) {
+        const selectionsMap = {};
+        videoSelectionsData.forEach(selection => {
+          selectionsMap[selection.unit_id] = selection;
+        });
+        console.log(`[Blueprint] Loaded ${videoSelectionsData.length} saved video selections`);
+        setSavedVideoSelections(selectionsMap);
+        // Reset the auto-save tracking ref since we're loading fresh data
+        savedVideoUnitsRef.current.clear();
       }
 
     } catch (error) {
@@ -4319,8 +4379,7 @@ const Blueprint = () => {
                               });
                             }
 
-                            // Find primary video - most recent non-hidden YouTube video
-                            // This ensures the re-rolled video persists correctly
+                            // Find primary video - check saved selection first, then fall back to most recent
                             const visibleVideos = unitResources
                               .filter(r => !r.is_hidden && (
                                 r.type === 'video' ||
@@ -4330,7 +4389,28 @@ const Blueprint = () => {
                               ))
                               .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
-                            const primaryVideo = visibleVideos[0];
+                            // Check if there's a saved selection for this unit
+                            const savedSelection = savedVideoSelections[unit.unit_id];
+                            let primaryVideo = null;
+
+                            if (savedSelection?.video_url) {
+                              // Try to find the saved video in current resources
+                              primaryVideo = visibleVideos.find(v => v.url === savedSelection.video_url);
+                              if (!primaryVideo) {
+                                console.warn(`[Blueprint] Saved video not found in resources for unit ${unit.unit_id}, using default`);
+                              }
+                            }
+
+                            // Fall back to most recent video if no saved selection or saved video not found
+                            if (!primaryVideo && visibleVideos.length > 0) {
+                              primaryVideo = visibleVideos[0];
+
+                              // Auto-save this selection if it's the first time (no existing saved selection)
+                              if (!savedSelection && !savedVideoUnitsRef.current.has(unit.unit_id)) {
+                                savedVideoUnitsRef.current.add(unit.unit_id);
+                                saveVideoSelection(unit.unit_id, primaryVideo);
+                              }
+                            }
 
                             if (unitResources.length > 0 && !primaryVideo) {
                               console.warn(`[Blueprint] ⚠️ Has resources but NO visible video found for unit ${unit.unit_id}`);
@@ -4379,7 +4459,7 @@ const Blueprint = () => {
 
                                               return (
                                                 <p className="mb-6 text-stone-600 dark:text-stone-400 text-lg leading-relaxed">
-                                                  <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                                  <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
                                                 </p>
                                               );
                                             },
@@ -4397,7 +4477,7 @@ const Blueprint = () => {
 
                                               return (
                                                 <li className="text-stone-600 dark:text-stone-400 text-lg leading-relaxed mb-2">
-                                                  <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                                  <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
                                                 </li>
                                               );
                                             },
@@ -4435,21 +4515,21 @@ const Blueprint = () => {
                                     {/* Render Tutor Guidance if available */}
                                     {unit.tutor_guidance && (
                                       <div className="mb-4 whitespace-pre-wrap">
-                                        <LatexText text={unit.tutor_guidance} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                        <LatexText text={unit.tutor_guidance} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
                                       </div>
                                     )}
 
                                     {/* Render Concept Summary */}
                                     {unit.concept_summary && (
                                       <div className="whitespace-pre-wrap">
-                                        <LatexText text={unit.concept_summary} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                        <LatexText text={unit.concept_summary} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
                                       </div>
                                     )}
 
                                     {/* Fallback to description if no specific fields */}
                                     {!unit.tutor_guidance && !unit.concept_summary && unit.description && (
                                       <div className="whitespace-pre-wrap">
-                                        <LatexText text={unit.description} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                        <LatexText text={unit.description} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
                                       </div>
                                     )}
                                   </div>
@@ -4614,7 +4694,7 @@ const Blueprint = () => {
                                           <div key={idx}>
                                             <h5 className="text-md font-bold text-stone-800 dark:text-stone-200 mb-3">{section.title}</h5>
                                             <div className="prose dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
-                                              <LatexText text={section.content} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                              <LatexText text={section.content} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
                                             </div>
                                           </div>
                                         ))}
@@ -4672,7 +4752,7 @@ const Blueprint = () => {
                                       </div>
                                       <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
                                         <div className="whitespace-pre-wrap">
-                                          <LatexText text={unit.deep_dive_explanation} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} />
+                                          <LatexText text={unit.deep_dive_explanation} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
                                         </div>
                                       </div>
                                     </div>

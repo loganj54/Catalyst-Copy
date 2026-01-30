@@ -44,6 +44,7 @@ const MIN_RESULTS_FOR_FAST_PATH = 3;
 interface FindVideosRequest {
   blueprint_id: string;
   unit_id: string;
+  video_type?: string;
   preferred_video_types?: string[];
   max_results?: number;
 }
@@ -96,11 +97,23 @@ interface VideoWithRelevance {
 /**
  * Analyze student's learning context to determine what they need
  */
-async function analyzeStudentContext(unit: LearningUnit): Promise<StudentNeedAnalysis> {
+async function analyzeStudentContext(unit: LearningUnit, videoType?: string): Promise<StudentNeedAnalysis> {
   console.log('[Context] Analyzing student need...');
 
   // Get topic from various possible fields
   const topicText = unit.topic || unit.title || unit.unit_id || 'Unknown topic';
+
+  // Map video type to search preferences
+  let videoTypeGuidance = '';
+  if (videoType) {
+    const typeMap: Record<string, string> = {
+      'beginner-overview': 'Focus on introductory, foundational content. Prioritize videos that assume no prior knowledge and explain concepts from the ground up. Look for "introduction", "basics", "for beginners" style content.',
+      'visualization': 'Prioritize visual demonstrations, animations, diagrams, and graphical explanations. Look for videos with strong visual components, simulations, or animated explanations.',
+      'math-explanation': 'Focus on step-by-step mathematical derivations, worked examples, and computational demonstrations. Prioritize videos that show the math being worked through on screen.',
+      'real-world': 'Emphasize practical applications, case studies, real-world examples, and industry applications. Look for videos showing how concepts are used in practice.'
+    };
+    videoTypeGuidance = typeMap[videoType] || '';
+  }
 
   const prompt = `You are analyzing a student's learning need to find the right educational video.
 
@@ -112,7 +125,8 @@ Learning unit information:
 - Difficulty: ${unit.difficulty || 'intermediate'}
 - Has equations: ${unit.equations && unit.equations.length > 0 ? 'yes' : 'no'}
 
-Task: Determine what kind of video would help this student most.
+${videoType ? `Student's video preference: ${videoTypeGuidance}
+` : ''}Task: Determine what kind of video would help this student most.
 
 Guidelines for video type detection:
 - "walkthrough" units → student needs worked examples with step-by-step solutions
@@ -122,7 +136,9 @@ Guidelines for video type detection:
 - Learning objectives with "apply" → need practical examples
 - Learning objectives with "understand" → need conceptual explanations
 - Learning objectives with "derive" → need derivation/proof videos
-
+${videoType ? `
+IMPORTANT: Incorporate the student's video preference into your search queries and need description.
+` : ''}
 Generate 2-3 specific YouTube search queries that would find the right videos.
 Make queries specific, including:
 - Key technical terms
@@ -463,12 +479,13 @@ serve(async (req) => {
   try {
     // Parse request
     const body: FindVideosRequest = await req.json();
-    const { blueprint_id, unit_id, max_results = 5 } = body;
+    const { blueprint_id, unit_id, video_type, max_results = 5 } = body;
 
     console.log('='.repeat(80));
     console.log('[find-videos] Starting search');
     console.log(`  - Blueprint: ${blueprint_id}`);
     console.log(`  - Unit: ${unit_id}`);
+    console.log(`  - Video Type: ${video_type || 'auto-detect'}`);
     console.log('='.repeat(80));
 
     if (!blueprint_id || !unit_id) {
@@ -531,7 +548,7 @@ serve(async (req) => {
     console.log(`[Main] Unit keys:`, Object.keys(unit));
 
     // STEP 1: Analyze student context
-    const contextAnalysis = await analyzeStudentContext(unit);
+    const contextAnalysis = await analyzeStudentContext(unit, video_type);
 
     // STEP 2: Fast path - Search Pinecone
     let videos = await searchPinecone(contextAnalysis.need_description, supabase);

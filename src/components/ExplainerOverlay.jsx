@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useUiState } from '../context/UiStateContext';
 import { X, Sparkles, Play, RefreshCw, Star, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import 'katex/dist/katex.min.css';
+import { InlineMath } from 'react-katex';
 
 /**
  * ExplainerBubble Component
@@ -19,12 +21,21 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
     const [isLoadingVideos, setIsLoadingVideos] = useState(false);
     const [hasFetchedVideos, setHasFetchedVideos] = useState(false);
+    const [selectedVideoType, setSelectedVideoType] = useState(null);
+    const [showVideoTypeSelector, setShowVideoTypeSelector] = useState(explainer.type === 'video');
+    const [debugInfo, setDebugInfo] = useState(null);
 
 
     // Explanation specific state
     const [explanation, setExplanation] = useState(null);
     const [isLoadingExplanation, setIsLoadingExplanation] = useState(false);
     const [isExpanded, setIsExpanded] = useState(true); // Default to expanded
+
+    // Question chat state
+    const [chatMessages, setChatMessages] = useState([]);
+    const [chatInput, setChatInput] = useState('');
+    const [isLoadingAnswer, setIsLoadingAnswer] = useState(false);
+    const messagesEndRef = useRef(null);
 
     const handleReroll = (e) => {
         e.stopPropagation();
@@ -53,6 +64,59 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
 
     const currentVideo = videos.length > 0 ? videos[currentVideoIndex] : null;
 
+    // Auto-scroll chat to bottom when new messages arrive
+    useEffect(() => {
+        if (explainer.type === 'question' && messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [chatMessages, explainer.type]);
+
+    // Handle sending a question
+    const handleSendQuestion = async () => {
+        if (!chatInput.trim() || isLoadingAnswer) return;
+
+        const userMessage = chatInput.trim();
+        setChatInput('');
+
+        // Add user message to chat
+        const newUserMessage = { role: 'user', content: userMessage };
+        setChatMessages(prev => [...prev, newUserMessage]);
+
+        setIsLoadingAnswer(true);
+
+        try {
+            const { data, error } = await supabase.functions.invoke('ask-question', {
+                body: {
+                    term: explainer.term,
+                    context: explainer.context || 'general engineering',
+                    solutionContext: explainer.solutionContext || null,
+                    question: userMessage,
+                    conversationHistory: chatMessages
+                }
+            });
+
+            if (error) throw error;
+
+            // Add AI response to chat
+            const aiMessage = { role: 'assistant', content: data.answer };
+            setChatMessages(prev => [...prev, aiMessage]);
+        } catch (err) {
+            console.error('Failed to get answer:', err);
+            const errorMessage = { role: 'assistant', content: 'Sorry, I could not generate an answer at this time. Please try again.' };
+            setChatMessages(prev => [...prev, errorMessage]);
+        } finally {
+            setIsLoadingAnswer(false);
+        }
+    };
+
+    // Handle Enter key to send
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendQuestion();
+        }
+    };
+
     // Ref to the local container for this specific bubble's line SVG
     const bubbleRef = useRef(null);
     const containerRef = useRef(null);
@@ -68,44 +132,64 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
         setVideos([]);
     }, [explainer.term, explainer.context]);
 
-    // Fetch Video Effect
-    useEffect(() => {
-        if (explainer.type === 'video' && !hasFetchedVideos && !isLoadingVideos) {
-            const fetchVideos = async () => {
-                setIsLoadingVideos(true);
-                try {
-                    // Use the new find-videos function
-                    const blueprintId = explainer.blueprintId;
-                    const unitId = explainer.unitId;
+    // Fetch Video Effect - Only fetch after video type is selected
+    const fetchVideos = async () => {
+        if (!selectedVideoType) return;
 
-                    console.log(`[ExplainerBubble] Calling 'find-videos' for blueprint: "${blueprintId}", unit: "${unitId}"`);
+        setIsLoadingVideos(true);
+        setShowVideoTypeSelector(false);
 
-                    const { data, error } = await supabase.functions.invoke('find-videos', {
-                        body: {
-                            blueprint_id: blueprintId,
-                            unit_id: unitId,
-                            max_results: 5
-                        }
-                    });
+        try {
+            // Get term and context for the sandbox function
+            const term = explainer.term;
+            const unitTopic = explainer.context || '';
+            const problemText = explainer.problemContext || '';
 
-                    if (error) throw error;
+            console.log(`[ExplainerBubble] Calling 'find-videos-sandbox' for term: "${term}", type: "${selectedVideoType}"`);
 
-                    if (data && data.success && data.videos && data.videos.length > 0) {
-                        setVideos(data.videos);
-                    } else {
-                        console.log('[ExplainerBubble] No videos found.');
-                        // Optionally set a state to show "No videos found" message
-                    }
-                } catch (err) {
-                    console.error('Failed to search videos:', err);
-                } finally {
-                    setIsLoadingVideos(false);
-                    setHasFetchedVideos(true);
+            const { data, error } = await supabase.functions.invoke('find-videos-sandbox', {
+                body: {
+                    term: term,
+                    unit_topic: unitTopic,
+                    problem_text: problemText,
+                    video_type: selectedVideoType
                 }
-            };
-            fetchVideos();
+            });
+
+            if (error) throw error;
+
+            // Handle the new response format from sandbox
+            if (data && data.success && data.video) {
+                // Sandbox returns a single best match, wrap it in an array for consistency
+                setVideos([{
+                    url: data.video.url,
+                    title: data.video.title,
+                    channelName: data.video.channel_name,
+                    thumbnailUrl: data.video.thumbnail_url,
+                    duration: data.video.duration_seconds,
+                    summary: data.video.summary,
+                    scores: data.video.scores
+                }]);
+
+                // Store debug information
+                if (data.debug) {
+                    setDebugInfo(data.debug);
+                }
+
+                console.log(`[ExplainerBubble] Found video: "${data.video.title}" (source: ${data.source})`);
+                if (data.stats) {
+                    console.log(`[ExplainerBubble] Stats: searched ${data.stats.videos_searched}, analyzed ${data.stats.videos_analyzed}`);
+                }
+            } else {
+                console.log('[ExplainerBubble] No videos found.');
+            }
+        } catch (err) {
+            console.error('Failed to search videos:', err);
+        } finally {
+            setIsLoadingVideos(false);
+            setHasFetchedVideos(true);
         }
-    }, [explainer.type, explainer.blueprintId, explainer.unitId]);
+    };
 
 
     // Fetch Explanation Effect
@@ -117,7 +201,8 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                     const { data, error } = await supabase.functions.invoke('explain-term', {
                         body: {
                             term: explainer.term,
-                            context: explainer.context || 'general engineering'
+                            context: explainer.context || 'general engineering',
+                            solutionContext: explainer.solutionContext || null
                         }
                     });
 
@@ -396,84 +481,178 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                         </div>
                     </div>
 
+
                     <div className="p-5 max-h-[60vh] overflow-y-auto">
                         {explainer.type === 'video' ? (
                             <div className="space-y-4">
-                                {isLoadingVideos ? (
+                                {showVideoTypeSelector ? (
+                                    <div className="space-y-5">
+                                        <h4 className="text-base font-semibold text-stone-700 dark:text-stone-200 mb-4">
+                                            What type of video are you looking for?
+                                        </h4>
+
+                                        <div className="space-y-3">
+                                            {[
+                                                { value: 'beginner-overview', label: 'Beginner overview (I don\'t even know where to start)' },
+                                                { value: 'visualization', label: 'I need help visualizing this' },
+                                                { value: 'math-explanation', label: 'Show me how the math works' },
+                                                { value: 'real-world', label: 'Let me see real world applications of this' }
+                                            ].map((option) => (
+                                                <label
+                                                    key={option.value}
+                                                    className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${selectedVideoType === option.value
+                                                        ? 'border-stone-900 dark:border-stone-100 bg-stone-50 dark:bg-stone-800'
+                                                        : 'border-stone-200 dark:border-stone-700 hover:border-stone-300 dark:hover:border-stone-600'
+                                                        }`}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="videoType"
+                                                        value={option.value}
+                                                        checked={selectedVideoType === option.value}
+                                                        onChange={(e) => setSelectedVideoType(e.target.value)}
+                                                        className="mt-0.5 w-4 h-4 text-stone-900 dark:text-stone-100 focus:ring-stone-900 dark:focus:ring-stone-100"
+                                                    />
+                                                    <span className="text-sm text-stone-700 dark:text-stone-200 leading-snug">
+                                                        {option.label}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+
+                                        <button
+                                            onClick={fetchVideos}
+                                            disabled={!selectedVideoType}
+                                            className="w-full py-3 px-4 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg font-semibold text-sm hover:bg-stone-800 dark:hover:bg-stone-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-stone-900 dark:disabled:hover:bg-stone-100"
+                                        >
+                                            Find Videos
+                                        </button>
+                                    </div>
+                                ) : isLoadingVideos ? (
                                     <div className="flex items-center justify-center p-8 text-stone-500">
                                         <RefreshCw className="w-6 h-6 animate-spin mr-2" />
                                         Finding the best videos...
                                     </div>
                                 ) : currentVideo ? (
-                                    <div
-                                        onClick={() => window.open(currentVideo.url, '_blank')}
-                                        className="cursor-pointer group/card"
-                                    >
-                                        <div className="flex flex-row gap-5">
-                                            {/* Left Column: Thumbnail & Rating */}
-                                            <div className="w-40 flex-shrink-0 flex flex-col gap-3">
-                                                <div className="relative aspect-video rounded-lg overflow-hidden bg-black group/video shadow-sm border border-stone-100 dark:border-stone-800">
-                                                    {getThumbnail(currentVideo) ? (
-                                                        <img
-                                                            src={getThumbnail(currentVideo)}
-                                                            alt={currentVideo.title}
-                                                            className="w-full h-full object-cover opacity-90 group-hover/card:opacity-100 transition-opacity"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center bg-stone-800 text-stone-500">
-                                                            <Play className="w-8 h-8" />
-                                                        </div>
-                                                    )}
-
-                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover/card:bg-black/5 transition-colors">
-                                                        <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white ring-1 ring-white/20">
-                                                            <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
-                                                        </div>
-                                                    </div>
-                                                    {currentVideo.duration && (
-                                                        <div className="absolute bottom-1.5 right-1.5 px-1 pb-[1px] bg-black/70 text-white text-[9px] font-bold rounded tracking-wide">
-                                                            {formatDuration(currentVideo.duration)}
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Star Rating (Centered below thumb) */}
-                                                <div className="flex items-center justify-between px-1">
-                                                    <div className="flex items-center gap-0.5">
-                                                        {[1, 2, 3, 4, 5].map((star) => (
-                                                            <div key={star}>
-                                                                <Star
-                                                                    className={`w-3 h-3 ${star <= (currentVideo.average_rating || 0) ? 'fill-yellow-400 text-yellow-400' : 'text-stone-200 dark:text-stone-700'}`}
-                                                                />
+                                    <>
+                                        <div
+                                            onClick={() => window.open(currentVideo.url, '_blank')}
+                                            className="cursor-pointer group/card"
+                                        >
+                                            <div className="flex flex-row gap-5">
+                                                {/* Left Column: Thumbnail & Rating */}
+                                                <div className="w-40 flex-shrink-0 flex flex-col gap-3">
+                                                    <div className="relative aspect-video rounded-lg overflow-hidden bg-black group/video shadow-sm border border-stone-100 dark:border-stone-800">
+                                                        {getThumbnail(currentVideo) ? (
+                                                            <img
+                                                                src={getThumbnail(currentVideo)}
+                                                                alt={currentVideo.title}
+                                                                className="w-full h-full object-cover opacity-90 group-hover/card:opacity-100 transition-opacity"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center bg-stone-800 text-stone-500">
+                                                                <Play className="w-8 h-8" />
                                                             </div>
-                                                        ))}
+                                                        )}
+
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover/card:bg-black/5 transition-colors">
+                                                            <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white ring-1 ring-white/20">
+                                                                <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                                                            </div>
+                                                        </div>
+                                                        {currentVideo.duration && (
+                                                            <div className="absolute bottom-1.5 right-1.5 px-1 pb-[1px] bg-black/70 text-white text-[9px] font-bold rounded tracking-wide">
+                                                                {formatDuration(currentVideo.duration)}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <span className="text-xs text-stone-400 font-medium ml-1">
-                                                        {currentVideo.average_rating ? currentVideo.average_rating.toFixed(1) : 'NR'}
-                                                        <span className="text-[10px] opacity-70 ml-0.5">({currentVideo.rating_count || 0})</span>
-                                                    </span>
+
+                                                    {/* Star Rating (Centered below thumb) */}
+                                                    <div className="flex items-center justify-between px-1">
+                                                        <div className="flex items-center gap-0.5">
+                                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                                <div key={star}>
+                                                                    <Star
+                                                                        className={`w-3 h-3 ${star <= (currentVideo.average_rating || 0) ? 'fill-yellow-400 text-yellow-400' : 'text-stone-200 dark:text-stone-700'}`}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <span className="text-xs text-stone-400 font-medium ml-1">
+                                                            {currentVideo.average_rating ? currentVideo.average_rating.toFixed(1) : 'NR'}
+                                                            <span className="text-[10px] opacity-70 ml-0.5">({currentVideo.rating_count || 0})</span>
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            {/* Right Column: Description & Footer */}
-                                            <div className="flex-1 flex flex-col justify-between min-w-0">
-                                                <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-4">
-                                                    {currentVideo.match_explanation || currentVideo.description || "No description available."}
-                                                </p>
+                                                {/* Right Column: Description & Footer */}
+                                                <div className="flex-1 flex flex-col justify-between min-w-0">
+                                                    <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-4">
+                                                        {currentVideo.match_explanation || currentVideo.description || "No description available."}
+                                                    </p>
 
-                                                <div className="flex items-center justify-between pt-3 mt-1 active:mt-1">
-                                                    <span className="px-1.5 py-0.5 bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 text-[9px] font-bold uppercase tracking-wider rounded">
-                                                        {currentVideo.platform || 'VIDEO'}
-                                                    </span>
+                                                    <div className="flex items-center justify-between pt-3 mt-1 active:mt-1">
+                                                        <span className="px-1.5 py-0.5 bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 text-[9px] font-bold uppercase tracking-wider rounded">
+                                                            {currentVideo.platform || 'VIDEO'}
+                                                        </span>
 
-                                                    <span className="flex items-center gap-1 text-[10px] font-bold text-[#FF4A1C] group-hover/card:text-[#e0390c] transition-colors uppercase tracking-wide">
-                                                        OPEN
-                                                        <ExternalLink className="w-3 h-3" />
-                                                    </span>
+                                                        <span className="flex items-center gap-1 text-[10px] font-bold text-[#FF4A1C] group-hover/card:text-[#e0390c] transition-colors uppercase tracking-wide">
+                                                            OPEN
+                                                            <ExternalLink className="w-3 h-3" />
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+
+                                        {/* Debug Information */}
+                                        {debugInfo && (
+                                            <div className="mt-4 space-y-2">
+                                                <div className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide mb-2">
+                                                    Debug Information
+                                                </div>
+
+                                                {/* Embedding Query Text */}
+                                                <div>
+                                                    <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">
+                                                        Embedding Query Text (used to find videos):
+                                                    </label>
+                                                    <textarea
+                                                        readOnly
+                                                        value={debugInfo.embedding_query_text}
+                                                        className="w-full px-3 py-2 text-xs bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg text-stone-700 dark:text-stone-300 font-mono resize-none"
+                                                        rows="3"
+                                                    />
+                                                </div>
+
+                                                {/* Resource Info */}
+                                                <div>
+                                                    <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">
+                                                        Resource Returned:
+                                                    </label>
+                                                    <textarea
+                                                        readOnly
+                                                        value={debugInfo.resource_info}
+                                                        className="w-full px-3 py-2 text-xs bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg text-stone-700 dark:text-stone-300 font-mono resize-none"
+                                                        rows="2"
+                                                    />
+                                                </div>
+
+                                                {/* User Query */}
+                                                <div>
+                                                    <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">
+                                                        What You Were Looking For:
+                                                    </label>
+                                                    <textarea
+                                                        readOnly
+                                                        value={debugInfo.user_query}
+                                                        className="w-full px-3 py-2 text-xs bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg text-stone-700 dark:text-stone-300 font-mono resize-none"
+                                                        rows="2"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
                                 ) : (
                                     <div className="text-center p-4 text-stone-500 space-y-3">
                                         <p>No videos found for this term.</p>
@@ -529,19 +708,64 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                             </div>
 
                         ) : explainer.type === 'question' ? (
-                            <div className="space-y-4">
+                            <div className="flex flex-col h-full">
+                                {/* Chat Messages Container */}
+                                <div className="flex-1 max-h-[300px] overflow-y-auto space-y-3 mb-4 pr-1">
+                                    {chatMessages.map((msg, idx) => (
+                                        <div
+                                            key={idx}
+                                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                        >
+                                            <div
+                                                className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed break-words whitespace-pre-wrap ${msg.role === 'user'
+                                                    ? 'bg-stone-900 dark:bg-stone-800 text-white rounded-br-md'
+                                                    : 'bg-stone-100 dark:bg-stone-700 text-stone-700 dark:text-stone-200 rounded-bl-md'
+                                                    }`}
+                                            >
+                                                {msg.content.split(/(\$[^$]+\$)/g).map((part, i) => {
+                                                    if (part.startsWith('$') && part.endsWith('$')) {
+                                                        const mathContent = part.slice(1, -1);
+                                                        return (
+                                                            <span key={i} className="inline-block mx-0.5">
+                                                                <InlineMath math={mathContent} />
+                                                            </span>
+                                                        );
+                                                    }
+                                                    return <span key={i}>{part}</span>;
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {isLoadingAnswer && (
+                                        <div className="flex justify-start">
+                                            <div className="bg-stone-100 dark:bg-stone-700 text-stone-500 px-3 py-2 rounded-2xl rounded-bl-md text-sm flex items-center gap-2">
+                                                <Sparkles className="w-3 h-3 animate-spin" />
+                                                Thinking...
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div ref={messagesEndRef} />
+                                </div>
+
+                                {/* Input Area */}
                                 <div className="relative">
-                                    <textarea
-                                        className="w-full h-32 p-3 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] outline-none transition-all resize-none text-stone-700 dark:text-stone-200 placeholder:text-stone-400"
-                                        placeholder={`Ask anything about ${explainer.term}...`}
-                                    ></textarea>
-                                    <button className="absolute bottom-3 right-3 p-1.5 bg-[#FF4A1C] text-white rounded-md hover:bg-[#E03E15] transition-colors shadow-sm">
+                                    <input
+                                        type="text"
+                                        value={chatInput}
+                                        onChange={(e) => setChatInput(e.target.value)}
+                                        onKeyDown={handleKeyDown}
+                                        disabled={isLoadingAnswer}
+                                        className="w-full px-4 py-3 pr-12 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] outline-none transition-all text-stone-700 dark:text-stone-200 placeholder:text-stone-400 disabled:opacity-50"
+                                        placeholder="Type your question..."
+                                    />
+                                    <button
+                                        onClick={handleSendQuestion}
+                                        disabled={isLoadingAnswer || !chatInput.trim()}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-[#FF4A1C] text-white rounded-lg hover:bg-[#E03E15] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                                     </button>
                                 </div>
-                                <p className="text-xs text-stone-400 text-center">
-                                    Your question will be answered by our AI tutor in the chat context.
-                                </p>
                             </div>
                         ) : (
                             <div className="space-y-4">
@@ -554,7 +778,23 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                                     ) : (
                                         explanation ? (
                                             <>
-                                                <span dangerouslySetInnerHTML={{ __html: explanation.replace(/\n/g, '<br />') }} />
+                                                <div className="space-y-4">
+                                                    {explanation.split('\n\n').map((paragraph, idx) => (
+                                                        <p key={idx}>
+                                                            {paragraph.split(/(\$[^$]+\$)/g).map((part, i) => {
+                                                                if (part.startsWith('$') && part.endsWith('$')) {
+                                                                    const mathContent = part.slice(1, -1);
+                                                                    return (
+                                                                        <span key={i} className="inline-block mx-0.5">
+                                                                            <InlineMath math={mathContent} />
+                                                                        </span>
+                                                                    );
+                                                                }
+                                                                return <span key={i}>{part}</span>;
+                                                            })}
+                                                        </p>
+                                                    ))}
+                                                </div>
                                                 {!isExpanded && (
                                                     <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-white dark:from-black to-transparent pointer-events-none" />
                                                 )}
@@ -587,7 +827,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                     </div>
                 </div>
             </div>
-        </React.Fragment>
+        </React.Fragment >
     );
 };
 
