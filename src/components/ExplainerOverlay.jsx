@@ -10,6 +10,7 @@ import { InlineMath } from 'react-katex';
  * Handles the logic for a SINGLE explainer bubble + its connection line
  */
 const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffset = 0, obstacles = [], horizontalJitter = 0, verticalLaneOffset = 0 }) => {
+    const { updateExplainer } = useUiState();
     const [linePath, setLinePath] = useState('');
     const [bubblePosition, setBubblePosition] = useState({ top: 0, left: 0 });
     const [isVisible, setIsVisible] = useState(false);
@@ -23,25 +24,41 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
     const [isLoadingVideos, setIsLoadingVideos] = useState(false);
     const [hasFetchedVideos, setHasFetchedVideos] = useState(false);
     const [selectedVideoType, setSelectedVideoType] = useState(null);
-    const [showVideoTypeSelector, setShowVideoTypeSelector] = useState(explainer.type === 'video');
+    const [showVideoTypeSelector, setShowVideoTypeSelector] = useState(explainer.type === 'video' && !explainer.cachedVideoData);
     const [debugInfo, setDebugInfo] = useState(null);
 
     // AI Query Generation state
     const [generatedQueries, setGeneratedQueries] = useState([]);
     const [isGeneratingQueries, setIsGeneratingQueries] = useState(false);
-    const [selectedQuery, setSelectedQuery] = useState(null);
+    const [selectedQuery, setSelectedQuery] = useState(explainer.selectedQuery || null);
 
 
-    // Explanation specific state
-    const [explanation, setExplanation] = useState(null);
+    // Explanation specific state - initialize from cache if available
+    const [explanation, setExplanation] = useState(explainer.cachedExplanation || null);
     const [isLoadingExplanation, setIsLoadingExplanation] = useState(false);
     const [isExpanded, setIsExpanded] = useState(true); // Default to expanded
 
-    // Question chat state
-    const [chatMessages, setChatMessages] = useState([]);
+    // Question chat state - initialize from cache if available
+    const [chatMessages, setChatMessages] = useState(explainer.conversationHistory || []);
     const [chatInput, setChatInput] = useState('');
     const [isLoadingAnswer, setIsLoadingAnswer] = useState(false);
     const messagesEndRef = useRef(null);
+
+    // Initialize from cached video data if available (restored from DB)
+    useEffect(() => {
+        if (explainer.cachedVideoData && rankedVideos.length === 0) {
+            const cached = explainer.cachedVideoData;
+            if (cached.rankedVideos && cached.rankedVideos.length > 0) {
+                setRankedVideos(cached.rankedVideos);
+                setCurrentVideoIndex(cached.currentVideoIndex || 0);
+                setHasFetchedVideos(true);
+                setShowVideoTypeSelector(false);
+            }
+            if (cached.selectedQuery) {
+                setSelectedQuery(cached.selectedQuery);
+            }
+        }
+    }, [explainer.cachedVideoData]);
 
     const handleReroll = (e) => {
         e.stopPropagation();
@@ -50,6 +67,16 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
         setIsRerolling(true);
         const nextIndex = (currentVideoIndex + 1) % rankedVideos.length;
         setCurrentVideoIndex(nextIndex);
+
+        // Persist the new video selection to database
+        updateExplainer(explainer.id, {
+            cachedVideoData: {
+                rankedVideos: rankedVideos,
+                currentVideoIndex: nextIndex,
+                selectedQuery: selectedQuery
+            }
+        });
+
         setTimeout(() => setIsRerolling(false), 500);
     };
 
@@ -90,7 +117,8 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
 
         // Add user message to chat
         const newUserMessage = { role: 'user', content: userMessage };
-        setChatMessages(prev => [...prev, newUserMessage]);
+        const updatedMessagesWithUser = [...chatMessages, newUserMessage];
+        setChatMessages(updatedMessagesWithUser);
 
         setIsLoadingAnswer(true);
 
@@ -109,11 +137,19 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
 
             // Add AI response to chat
             const aiMessage = { role: 'assistant', content: data.answer };
-            setChatMessages(prev => [...prev, aiMessage]);
+            const finalMessages = [...updatedMessagesWithUser, aiMessage];
+            setChatMessages(finalMessages);
+
+            // Persist conversation history to database
+            updateExplainer(explainer.id, { conversationHistory: finalMessages });
         } catch (err) {
             console.error('Failed to get answer:', err);
             const errorMessage = { role: 'assistant', content: 'Sorry, I could not generate an answer at this time. Please try again.' };
-            setChatMessages(prev => [...prev, errorMessage]);
+            const finalMessages = [...updatedMessagesWithUser, errorMessage];
+            setChatMessages(finalMessages);
+
+            // Still persist the conversation including error message
+            updateExplainer(explainer.id, { conversationHistory: finalMessages });
         } finally {
             setIsLoadingAnswer(false);
         }
@@ -249,6 +285,26 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                 if (data.stats) {
                     console.log(`[ExplainerBubble] Stats: searched ${data.stats.videos_searched}, analyzed ${data.stats.videos_analyzed}`);
                 }
+
+                // Persist cached video data to database
+                const rankedVideosList = data.ranked_videos?.map(v => ({
+                    url: v.url,
+                    title: v.title,
+                    channelName: v.channel_name,
+                    thumbnailUrl: v.thumbnail_url,
+                    duration: v.duration_seconds,
+                    summary: v.summary,
+                    rank: v.rank
+                })) || [];
+
+                updateExplainer(explainer.id, {
+                    cachedVideoData: {
+                        rankedVideos: rankedVideosList,
+                        currentVideoIndex: 0,
+                        selectedQuery: selectedQuery
+                    },
+                    selectedQuery: selectedQuery
+                });
             } else {
                 console.log('[ExplainerBubble] No videos found.');
             }
@@ -277,6 +333,9 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
 
                     if (error) throw error;
                     setExplanation(data.explanation);
+
+                    // Persist the cached explanation to database
+                    updateExplainer(explainer.id, { cachedExplanation: data.explanation });
                 } catch (err) {
                     console.error('Failed to fetch explanation:', err);
                     setExplanation('Sorry, we could not generate an explanation at this time.');
@@ -286,7 +345,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
             };
             fetchExplanation();
         }
-    }, [explainer.type, explainer.term, explainer.context]);
+    }, [explainer.type, explainer.term, explainer.context, explainer.id, updateExplainer]);
 
 
     useEffect(() => {
@@ -356,6 +415,11 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                     // New corrected formula
                     startY = (explainer.anchorRect.bottom + capturedScroll) - (parentRect.top + currentScrollTop) - 2;
                 }
+            } else if (explainer.isRestored && explainer.startPosition) {
+                // Fallback for restored explainers without anchor data
+                // Use the stored start position with a reasonable default
+                startX = explainer.startPosition.x || 200;
+                startY = (explainer.startPosition.y || 100) + currentScrollTop;
             } else {
                 return;
             }

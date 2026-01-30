@@ -3868,7 +3868,14 @@ const Blueprint = () => {
 
   /* CHECK IF EXPLAINER SHOULD BE VISIBLE */
   // Whenever currentUnits changes (tab switch), check if the open explainer belongs to a visible unit
-  const { explainers, updateExplainer } = useUiState();
+  const { explainers, updateExplainer, loadExplainersFromDb, explainersLoaded } = useUiState();
+
+  // Load persisted explainers from database when blueprint loads
+  useEffect(() => {
+    if (id && !explainersLoaded) {
+      loadExplainersFromDb(id);
+    }
+  }, [id, explainersLoaded, loadExplainersFromDb]);
 
   useEffect(() => {
     if (!explainers) return;
