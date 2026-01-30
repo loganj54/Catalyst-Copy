@@ -6,7 +6,7 @@
 // ============================================================================
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
-import { generateEmbedding } from './embeddings.ts';
+import { generateEmbedding, generateEmbeddings } from './embeddings.ts';
 import { upsertVectors, queryVectors, PineconeQueryResult } from './pinecone-client.ts';
 import type { AnalyzedVideo, VideoAnalysis } from './video-analyzer.ts';
 import { getVideoTypeQueryText } from './smart-search.ts';
@@ -66,16 +66,24 @@ export async function storeVideoInSupabase(
         thumbnail_url: video.thumbnailUrl || null,
         duration: video.duration || null,
         transcript: video.transcript,
+        // Core analysis fields
         summary: video.analysis.summary,
+        detailed_description: video.analysis.detailed_description || null,
+        target_audience: video.analysis.target_audience || null,
+        teaching_approach: video.analysis.teaching_approach || null,
+        concepts_explained: video.analysis.concepts_explained || [],
         teaching_style: video.analysis.teaching_style,
         visual_elements: video.analysis.visual_elements,
         math_coverage: video.analysis.math_coverage,
         applications: video.analysis.applications,
+        key_phrases: video.analysis.key_phrases || [],
+        // Scores
         beginner_score: video.analysis.beginner_score,
         visualization_score: video.analysis.visualization_score,
         math_explanation_score: video.analysis.math_explanation_score,
         real_world_score: video.analysis.real_world_score,
         ai_quality_score: video.analysis.ai_quality_score,
+        // Vector embedding text (what we use for semantic search)
         embedding_text: video.embedding_text,
         updated_at: new Date().toISOString()
     };
@@ -107,21 +115,80 @@ export async function storeVideoInSupabase(
 }
 
 /**
- * Store multiple analyzed videos in Supabase
+ * Build storage data object for a video (used by both single and batch storage)
+ */
+function buildStorageData(video: AnalyzedVideo): Record<string, any> {
+    const storageData: Record<string, any> = {
+        video_id: video.videoId,
+        url: video.url,
+        title: video.title,
+        channel_name: video.channelName || null,
+        channel_url: video.channelUrl || null,
+        thumbnail_url: video.thumbnailUrl || null,
+        duration: video.duration || null,
+        transcript: video.transcript,
+        // Core analysis fields
+        summary: video.analysis.summary,
+        detailed_description: video.analysis.detailed_description || null,
+        target_audience: video.analysis.target_audience || null,
+        teaching_approach: video.analysis.teaching_approach || null,
+        concepts_explained: video.analysis.concepts_explained || [],
+        teaching_style: video.analysis.teaching_style,
+        visual_elements: video.analysis.visual_elements,
+        math_coverage: video.analysis.math_coverage,
+        applications: video.analysis.applications,
+        key_phrases: video.analysis.key_phrases || [],
+        // Scores
+        beginner_score: video.analysis.beginner_score,
+        visualization_score: video.analysis.visualization_score,
+        math_explanation_score: video.analysis.math_explanation_score,
+        real_world_score: video.analysis.real_world_score,
+        ai_quality_score: video.analysis.ai_quality_score,
+        // Vector embedding text (what we use for semantic search)
+        embedding_text: video.embedding_text,
+        updated_at: new Date().toISOString()
+    };
+
+    // Add comment data if available
+    if (video.comments) {
+        storageData.comments_json = JSON.stringify(video.comments);
+    }
+    if (video.comment_analysis) {
+        storageData.comment_analysis_json = JSON.stringify(video.comment_analysis);
+    }
+
+    return storageData;
+}
+
+/**
+ * Store multiple analyzed videos in Supabase (batch upsert - single DB call)
  */
 export async function storeVideosInSupabase(
     supabase: SupabaseClient,
     videos: AnalyzedVideo[]
 ): Promise<number> {
-    console.log(`[Storage] Storing ${videos.length} videos in Supabase...`);
+    console.log(`[Storage] Storing ${videos.length} videos in Supabase (batch)...`);
 
-    let successCount = 0;
+    if (videos.length === 0) return 0;
 
-    for (const video of videos) {
-        const id = await storeVideoInSupabase(supabase, video);
-        if (id) successCount++;
+    // Build all storage data objects
+    const rows = videos.map(video => buildStorageData(video));
+
+    // Single batch upsert
+    const { data, error } = await supabase
+        .from('video_sandbox')
+        .upsert(rows, {
+            onConflict: 'video_id',
+            ignoreDuplicates: false
+        })
+        .select('id');
+
+    if (error) {
+        console.error('[Storage] Batch Supabase upsert failed:', error);
+        return 0;
     }
 
+    const successCount = data?.length || 0;
     console.log(`[Storage] Stored ${successCount}/${videos.length} videos in Supabase`);
     return successCount;
 }
@@ -209,43 +276,37 @@ export async function storeVideosInPinecone(
         const batch = videos.slice(i, i + batchSize);
         console.log(`[Storage] Processing Pinecone batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(videos.length / batchSize)}`);
 
-        // Generate embeddings for batch
-        const vectorPromises = batch.map(async (video) => {
-            try {
-                const { embedding } = await generateEmbedding(video.embedding_text);
-                return {
-                    id: video.videoId,
-                    values: embedding,
-                    metadata: {
-                        title: video.title,
-                        url: video.url,
-                        channel_name: video.channelName || '',
-                        thumbnail_url: video.thumbnailUrl || '',
-                        duration: video.duration || '',
-                        summary: video.analysis.summary.substring(0, 500),
-                        teaching_style: video.analysis.teaching_style,
-                        beginner_score: video.analysis.beginner_score,
-                        visualization_score: video.analysis.visualization_score,
-                        math_explanation_score: video.analysis.math_explanation_score,
-                        real_world_score: video.analysis.real_world_score,
-                        ai_quality_score: video.analysis.ai_quality_score
-                    }
-                };
-            } catch (error) {
-                console.error(`[Storage] Embedding failed for "${video.title}":`, error);
-                return null;
-            }
-        });
+        try {
+            // Generate ALL embeddings in single batch API call (much faster)
+            const texts = batch.map(v => v.embedding_text);
+            console.log(`[Storage] Generating ${texts.length} embeddings in batch...`);
+            const embeddingResults = await generateEmbeddings(texts);
 
-        const vectors = (await Promise.all(vectorPromises)).filter(v => v !== null);
+            // Build vectors with metadata
+            const vectors = batch.map((video, idx) => ({
+                id: video.videoId,
+                values: embeddingResults[idx].embedding,
+                metadata: {
+                    title: video.title,
+                    url: video.url,
+                    channel_name: video.channelName || '',
+                    thumbnail_url: video.thumbnailUrl || '',
+                    duration: video.duration || '',
+                    summary: video.analysis.summary.substring(0, 500),
+                    teaching_style: video.analysis.teaching_style,
+                    beginner_score: video.analysis.beginner_score,
+                    visualization_score: video.analysis.visualization_score,
+                    math_explanation_score: video.analysis.math_explanation_score,
+                    real_world_score: video.analysis.real_world_score,
+                    ai_quality_score: video.analysis.ai_quality_score
+                }
+            }));
 
-        if (vectors.length > 0) {
-            try {
-                await upsertVectors(vectors as any[], PINECONE_NAMESPACE);
-                successCount += vectors.length;
-            } catch (error) {
-                console.error('[Storage] Batch upsert failed:', error);
-            }
+            await upsertVectors(vectors as any[], PINECONE_NAMESPACE);
+            successCount += vectors.length;
+
+        } catch (error) {
+            console.error('[Storage] Batch embedding/upsert failed:', error);
         }
     }
 

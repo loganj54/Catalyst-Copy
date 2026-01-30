@@ -33,7 +33,7 @@ interface FindVideosSandboxRequest {
     unit_topic?: string;             // Learning context
     problem_text?: string;           // The problem being worked on
     video_type: string;              // Selected video type
-    min_similarity?: number;         // Minimum similarity score for cache hit (default 0.75)
+    min_similarity?: number;         // Minimum similarity score for cache hit (default 0.5)
     force_refresh?: boolean;         // Skip cache and force new search
 }
 
@@ -91,7 +91,7 @@ serve(async (req: Request) => {
             unit_topic,
             problem_text,
             video_type,
-            min_similarity = 0.75,
+            min_similarity = 0.5,
             force_refresh = false
         } = body;
 
@@ -213,7 +213,8 @@ serve(async (req: Request) => {
         const analyzedVideos = await analyzeVideosBatch(
             searchResult.videos,
             5,    // batch size
-            1000  // delay between batches
+            1000, // delay between batches
+            false // disable comment scraping (too expensive)
         );
 
         console.log(`[Sandbox] Successfully analyzed ${analyzedVideos.length} videos`);

@@ -11,6 +11,7 @@
 // ============================================================================
 
 import { getTranscriptWithSupaData, ApifyVideo, extractVideoId } from './youtube-helpers.ts';
+import { fetchTranscriptsBatch } from './transcript.ts';
 import {
     getCommentInsights,
     adjustScoresWithComments,
@@ -25,9 +26,13 @@ const XAI_API_KEY = Deno.env.get('XAI_API_KEY');
 // ============================================================================
 
 export interface VideoAnalysis {
-    // Core content
+    // Core content - detailed for semantic search
+    detailed_description: string;  // Comprehensive 150-250 word description
     summary: string;
-    teaching_style: string;  // 'lecture', 'visual', 'worked-example', 'demo'
+    target_audience: string;       // Who this video is ideal for
+    teaching_approach: string;     // HOW the instructor teaches
+    concepts_explained: string[];  // Specific concepts/methods taught
+    teaching_style: string;        // 'lecture', 'visual', 'worked-example', 'demo'
     visual_elements: string[];
     math_coverage: string[];
     applications: string[];
@@ -55,7 +60,7 @@ export interface AnalyzedVideo extends ApifyVideo {
 // ANALYSIS PROMPT
 // ============================================================================
 
-const DEEP_ANALYSIS_PROMPT = `You are an expert educational video analyzer. Analyze this video transcript and score it on multiple dimensions.
+const DEEP_ANALYSIS_PROMPT = `You are an expert educational video analyzer creating detailed metadata for a vector search database. Your analysis will be used for semantic similarity matching - be EXTREMELY detailed and specific.
 
 Score each dimension from 0.0 to 1.0:
 
@@ -94,12 +99,16 @@ Score each dimension from 0.0 to 1.0:
 
 Return ONLY valid JSON in this exact format:
 {
-  "summary": "2-3 sentence summary of the video's main content",
+  "detailed_description": "COMPREHENSIVE 150-250 word description. Include: (1) Main topic and subtopics covered, (2) Specific concepts, equations, or methods explained, (3) How the instructor teaches (step-by-step? examples first? derivation-focused?), (4) What makes this video unique or valuable, (5) Prerequisites or assumed knowledge, (6) Specific examples or problems worked through. Be SPECIFIC - mention actual formulas, named methods, concrete examples from the video.",
+  "summary": "2-3 sentence summary focusing on the core teaching value",
+  "target_audience": "Describe ideal viewer: their background, what they're struggling with, what they want to learn",
+  "teaching_approach": "Detailed description of HOW the instructor teaches - pacing, explanation style, use of analogies, building from simple to complex, etc.",
+  "concepts_explained": ["list", "every", "specific", "concept", "formula", "method", "or", "technique", "taught"],
   "teaching_style": "lecture" | "visual" | "worked-example" | "demo",
   "visual_elements": ["list", "of", "visual", "elements", "mentioned"],
-  "math_coverage": ["equations", "derivations", "methods", "covered"],
-  "applications": ["real-world", "applications", "mentioned"],
-  "key_phrases": ["specific", "searchable", "technical", "terms", "from", "video"],
+  "math_coverage": ["specific", "equations", "derivations", "methods", "actually", "shown"],
+  "applications": ["specific", "real-world", "examples", "and", "applications", "mentioned"],
+  "key_phrases": ["15-20", "specific", "searchable", "technical", "terms", "from", "video"],
   "beginner_score": 0.X,
   "visualization_score": 0.X,
   "math_explanation_score": 0.X,
@@ -187,12 +196,13 @@ async function analyzeVideoWithTranscript(
 
 /**
  * Generate embedding text from video and analysis
- * 
- * This creates a rich, descriptive text that explicitly describes all quality
- * dimensions so semantic search can match videos to user intent.
+ *
+ * CRITICAL: This structure MIRRORS the query text format exactly.
+ * Query says "looking for X", embedding says "this video provides X".
+ * Same sections, same vocabulary, opposite perspective.
  */
 function generateEmbeddingText(video: ApifyVideo, analysis: VideoAnalysis): string {
-    // Helper to describe score levels
+    // Helper to describe score levels (matches query language)
     const describeScore = (score: number, dimension: string): string => {
         if (score >= 0.9) return `EXCELLENT ${dimension}`;
         if (score >= 0.75) return `STRONG ${dimension}`;
@@ -202,59 +212,95 @@ function generateEmbeddingText(video: ApifyVideo, analysis: VideoAnalysis): stri
         return `MINIMAL ${dimension}`;
     };
 
-    // Build explicit type descriptions
-    const beginnerDesc = analysis.beginner_score >= 0.75
-        ? 'This is a BEGINNER-FRIENDLY video suitable for complete beginners with no prior knowledge required.'
+    // Get key topics from analysis
+    const keyTopics = analysis.key_phrases?.slice(0, 10).join(', ') || video.title;
+
+    // Build VIDEO TYPE section - mirrors query's VIDEO TYPE NEEDED section exactly
+    // Uses SAME vocabulary so semantic similarity is high
+    const beginnerBlock = analysis.beginner_score >= 0.75
+        ? `BEGINNER-FRIENDLY video suitable for complete beginners with no prior knowledge required.
+Features ${describeScore(analysis.beginner_score, 'beginner accessibility')} with foundational explanations.
+Explains concepts from the ground up in simple terms.
+Teaching style emphasizes clarity and basic understanding.
+Assumes NO prerequisites.
+Good for students just starting to learn this topic.`
         : analysis.beginner_score >= 0.5
-            ? 'This video is suitable for intermediate learners with some foundational knowledge.'
-            : 'This is an ADVANCED video requiring significant prior knowledge.';
+            ? `Suitable for intermediate learners with some foundational knowledge.
+Features ${describeScore(analysis.beginner_score, 'beginner accessibility')}.
+Some prior knowledge helpful but not required.`
+            : `Advanced video requiring significant prior knowledge.
+Features ${describeScore(analysis.beginner_score, 'beginner accessibility')}.
+Best for students with existing foundation in this topic.`;
 
-    const visualDesc = analysis.visualization_score >= 0.75
-        ? 'Features STRONG VISUAL EXPLANATIONS with animations, diagrams, and visual demonstrations throughout.'
+    const visualBlock = analysis.visualization_score >= 0.75
+        ? `Features STRONG VISUAL EXPLANATIONS with animations, diagrams, and visual demonstrations throughout.
+Contains ${describeScore(analysis.visualization_score, 'visual quality')} using graphical representations.
+Shows rather than tells with simulation and animated explanations.
+Visual elements present include: ${analysis.visual_elements?.join(', ') || 'diagrams, animations'}.
+Teaching style: visual demonstration.
+Highly visual video for understanding abstract concepts.`
         : analysis.visualization_score >= 0.5
-            ? 'Includes some visual aids to support explanations.'
-            : 'Primarily lecture-based with minimal visual aids.';
+            ? `Includes visual aids to support explanations.
+Features ${describeScore(analysis.visualization_score, 'visual quality')}.
+Some diagrams and visual elements present.`
+            : `Primarily lecture-based with minimal visual aids.
+Features ${describeScore(analysis.visualization_score, 'visual quality')}.
+Focus on verbal explanation over visuals.`;
 
-    const mathDesc = analysis.math_explanation_score >= 0.75
-        ? 'Contains DETAILED MATHEMATICAL DERIVATIONS with step-by-step equation work and calculations.'
+    const mathBlock = analysis.math_explanation_score >= 0.75
+        ? `Contains DETAILED MATHEMATICAL DERIVATIONS with step-by-step equation work and calculations.
+Features ${describeScore(analysis.math_explanation_score, 'mathematical coverage')} with formulas and computational methods.
+Shows step-by-step derivations, multiple worked examples with calculations.
+Mathematical content includes: ${analysis.math_coverage?.join(', ') || 'equations, derivations, calculations'}.
+Teaching style: worked-example.
+Focused on step-by-step problem solving and formula explanations.`
         : analysis.math_explanation_score >= 0.5
-            ? 'Includes some mathematical explanations and formulas.'
-            : 'Light on mathematical detail, focuses on conceptual understanding.';
+            ? `Includes mathematical explanations and formulas.
+Features ${describeScore(analysis.math_explanation_score, 'mathematical coverage')}.
+Some equations and worked examples present.`
+            : `Light on mathematical detail, focuses on conceptual understanding.
+Features ${describeScore(analysis.math_explanation_score, 'mathematical coverage')}.
+Emphasizes intuition over equations.`;
 
-    const realWorldDesc = analysis.real_world_score >= 0.75
-        ? 'Emphasizes REAL-WORLD APPLICATIONS with practical engineering examples and case studies.'
+    const realWorldBlock = analysis.real_world_score >= 0.75
+        ? `Emphasizes REAL-WORLD APPLICATIONS with practical engineering examples and case studies.
+Features ${describeScore(analysis.real_world_score, 'practical applications')} connecting theory to practice.
+Shows multiple real engineering examples, industry applications, case studies.
+Real-world applications include: ${analysis.applications?.join(', ') || 'practical examples, engineering problems'}.
+Teaching style: applied demonstration.
+Connects theoretical concepts to real-world scenarios.`
         : analysis.real_world_score >= 0.5
-            ? 'Includes some practical applications and examples.'
-            : 'Focuses on theoretical concepts rather than applications.';
+            ? `Includes practical applications and examples.
+Features ${describeScore(analysis.real_world_score, 'practical applications')}.
+Some real-world context provided.`
+            : `Focuses on theoretical concepts rather than applications.
+Features ${describeScore(analysis.real_world_score, 'practical applications')}.
+Primarily conceptual coverage.`;
 
-    // Score summary for explicit matching
-    const scoreBlock = `
-VIDEO TYPE SCORES:
-- Beginner-Friendliness: ${(analysis.beginner_score * 100).toFixed(0)}% - ${describeScore(analysis.beginner_score, 'beginner accessibility')}
+    // SCORES section - mirrors query's SCORE REQUIREMENTS section
+    const scoresBlock = `SCORES:
+- Beginner-Friendliness: ${(analysis.beginner_score * 100).toFixed(0)}% - ${describeScore(analysis.beginner_score, 'beginner-friendliness')}
 - Visual Quality: ${(analysis.visualization_score * 100).toFixed(0)}% - ${describeScore(analysis.visualization_score, 'visual explanations')}
 - Math Depth: ${(analysis.math_explanation_score * 100).toFixed(0)}% - ${describeScore(analysis.math_explanation_score, 'mathematical coverage')}
-- Real-World Focus: ${(analysis.real_world_score * 100).toFixed(0)}% - ${describeScore(analysis.real_world_score, 'practical applications')}
-- Overall Quality: ${(analysis.ai_quality_score * 100).toFixed(0)}%`;
+- Real-World Focus: ${(analysis.real_world_score * 100).toFixed(0)}% - ${describeScore(analysis.real_world_score, 'practical applications')}`;
 
-    // Construct the full embedding text
-    return `VIDEO TITLE: ${video.title}
-CHANNEL: ${video.channelName || 'Unknown'}
+    // Construct embedding text - MIRRORS query structure exactly
+    return `KEY TOPICS: ${keyTopics}
+Related context: ${analysis.summary}
 
-SUMMARY: ${analysis.summary}
+This video helps students understand: ${keyTopics}.
+${analysis.detailed_description || ''}
 
-${beginnerDesc}
-${visualDesc}
-${mathDesc}
-${realWorldDesc}
+VIDEO TYPE:
+${beginnerBlock}
 
-TEACHING STYLE: ${analysis.teaching_style}
+${visualBlock}
 
-${analysis.visual_elements.length > 0 ? `VISUAL ELEMENTS PRESENT: ${analysis.visual_elements.join(', ')}` : ''}
-${analysis.math_coverage.length > 0 ? `MATHEMATICAL CONTENT: ${analysis.math_coverage.join(', ')}` : ''}
-${analysis.applications.length > 0 ? `REAL-WORLD APPLICATIONS: ${analysis.applications.join(', ')}` : ''}
+${mathBlock}
 
-KEY TOPICS: ${analysis.key_phrases.slice(0, 10).join(', ')}
-${scoreBlock}`;
+${realWorldBlock}
+
+${scoresBlock}`;
 }
 
 // ============================================================================
@@ -262,130 +308,141 @@ ${scoreBlock}`;
 // ============================================================================
 
 /**
- * Analyze multiple videos in batches (with optional comment analysis)
+ * Analyze multiple videos in parallel (with optional comment analysis)
+ * Note: batchSize and delayMs are kept for backwards compatibility but no longer used
  */
 export async function analyzeVideosBatch(
     videos: ApifyVideo[],
-    batchSize: number = 5,
-    delayMs: number = 500,
-    includeComments: boolean = true // Re-enabled after fixing input format
+    _batchSize: number = 5,  // Unused - all videos run in parallel now
+    _delayMs: number = 500,  // Unused - no delay between parallel requests
+    includeComments: boolean = true
 ): Promise<AnalyzedVideo[]> {
-    console.log(`[Analyzer] Starting batch analysis of ${videos.length} videos (batch size: ${batchSize})`);
+    console.log(`[Analyzer] Starting PARALLEL analysis of ${videos.length} videos`);
     console.log(`[Analyzer] Comment analysis: ${includeComments ? 'ENABLED' : 'disabled'}`);
 
     const results: AnalyzedVideo[] = [];
     const failed: string[] = [];
 
-    // Process in batches
-    for (let i = 0; i < videos.length; i += batchSize) {
-        const batch = videos.slice(i, i + batchSize);
-        console.log(`[Analyzer] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(videos.length / batchSize)} (${batch.length} videos)`);
+    // Step 0: Fetch ALL transcripts in one batch call (much faster than individual calls)
+    console.log(`[Analyzer] Fetching all transcripts via batch API...`);
+    const videoUrls = videos.map(v => v.url);
+    const batchTranscripts = await fetchTranscriptsBatch(videoUrls);
+    console.log(`[Analyzer] Batch transcripts: ${batchTranscripts.succeeded} succeeded, ${batchTranscripts.failed} failed`);
 
-        // Process batch in parallel
-        const batchPromises = batch.map(async (video) => {
-            const videoId = extractVideoId(video.url);
-            if (!videoId) {
-                console.warn(`[Analyzer] Invalid URL: ${video.url}`);
-                return null;
+    // Process ALL videos in parallel (no batching - xAI handles concurrent requests)
+    console.log(`[Analyzer] Analyzing ALL ${videos.length} videos in PARALLEL...`);
+
+    const allPromises = videos.map(async (video) => {
+        const videoId = extractVideoId(video.url);
+        if (!videoId) {
+            console.warn(`[Analyzer] Invalid URL: ${video.url}`);
+            return null;
+        }
+
+        try {
+            // Step 1: Get transcript from pre-fetched batch (or fallback to individual fetch)
+            let transcript: string | null = null;
+            const cachedTranscript = batchTranscripts.transcripts.get(videoId);
+
+            if (cachedTranscript?.success && cachedTranscript.transcript) {
+                transcript = cachedTranscript.transcript;
+                console.log(`[Analyzer] Using batch transcript for: ${video.title.substring(0, 30)}...`);
+            } else {
+                // Fallback to individual fetch if batch failed for this video
+                console.log(`[Analyzer] Batch miss, fetching individually: ${video.title.substring(0, 30)}...`);
+                transcript = await getTranscriptWithSupaData(video.url);
             }
 
-            try {
-                // Step 1: Get transcript
-                const transcript = await getTranscriptWithSupaData(video.url);
-                if (!transcript || transcript.length < 100) {
-                    console.warn(`[Analyzer] No/short transcript for: ${video.title}`);
-                    failed.push(video.title);
-                    return null;
-                }
-
-                // Step 2: Analyze transcript (get initial scores)
-                let analysis = await analyzeVideoWithTranscript(video, transcript);
-                if (!analysis) {
-                    failed.push(video.title);
-                    return null;
-                }
-
-                // Step 3: Scrape and analyze comments (if enabled)
-                let comments: CommentData | null = null;
-                let commentAnalysis: CommentAnalysis | null = null;
-
-                if (includeComments) {
-                    console.log(`[Analyzer] Fetching comments for: ${video.title.substring(0, 30)}...`);
-
-                    try {
-                        const commentInsights = await getCommentInsights(video.url);
-                        comments = commentInsights.comments;
-                        commentAnalysis = commentInsights.analysis;
-
-                        // Step 4: Adjust scores based on comment signals
-                        if (commentAnalysis) {
-                            const adjustedScores = adjustScoresWithComments(
-                                {
-                                    beginner_score: analysis.beginner_score,
-                                    visualization_score: analysis.visualization_score,
-                                    math_explanation_score: analysis.math_explanation_score,
-                                    real_world_score: analysis.real_world_score,
-                                    ai_quality_score: analysis.ai_quality_score
-                                },
-                                commentAnalysis
-                            );
-
-                            // Update analysis with adjusted scores
-                            analysis = {
-                                ...analysis,
-                                beginner_score: adjustedScores.beginner_score,
-                                visualization_score: adjustedScores.visualization_score,
-                                math_explanation_score: adjustedScores.math_explanation_score,
-                                real_world_score: adjustedScores.real_world_score,
-                                ai_quality_score: adjustedScores.ai_quality_score
-                            };
-
-                            console.log(`[Analyzer] Scores adjusted with comment signals for: ${video.title.substring(0, 30)}...`);
-                        }
-                    } catch (commentError) {
-                        console.warn(`[Analyzer] Comment analysis failed (continuing without): ${commentError}`);
-                        // Continue without comments - transcript analysis is still valid
-                    }
-                }
-
-                // Step 5: Generate embedding text (after score adjustment)
-                const embedding_text = generateEmbeddingText(video, analysis);
-
-                const result: AnalyzedVideo = {
-                    ...video,
-                    videoId,
-                    transcript,
-                    analysis,
-                    embedding_text,
-                    comments,
-                    comment_analysis: commentAnalysis
-                };
-
-                return result;
-
-            } catch (error) {
-                console.error(`[Analyzer] Failed to process "${video.title}":`, error);
+            if (!transcript || transcript.length < 100) {
+                console.warn(`[Analyzer] No/short transcript for: ${video.title}`);
                 failed.push(video.title);
                 return null;
             }
-        });
 
-        const batchResults = await Promise.all(batchPromises);
-
-        // Filter out nulls and add to results
-        for (const result of batchResults) {
-            if (result) {
-                results.push(result);
+            // Step 2: Analyze transcript with Grok (runs in parallel with other videos)
+            let analysis = await analyzeVideoWithTranscript(video, transcript);
+            if (!analysis) {
+                failed.push(video.title);
+                return null;
             }
+
+            // Step 3: Scrape and analyze comments (if enabled)
+            let comments: CommentData | null = null;
+            let commentAnalysis: CommentAnalysis | null = null;
+
+            if (includeComments) {
+                console.log(`[Analyzer] Fetching comments for: ${video.title.substring(0, 30)}...`);
+
+                try {
+                    const commentInsights = await getCommentInsights(video.url);
+                    comments = commentInsights.comments;
+                    commentAnalysis = commentInsights.analysis;
+
+                    // Step 4: Adjust scores based on comment signals
+                    if (commentAnalysis) {
+                        const adjustedScores = adjustScoresWithComments(
+                            {
+                                beginner_score: analysis.beginner_score,
+                                visualization_score: analysis.visualization_score,
+                                math_explanation_score: analysis.math_explanation_score,
+                                real_world_score: analysis.real_world_score,
+                                ai_quality_score: analysis.ai_quality_score
+                            },
+                            commentAnalysis
+                        );
+
+                        // Update analysis with adjusted scores
+                        analysis = {
+                            ...analysis,
+                            beginner_score: adjustedScores.beginner_score,
+                            visualization_score: adjustedScores.visualization_score,
+                            math_explanation_score: adjustedScores.math_explanation_score,
+                            real_world_score: adjustedScores.real_world_score,
+                            ai_quality_score: adjustedScores.ai_quality_score
+                        };
+
+                        console.log(`[Analyzer] Scores adjusted with comment signals for: ${video.title.substring(0, 30)}...`);
+                    }
+                } catch (commentError) {
+                    console.warn(`[Analyzer] Comment analysis failed (continuing without): ${commentError}`);
+                    // Continue without comments - transcript analysis is still valid
+                }
+            }
+
+            // Step 5: Generate embedding text (after score adjustment)
+            const embedding_text = generateEmbeddingText(video, analysis);
+
+            const result: AnalyzedVideo = {
+                ...video,
+                videoId,
+                transcript,
+                analysis,
+                embedding_text,
+                comments,
+                comment_analysis: commentAnalysis
+            };
+
+            console.log(`[Analyzer] ✓ Completed: ${video.title.substring(0, 40)}...`);
+            return result;
+
+        } catch (error) {
+            console.error(`[Analyzer] Failed to process "${video.title}":`, error);
+            failed.push(video.title);
+            return null;
         }
+    });
 
-        console.log(`[Analyzer] Batch complete: ${results.length} successful, ${failed.length} failed`);
+    // Wait for ALL analyses to complete in parallel
+    const allResults = await Promise.all(allPromises);
 
-        // Delay between batches to avoid rate limits
-        if (i + batchSize < videos.length) {
-            await new Promise(resolve => setTimeout(resolve, delayMs));
+    // Filter out nulls and add to results
+    for (const result of allResults) {
+        if (result) {
+            results.push(result);
         }
     }
+
+    console.log(`[Analyzer] All parallel analyses complete: ${results.length} successful, ${failed.length} failed`);
 
     console.log(`[Analyzer] Analysis complete: ${results.length}/${videos.length} videos analyzed`);
     if (failed.length > 0) {

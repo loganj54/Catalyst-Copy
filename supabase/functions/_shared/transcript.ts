@@ -246,3 +246,201 @@ export function truncateTranscript(transcript: string, maxChars: number = 15000)
 
   return truncated.trim() + '...';
 }
+
+// ============================================================================
+// BATCH TRANSCRIPT FETCHING
+// ============================================================================
+
+export interface BatchTranscriptResult {
+  transcripts: Map<string, TranscriptResult>;
+  succeeded: number;
+  failed: number;
+}
+
+/**
+ * Fetch transcripts for multiple YouTube videos using SupaData batch API
+ * Much more efficient than individual calls - single job with polling
+ *
+ * @param videoIdsOrUrls - Array of YouTube video IDs or URLs
+ * @returns Map of videoId -> TranscriptResult
+ */
+export async function fetchTranscriptsBatch(videoIdsOrUrls: string[]): Promise<BatchTranscriptResult> {
+  if (!SUPADATA_API_KEY) {
+    console.error('[transcript] SUPADATA_API_KEY not set - cannot batch fetch');
+    return {
+      transcripts: new Map(),
+      succeeded: 0,
+      failed: videoIdsOrUrls.length
+    };
+  }
+
+  // Extract video IDs from URLs
+  const videoIds = videoIdsOrUrls
+    .map(v => extractVideoId(v) || v)
+    .filter(id => id && id.length === 11);
+
+  if (videoIds.length === 0) {
+    console.log('[transcript] No valid video IDs for batch fetch');
+    return {
+      transcripts: new Map(),
+      succeeded: 0,
+      failed: videoIdsOrUrls.length
+    };
+  }
+
+  console.log(`[transcript] Starting batch fetch for ${videoIds.length} videos...`);
+
+  try {
+    // Step 1: Create batch job
+    const createResponse = await fetch(
+      'https://api.supadata.ai/v1/youtube/transcript/batch',
+      {
+        method: 'POST',
+        headers: {
+          'x-api-key': SUPADATA_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          videoIds: videoIds,
+          text: true
+        }),
+      }
+    );
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error(`[transcript] Batch create failed: ${createResponse.status} - ${errorText}`);
+      return {
+        transcripts: new Map(),
+        succeeded: 0,
+        failed: videoIds.length
+      };
+    }
+
+    const createData = await createResponse.json();
+    const jobId = createData.jobId;
+
+    if (!jobId) {
+      console.error('[transcript] No jobId in batch response');
+      return {
+        transcripts: new Map(),
+        succeeded: 0,
+        failed: videoIds.length
+      };
+    }
+
+    console.log(`[transcript] Batch job created: ${jobId}`);
+
+    // Step 2: Poll for completion
+    const maxAttempts = 60; // 60 * 2s = 120 seconds max
+    let attempts = 0;
+    let jobStatus = 'pending';
+    let jobResults: any = null;
+
+    while (jobStatus !== 'completed' && jobStatus !== 'failed' && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+      attempts++;
+
+      const statusResponse = await fetch(
+        `https://api.supadata.ai/v1/youtube/batch/${jobId}`,
+        {
+          method: 'GET',
+          headers: {
+            'x-api-key': SUPADATA_API_KEY,
+          },
+        }
+      );
+
+      if (!statusResponse.ok) {
+        console.error(`[transcript] Batch status check failed: ${statusResponse.status}`);
+        continue;
+      }
+
+      const statusData = await statusResponse.json();
+      jobStatus = statusData.status;
+      jobResults = statusData;
+
+      console.log(`[transcript] Batch status: ${jobStatus} (attempt ${attempts}/${maxAttempts})`);
+    }
+
+    if (jobStatus !== 'completed') {
+      console.error(`[transcript] Batch job did not complete: ${jobStatus}`);
+      return {
+        transcripts: new Map(),
+        succeeded: 0,
+        failed: videoIds.length
+      };
+    }
+
+    // Step 3: Parse results
+    const transcripts = new Map<string, TranscriptResult>();
+    let succeeded = 0;
+    let failed = 0;
+
+    const results = jobResults?.results || [];
+
+    for (const result of results) {
+      const videoId = result.videoId || result.id;
+
+      if (!videoId) continue;
+
+      if (result.error || !result.content) {
+        failed++;
+        transcripts.set(videoId, {
+          success: false,
+          transcript: null,
+          source: 'failed',
+          language: null,
+          wordCount: 0,
+          error: result.error || 'No transcript content'
+        });
+        continue;
+      }
+
+      // Parse the transcript content
+      const transcriptText = parseTranscriptData(result.content);
+
+      if (!transcriptText || transcriptText.trim().length < 50) {
+        failed++;
+        transcripts.set(videoId, {
+          success: false,
+          transcript: null,
+          source: 'failed',
+          language: null,
+          wordCount: 0,
+          error: 'Transcript too short or empty'
+        });
+        continue;
+      }
+
+      const cleanedText = transcriptText.trim().replace(/\s+/g, ' ');
+      const wordCount = cleanedText.split(/\s+/).length;
+      const isAutoGenerated = result.isAutoGenerated ?? true;
+
+      succeeded++;
+      transcripts.set(videoId, {
+        success: true,
+        transcript: cleanedText,
+        source: isAutoGenerated ? 'auto_generated' : 'manual',
+        language: result.language || 'en',
+        wordCount
+      });
+    }
+
+    console.log(`[transcript] Batch complete: ${succeeded} succeeded, ${failed} failed`);
+
+    return {
+      transcripts,
+      succeeded,
+      failed
+    };
+
+  } catch (error) {
+    console.error('[transcript] Batch fetch error:', error);
+    return {
+      transcripts: new Map(),
+      succeeded: 0,
+      failed: videoIds.length
+    };
+  }
+}

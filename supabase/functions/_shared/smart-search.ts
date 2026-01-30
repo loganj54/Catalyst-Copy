@@ -225,34 +225,36 @@ function generateFallbackQueries(context: SearchContext): string[] {
  * Run multiple search queries and aggregate results
  */
 export async function searchYouTubeWideNet(queries: string[]): Promise<SearchResult> {
-    console.log(`[SmartSearch] Running ${queries.length} queries for wide-net search...`);
+    console.log(`[SmartSearch] Running ${queries.length} queries in PARALLEL...`);
 
     const allVideos: Map<string, ApifyVideo> = new Map();
 
-    // Run all queries (could parallelize, but sequential is safer for rate limits)
-    for (const query of queries) {
+    // Run all queries in parallel for speed
+    const searchPromises = queries.map(async (query) => {
         try {
             console.log(`[SmartSearch] Searching: "${query}"`);
             const videos = await searchYouTubeWithApify(query);
-
-            // Dedupe by video ID
-            for (const video of videos) {
-                const videoId = extractVideoId(video.url);
-                if (videoId && !allVideos.has(videoId)) {
-                    allVideos.set(videoId, video);
-                }
-            }
-
-            console.log(`[SmartSearch] Found ${videos.length} videos, ${allVideos.size} unique total`);
-
-            // Small delay between queries to be nice to the API
-            await new Promise(resolve => setTimeout(resolve, 500));
-
+            console.log(`[SmartSearch] Found ${videos.length} videos for: "${query.substring(0, 30)}..."`);
+            return { query, videos, error: null };
         } catch (error) {
             console.error(`[SmartSearch] Query failed: "${query}"`, error);
-            // Continue with other queries
+            return { query, videos: [], error };
+        }
+    });
+
+    const results = await Promise.all(searchPromises);
+
+    // Dedupe all results
+    for (const result of results) {
+        for (const video of result.videos) {
+            const videoId = extractVideoId(video.url);
+            if (videoId && !allVideos.has(videoId)) {
+                allVideos.set(videoId, video);
+            }
         }
     }
+
+    console.log(`[SmartSearch] All queries complete: ${allVideos.size} unique videos`);
 
     const uniqueVideos = Array.from(allVideos.values());
 
