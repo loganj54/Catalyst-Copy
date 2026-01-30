@@ -33,7 +33,7 @@ interface FindVideosSandboxRequest {
     unit_topic?: string;             // Learning context
     problem_text?: string;           // The problem being worked on
     video_type: string;              // Selected video type
-    min_similarity?: number;         // Minimum similarity score for cache hit (default 0.5)
+    min_similarity?: number;         // Minimum similarity score for cache hit (default 0.75)
     force_refresh?: boolean;         // Skip cache and force new search
 }
 
@@ -91,7 +91,7 @@ serve(async (req: Request) => {
             unit_topic,
             problem_text,
             video_type,
-            min_similarity = 0.5,
+            min_similarity = 0.75,
             force_refresh = false
         } = body;
 
@@ -119,9 +119,15 @@ serve(async (req: Request) => {
         // ========================================================================
 
         if (!force_refresh) {
-            console.log('[Sandbox] Checking Pinecone cache...');
+            console.log('='.repeat(80));
+            console.log('[Sandbox] STEP 1: CACHE LOOKUP');
+            console.log('='.repeat(80));
+            console.log(`[Sandbox] Checking database for existing videos...`);
+            console.log(`[Sandbox] Term: "${term}", Video type: ${video_type}`);
+            console.log(`[Sandbox] Minimum similarity threshold: ${min_similarity}`);
 
             const queryText = buildVideoQueryText(term, unit_topic, video_type, problem_text);
+            console.log(`[Sandbox] Built query text (${queryText.length} chars)`);
 
             try {
                 const cacheResults = await searchVideosByEmbedding(
@@ -131,51 +137,88 @@ serve(async (req: Request) => {
                     0.75 // hard filter: only videos with type score >= 0.75
                 );
 
-                if (cacheResults.length > 0 && cacheResults[0].score >= min_similarity) {
-                    const topMatch = cacheResults[0];
-                    console.log(`[Sandbox] Cache HIT! Score: ${topMatch.score.toFixed(3)}`);
+                console.log(`[Sandbox] Cache search returned ${cacheResults.length} results`);
 
-                    // Get full video details from Supabase
-                    const fullVideo = await getVideoFromSupabase(supabase, topMatch.id);
+                if (cacheResults.length > 0) {
+                    console.log('[Sandbox] Cache results overview:');
+                    cacheResults.forEach((result, i) => {
+                        console.log(`  ${i + 1}. ID: ${result.id}, Score: ${result.score?.toFixed(4)}`);
+                    });
 
-                    if (fullVideo) {
-                        const response: FindVideosSandboxResponse = {
-                            success: true,
-                            source: 'cache',
-                            video: {
-                                video_id: fullVideo.video_id,
-                                url: fullVideo.url,
-                                title: fullVideo.title,
-                                channel_name: fullVideo.channel_name || '',
-                                thumbnail_url: fullVideo.thumbnail_url || '',
-                                duration: fullVideo.duration || '',
-                                summary: fullVideo.summary || '',
-                                scores: {
-                                    beginner: fullVideo.beginner_score,
-                                    visualization: fullVideo.visualization_score,
-                                    math_explanation: fullVideo.math_explanation_score,
-                                    real_world: fullVideo.real_world_score,
-                                    quality: fullVideo.ai_quality_score
+                    if (cacheResults[0].score >= min_similarity) {
+                        const topMatch = cacheResults[0];
+                        console.log('[Sandbox] ✓ CACHE HIT!');
+                        console.log(`[Sandbox] Best match: ${topMatch.id} with similarity ${topMatch.score.toFixed(4)} (>= ${min_similarity})`);
+
+                        // Get full video details from Supabase
+                        console.log(`[Sandbox] Fetching full video details from Supabase...`);
+                        const fullVideo = await getVideoFromSupabase(supabase, topMatch.id);
+
+                        if (fullVideo) {
+                            console.log(`[Sandbox] Found video in Supabase: "${fullVideo.title}"`);
+                            console.log('[Sandbox] Cache hit details:');
+                            console.log(`  - Similarity score: ${topMatch.score.toFixed(4)} (>= ${min_similarity} threshold)`);
+
+                            // Get the type-specific score
+                            const typeScoreField = video_type.replace('-', '_') + '_score';
+                            const typeScore = (fullVideo as any)[typeScoreField];
+
+                            console.log(`  - Type score (${video_type}): ${typeof typeScore === 'number' ? typeScore.toFixed(3) : 'N/A'}`);
+                            console.log(`  - Quality score: ${fullVideo.ai_quality_score.toFixed(3)}`);
+                            console.log(`  - All scores:`);
+                            console.log(`    • Beginner: ${fullVideo.beginner_score.toFixed(3)}`);
+                            console.log(`    • Visualization: ${fullVideo.visualization_score.toFixed(3)}`);
+                            console.log(`    • Math: ${fullVideo.math_explanation_score.toFixed(3)}`);
+                            console.log(`    • Real-world: ${fullVideo.real_world_score.toFixed(3)}`);
+                            console.log(`  - Channel: ${fullVideo.channel_name || 'Unknown'}`);
+
+
+                            const response: FindVideosSandboxResponse = {
+                                success: true,
+                                source: 'cache',
+                                video: {
+                                    video_id: fullVideo.video_id,
+                                    url: fullVideo.url,
+                                    title: fullVideo.title,
+                                    channel_name: fullVideo.channel_name || '',
+                                    thumbnail_url: fullVideo.thumbnail_url || '',
+                                    duration: fullVideo.duration || '',
+                                    summary: fullVideo.summary || '',
+                                    scores: {
+                                        beginner: fullVideo.beginner_score,
+                                        visualization: fullVideo.visualization_score,
+                                        math_explanation: fullVideo.math_explanation_score,
+                                        real_world: fullVideo.real_world_score,
+                                        quality: fullVideo.ai_quality_score
+                                    }
+                                },
+                                debug: {
+                                    embedding_query_text: queryText,
+                                    resource_info: fullVideo.embedding_text || `Video: "${fullVideo.title}" - No embedding text available`,
+                                    user_query: `Term: "${term}", Context: "${unit_topic || 'none'}", Video Type: "${video_type}"`
                                 }
-                            },
-                            debug: {
-                                embedding_query_text: queryText,
-                                resource_info: `Video: "${fullVideo.title}" by ${fullVideo.channel_name || 'Unknown'}. Scores - Beginner: ${fullVideo.beginner_score.toFixed(2)}, Visualization: ${fullVideo.visualization_score.toFixed(2)}, Math: ${fullVideo.math_explanation_score.toFixed(2)}, Real-world: ${fullVideo.real_world_score.toFixed(2)}`,
-                                user_query: `Term: "${term}", Context: "${unit_topic || 'none'}", Video Type: "${video_type}"`
-                            }
-                        };
-
-                        return new Response(
-                            JSON.stringify(response),
-                            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-                        );
+                            };
+                            console.log('[Sandbox] Returning cached video - no YouTube search needed!');
+                            return new Response(
+                                JSON.stringify(response),
+                                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                            );
+                        } else {
+                            console.log(`[Sandbox] WARNING: Video ${topMatch.id} found in Pinecone but NOT in Supabase!`);
+                        }
+                    } else {
+                        console.log(`[Sandbox] Top match score ${cacheResults[0].score.toFixed(4)} < threshold ${min_similarity}`);
+                        console.log('[Sandbox] Cache MISS - will search YouTube');
                     }
                 } else {
-                    console.log(`[Sandbox] Cache MISS (no results or similarity < ${min_similarity})`);
+                    console.log('[Sandbox] Cache MISS - no matching videos in database');
+                    console.log('[Sandbox] Will search YouTube for new videos');
                 }
             } catch (error) {
                 console.error('[Sandbox] Cache search error (continuing with fresh search):', error);
             }
+        } else {
+            console.log('[Sandbox] force_refresh=true, skipping cache lookup');
         }
 
         // ========================================================================
@@ -286,14 +329,26 @@ serve(async (req: Request) => {
             },
             debug: {
                 embedding_query_text: queryText,
-                resource_info: `Video: "${bestMatch.title}" by ${bestMatch.channelName || 'Unknown'}. Scores - Beginner: ${bestMatch.analysis.beginner_score.toFixed(2)}, Visualization: ${bestMatch.analysis.visualization_score.toFixed(2)}, Math: ${bestMatch.analysis.math_explanation_score.toFixed(2)}, Real-world: ${bestMatch.analysis.real_world_score.toFixed(2)}`,
+                resource_info: bestMatch.embedding_text || `Video: "${bestMatch.title}" - No embedding text available`,
                 user_query: `Term: "${term}", Context: "${unit_topic || 'none'}", Video Type: "${video_type}"`
             }
         };
 
         console.log('[Sandbox] Complete!');
         console.log(`  - Best video: "${bestMatch.title.substring(0, 50)}..."`);
-        console.log(`  - Type score: ${bestMatch.analysis[video_type.replace('-', '_') + '_score' as keyof typeof bestMatch.analysis] || 'N/A'}`);
+
+        // Get the type-specific score for this video
+        const typeScoreKey = video_type.replace('-', '_') + '_score' as keyof typeof bestMatch.analysis;
+        const typeScore = bestMatch.analysis[typeScoreKey];
+
+        console.log(`  - Type score (${video_type}): ${typeof typeScore === 'number' ? typeScore.toFixed(3) : 'N/A'}`);
+        console.log(`  - Quality score: ${bestMatch.analysis.ai_quality_score.toFixed(3)}`);
+        console.log(`  - All scores:`);
+        console.log(`    • Beginner: ${bestMatch.analysis.beginner_score.toFixed(3)}`);
+        console.log(`    • Visualization: ${bestMatch.analysis.visualization_score.toFixed(3)}`);
+        console.log(`    • Math: ${bestMatch.analysis.math_explanation_score.toFixed(3)}`);
+        console.log(`    • Real-world: ${bestMatch.analysis.real_world_score.toFixed(3)}`);
+        console.log(`  - Channel: ${bestMatch.channelName || 'Unknown'}`);
 
         return new Response(
             JSON.stringify(response),

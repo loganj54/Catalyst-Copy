@@ -10,7 +10,7 @@
 // Also integrates YouTube comment analysis for quality signal adjustment.
 // ============================================================================
 
-import { getTranscriptWithSupaData, ApifyVideo, extractVideoId } from './youtube-helpers.ts';
+import { ApifyVideo, extractVideoId } from './youtube-helpers.ts';
 import { fetchTranscriptsBatch } from './transcript.ts';
 import {
     getCommentInsights,
@@ -340,21 +340,23 @@ export async function analyzeVideosBatch(
         }
 
         try {
-            // Step 1: Get transcript from pre-fetched batch (or fallback to individual fetch)
-            let transcript: string | null = null;
+            // Step 1: Get transcript from pre-fetched batch
+            // NOTE: We do NOT fallback to individual fetches - this causes rate limit errors.
+            // If batch failed for a video, it genuinely doesn't have a transcript.
             const cachedTranscript = batchTranscripts.transcripts.get(videoId);
 
-            if (cachedTranscript?.success && cachedTranscript.transcript) {
-                transcript = cachedTranscript.transcript;
-                console.log(`[Analyzer] Using batch transcript for: ${video.title.substring(0, 30)}...`);
-            } else {
-                // Fallback to individual fetch if batch failed for this video
-                console.log(`[Analyzer] Batch miss, fetching individually: ${video.title.substring(0, 30)}...`);
-                transcript = await getTranscriptWithSupaData(video.url);
+            if (!cachedTranscript?.success || !cachedTranscript.transcript) {
+                // Skip videos without transcripts - don't retry individually
+                console.log(`[Analyzer] No transcript in batch for: ${video.title.substring(0, 30)}... (skipping)`);
+                failed.push(video.title);
+                return null;
             }
 
-            if (!transcript || transcript.length < 100) {
-                console.warn(`[Analyzer] No/short transcript for: ${video.title}`);
+            const transcript = cachedTranscript.transcript;
+            console.log(`[Analyzer] Using batch transcript for: ${video.title.substring(0, 30)}...`);
+
+            if (transcript.length < 100) {
+                console.warn(`[Analyzer] Short transcript for: ${video.title}`);
                 failed.push(video.title);
                 return null;
             }

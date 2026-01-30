@@ -49,6 +49,38 @@ const SmartTextSelection = ({ children, unitId, context, blueprintId, solutionCo
     };
 
     /**
+     * Calculates absolute start/end offsets relative to the container's text content
+     */
+    const getAbsoluteRangeOffsets = (container, range) => {
+        let charCount = 0;
+        let start = -1;
+        let end = -1;
+
+        const walk = (node) => {
+            if (start !== -1 && end !== -1) return;
+
+            if (node === range.startContainer && node.nodeType === Node.TEXT_NODE) {
+                start = charCount + range.startOffset;
+            }
+            if (node === range.endContainer && node.nodeType === Node.TEXT_NODE) {
+                end = charCount + range.endOffset;
+            }
+
+            if (node.nodeType === Node.TEXT_NODE) {
+                charCount += node.textContent.length;
+            } else {
+                for (const child of node.childNodes) {
+                    walk(child);
+                    if (start !== -1 && end !== -1) return;
+                }
+            }
+        };
+
+        walk(container);
+        return { start, end };
+    };
+
+    /**
      * Handle text selection
      */
     const handleMouseUp = (e) => {
@@ -71,20 +103,33 @@ const SmartTextSelection = ({ children, unitId, context, blueprintId, solutionCo
                 return;
             }
 
-            // Get the full text content of the container
+            // Get extraction positions based on DOM Range, not string search
+            const { start: selectionStart, end: selectionEnd } = getAbsoluteRangeOffsets(containerRef.current, range);
             const fullText = containerRef.current.textContent || '';
 
-            // Find the selection in the full text
-            const selectionStart = fullText.indexOf(selectedStr);
-            if (selectionStart === -1) {
-                // Fallback: just use the selected text as-is
-                setSelectedText(selectedStr);
+            // Fallback: if we couldn't resolve positions via DOM (e.g. selection across elements),
+            // or if the simplified search failed, try string match as a last resort
+            if (selectionStart === -1 || selectionEnd === -1) {
+                // Original fallback behavior
+                const indexStart = fullText.indexOf(selectedStr);
+                if (indexStart !== -1) {
+                    // Same expansion logic as before
+                    const expanded = expandToWordBoundaries(
+                        fullText,
+                        indexStart,
+                        indexStart + selectedStr.length
+                    );
+                    const expandedText = fullText.substring(expanded.start, expanded.end).trim();
+                    setSelectedText(expandedText);
+                } else {
+                    setSelectedText(selectedStr);
+                }
             } else {
                 // Expand to word boundaries
                 const expanded = expandToWordBoundaries(
                     fullText,
                     selectionStart,
-                    selectionStart + selectedStr.length
+                    selectionEnd
                 );
 
                 const expandedText = fullText.substring(expanded.start, expanded.end).trim();

@@ -35,6 +35,7 @@ export interface StoredVideo {
     real_world_score: number;
     ai_quality_score: number;
     summary: string;
+    embedding_text?: string;  // The text used for vector embedding
 }
 
 export interface VideoSearchResult {
@@ -327,19 +328,43 @@ export async function searchVideosByEmbedding(
     topK: number = 10,
     minTypeScore: number = 0.75
 ): Promise<PineconeQueryResult[]> {
-    console.log(`[Storage] Searching Pinecone for: "${queryText.substring(0, 50)}..."`);
-    console.log(`[Storage] Video type filter: ${videoType} >= ${minTypeScore}`);
+    console.log('='.repeat(60));
+    console.log('[Storage] CACHE LOOKUP STARTED');
+    console.log(`[Storage] Query text (first 100 chars): "${queryText.substring(0, 100)}..."`);
+    console.log(`[Storage] Video type requested: ${videoType}`);
+    console.log(`[Storage] Min type score filter: ${minTypeScore}`);
+
+    // Map video type to the correct score field in metadata
+    // IMPORTANT: The video types don't directly map to field names
+    const typeScoreFieldMap: Record<string, string> = {
+        'beginner-overview': 'beginner_score',
+        'visualization': 'visualization_score',
+        'math-explanation': 'math_explanation_score',
+        'real-world': 'real_world_score'
+    };
+
+    const typeScoreField = typeScoreFieldMap[videoType];
+    if (!typeScoreField) {
+        console.error(`[Storage] Unknown video type: ${videoType}`);
+        console.error(`[Storage] Valid types: ${Object.keys(typeScoreFieldMap).join(', ')}`);
+        return [];
+    }
+
+    console.log(`[Storage] Metadata filter field: ${typeScoreField} >= ${minTypeScore}`);
 
     // Generate query embedding
+    console.log('[Storage] Generating query embedding...');
     const { embedding } = await generateEmbedding(queryText);
+    console.log(`[Storage] Embedding generated (${embedding.length} dimensions)`);
 
     // Build metadata filter for video type
-    const typeScoreField = videoType.replace('-', '_') + '_score';
     const filter = {
         [typeScoreField]: { $gte: minTypeScore }
     };
+    console.log(`[Storage] Pinecone filter: ${JSON.stringify(filter)}`);
 
     // Query Pinecone
+    console.log(`[Storage] Querying Pinecone index in namespace '${PINECONE_NAMESPACE}'...`);
     const results = await queryVectors(
         embedding,
         topK,
@@ -348,7 +373,29 @@ export async function searchVideosByEmbedding(
         true // include metadata
     );
 
-    console.log(`[Storage] Found ${results.matches?.length || 0} matching videos`);
+    const matchCount = results.matches?.length || 0;
+    console.log(`[Storage] Pinecone returned ${matchCount} matches`);
+
+    // Log each match with scores
+    if (matchCount > 0) {
+        console.log('[Storage] Top matches:');
+        results.matches?.slice(0, 5).forEach((match, i) => {
+            const meta = match.metadata || {};
+            console.log(`  ${i + 1}. "${meta.title?.substring(0, 50) || match.id}..."`);
+            console.log(`     - Similarity: ${match.score?.toFixed(4)}`);
+            console.log(`     - ${typeScoreField}: ${meta[typeScoreField]?.toFixed(2) || 'N/A'}`);
+            console.log(`     - Video ID: ${match.id}`);
+        });
+    } else {
+        console.log('[Storage] NO MATCHES FOUND in cache');
+        console.log('[Storage] Possible reasons:');
+        console.log('  1. No videos stored in Pinecone yet');
+        console.log('  2. No videos have the required type score >= ' + minTypeScore);
+        console.log('  3. Filter field mapping issue');
+    }
+
+    console.log('[Storage] CACHE LOOKUP COMPLETE');
+    console.log('='.repeat(60));
 
     return results.matches || [];
 }
