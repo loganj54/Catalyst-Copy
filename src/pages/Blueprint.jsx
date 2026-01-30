@@ -783,58 +783,12 @@ const TopicListItem = ({
             {/* COLUMN 1: Content (Overview or Practice) */}
             <div className="space-y-8 xl:border-r border-stone-300 dark:border-stone-600 xl:pr-8">
               {unit.unit_type === 'solution' ? (
-                /* SOLUTION LAYOUT - Display Step-by-Step Solution */
-                <div className="space-y-8">
-                  <StepByStepSolutionCard
-                    solutionApproach={unit.solutionData?.approach}
-                    commonMistakes={unit.solutionData?.mistakes}
-                    isFocusView={true}
-                    title={finalContext}
-                  />
-
-                  {equations && equations.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-3">
-                      <EquationDisplay equations={equations} context={finalContext} />
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center border border-stone-200 dark:border-stone-700 rounded-lg bg-stone-50 dark:bg-stone-800/50">
-                      <span className="text-xs text-stone-400">No equations detected</span>
-                    </div>
-                  )}
-                </div>
+                /* SOLUTION LAYOUT - REMOVED AS PER USER REQUEST */
+                null
               ) : isWalkthrough ? (
                 /* PRACTICE LAYOUT - LEFT COLUMN */
                 <div className="space-y-8">
-                  <h5 className="flex items-center gap-2 w-fit">
-                    <span className="px-3 py-1.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm rounded-lg text-xs font-medium uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-2 transition-all duration-300">
-                      <Target className="w-3 h-3" />
-                      Practice Problem
-                    </span>
-                  </h5>
-
-
-
-                  {/* Practice Problem Generator - Generate Button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onGeneratePracticeProblem(unit);
-                    }}
-                    disabled={isGeneratingPractice}
-                    className="w-full py-4 bg-stone-900 dark:bg-black text-white rounded-xl text-sm font-medium uppercase tracking-widest shadow-lg hover:shadow-xl hover:bg-stone-800 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none disabled:shadow-none mb-4 flex items-center justify-center gap-2"
-                  >
-                    {isGeneratingPractice ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4" />
-                        {practiceProblem ? 'New Problem' : 'Generate'}
-                      </>
-                    )}
-                  </button>
+                  {/* Practice Problem Generator UI Removed as per User Request */}
 
                   {practiceProblem ? (
                     (Array.isArray(practiceProblem) ? practiceProblem : [practiceProblem]).map((problem, idx) => (
@@ -4781,128 +4735,9 @@ const Blueprint = () => {
                           })}
                         </div>
 
-                        {/* 3. Solution Section (If available) */}
-                        {(() => {
-                          // Extract solution info again for this Scope
-                          const solutionUnit = currentUnits.find(u => u.unit_type === 'solution');
-                          if (solutionUnit && solutionUnit.solutionData) {
-                            return (
-                              <div className="mt-24 pt-12 border-t border-stone-200 dark:border-stone-800">
-                                {/* Solution Steps */}
-                                <div className="mb-20">
-                                  <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
-                                    Solution Approach
-                                  </h3>
-                                  <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
-                                    {Array.isArray(solutionUnit.solutionData.approach) ? (
-                                      <div className="space-y-6">
-                                        {solutionUnit.solutionData.approach.map((step, i) => (
-                                          <div key={i} className="flex gap-4 items-start">
-                                            <span className="text-[#FF4A1C] shrink-0 select-none">
-                                              {i + 1}.
-                                            </span>
-                                            <div className="whitespace-pre-wrap">
-                                              <LatexText text={step} context={currentSectionTitle} />
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <div className="whitespace-pre-wrap">
-                                        <LatexText text={String(solutionUnit.solutionData.approach || '')} context={currentSectionTitle} />
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
+                        {/* Solution Removed */}
 
-                                {/* Common Mistakes */}
-                                {/* Common Mistakes */}
-                                <div className="mb-20">
-                                  <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
-                                    Common Mistakes
-                                  </h3>
-                                  <ul className="space-y-6">
-                                    {solutionUnit.solutionData.mistakes.map((mistake, idx) => (
-                                      <li key={idx} className="flex gap-4 items-start">
-                                        <div className="shrink-0 mt-3 w-2 h-2 rounded-full bg-red-500" />
-                                        <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed">
-                                          <span>
-                                            "{mistake.mistake || mistake}"
-                                          </span>
-                                          {mistake.correction && (
-                                            <span> — {mistake.correction}</span>
-                                          )}
-                                        </div>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-
-                        {/* 4. Practice Problems Section */}
-                        {(() => {
-                          const representativeUnit = currentUnits.find(u => u.unit_type !== 'solution');
-                          if (!representativeUnit) return null;
-
-                          const problems = practiceProblems[representativeUnit.unit_id] || [];
-
-                          return (
-                            <div className="mt-24 pt-12 border-t border-stone-200 dark:border-stone-800">
-                              <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
-                                Ready to Practice?
-                              </h3>
-
-                              <div>
-                                {problems.length > 0 ? (
-                                  <div className="space-y-6">
-                                    {problems.map((prob, pIdx) => (
-                                      <div key={pIdx} className="bg-white dark:bg-stone-800 p-6 rounded-xl border border-gray-300 dark:border-stone-700 shadow-sm transition-all hover:border-gray-400 hover:shadow-md">
-                                        <h5 className="font-bold text-stone-900 dark:text-stone-100 mb-2">Practice Problem {pIdx + 1}</h5>
-                                        <div className="prose dark:prose-invert max-w-none">
-                                          <LatexText text={prob.practice_problem} context={currentSectionTitle} />
-                                        </div>
-                                      </div>
-                                    ))}
-                                    <div className="pt-4 flex justify-center border-t border-stone-200 dark:border-stone-800">
-                                      <button
-                                        onClick={() => handleGeneratePracticeProblem(representativeUnit)}
-                                        disabled={generatingPractice.has(representativeUnit.unit_id)}
-                                        className="px-6 py-2 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg text-sm font-bold hover:scale-105 transition-transform disabled:opacity-50"
-                                      >
-                                        {generatingPractice.has(representativeUnit.unit_id) ? (
-                                          <span className="flex items-center gap-2"><Loader2 className="animate-spin w-4 h-4" /> Generating...</span>
-                                        ) : (
-                                          "Generate Another Problem"
-                                        )}
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="text-center py-8">
-                                    <p className="text-stone-500 dark:text-stone-400 mb-6 max-w-lg mx-auto">
-                                      Generate a similar practice problem based on the concepts in this section to test your understanding.
-                                    </p>
-                                    <button
-                                      onClick={() => handleGeneratePracticeProblem(representativeUnit)}
-                                      disabled={generatingPractice.has(representativeUnit.unit_id)}
-                                      className="px-6 py-3 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl font-bold hover:scale-105 transition-transform disabled:opacity-50"
-                                    >
-                                      {generatingPractice.has(representativeUnit.unit_id) ? (
-                                        <span className="flex items-center gap-2"><Loader2 className="animate-spin" /> Generating...</span>
-                                      ) : (
-                                        "Generate Practice Problem"
-                                      )}
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()}
+                        {/* Practice Problem Section Removed */}
 
                       </div>
                     </div>
