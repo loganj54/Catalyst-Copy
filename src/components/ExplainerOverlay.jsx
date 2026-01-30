@@ -3,7 +3,8 @@ import { useUiState } from '../context/UiStateContext';
 import { X, Sparkles, Play, RefreshCw, Star, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import 'katex/dist/katex.min.css';
-import { InlineMath } from 'react-katex';
+
+import { InlineMath, BlockMath } from 'react-katex';
 
 /**
  * ExplainerBubble Component
@@ -101,12 +102,12 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
         ? rankedVideos[currentVideoIndex]
         : (videos.length > 0 ? videos[0] : null);
 
-    // Auto-scroll chat to bottom when new messages arrive
-    useEffect(() => {
-        if (explainer.type === 'question' && messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
-    }, [chatMessages, explainer.type]);
+    // Auto-scroll removed as per user request to prevent page jumping
+    // useEffect(() => {
+    //     if (explainer.type === 'question' && messagesEndRef.current) {
+    //         messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    //     }
+    // }, [chatMessages, explainer.type]);
 
     // Handle sending a question
     const handleSendQuestion = async () => {
@@ -658,7 +659,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                     </div>
 
 
-                    <div className="p-5 max-h-[60vh] overflow-y-auto">
+                    <div className="p-3 max-h-[60vh] overflow-y-auto">
                         {explainer.type === 'video' ? (
                             <div className="space-y-4">
                                 {showVideoTypeSelector ? (
@@ -933,32 +934,77 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                         ) : explainer.type === 'question' ? (
                             <div className="flex flex-col h-full">
                                 {/* Chat Messages Container */}
-                                <div className="flex-1 max-h-[300px] overflow-y-auto space-y-3 mb-4 pr-1">
-                                    {chatMessages.map((msg, idx) => (
-                                        <div
-                                            key={idx}
-                                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                                        >
+                                <div className="flex-1 max-h-[300px] overflow-y-auto space-y-3 mb-2 pr-1">
+                                    {chatMessages.map((msg, idx) => {
+                                        // 1. Split by paragraphs (double newline)
+                                        const paragraphs = msg.content.split(/\n\s*\n/);
+
+                                        return (
                                             <div
-                                                className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed break-words whitespace-pre-wrap ${msg.role === 'user'
-                                                    ? 'bg-stone-900 dark:bg-stone-800 text-white rounded-br-md'
-                                                    : 'bg-stone-100 dark:bg-stone-700 text-stone-700 dark:text-stone-200 rounded-bl-md'
-                                                    }`}
+                                                key={idx}
+                                                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                                             >
-                                                {msg.content.split(/(\$[^$]+\$)/g).map((part, i) => {
-                                                    if (part.startsWith('$') && part.endsWith('$')) {
-                                                        const mathContent = part.slice(1, -1);
-                                                        return (
-                                                            <span key={i} className="inline-block mx-0.5">
-                                                                <InlineMath math={mathContent} />
-                                                            </span>
-                                                        );
-                                                    }
-                                                    return <span key={i}>{part}</span>;
-                                                })}
+                                                <div
+                                                    className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed overflow-hidden ${msg.role === 'user'
+                                                        ? 'bg-stone-900 dark:bg-stone-800 text-white rounded-br-md'
+                                                        : 'bg-stone-100 dark:bg-stone-700 text-stone-700 dark:text-stone-200 rounded-bl-md'
+                                                        }`}
+                                                >
+                                                    <div className="space-y-2">
+                                                        {paragraphs.map((paragraph, pIdx) => {
+                                                            if (!paragraph.trim()) return null;
+
+                                                            // 2. Reflow text: replace single newlines with spaces to avoid hard wraps
+                                                            const validParagraph = paragraph.replace(/(?<!\n)\n(?!\n)/g, ' ');
+
+                                                            // 3. Split by LaTeX delimiters
+                                                            // Captures: $$...$$, \[...\], $...$, \(...\)
+                                                            const parts = validParagraph.split(/(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[^$]+\$|\\\([\s\S]*?\\\))/g);
+
+                                                            return (
+                                                                <p key={pIdx} className="break-words">
+                                                                    {parts.map((part, i) => {
+                                                                        // Block Math: $$...$$ or \[...\]
+                                                                        if ((part.startsWith('$$') && part.endsWith('$$')) ||
+                                                                            (part.startsWith('\\[') && part.endsWith('\\]'))) {
+                                                                            const content = part.startsWith('$$')
+                                                                                ? part.slice(2, -2)
+                                                                                : part.slice(2, -2);
+                                                                            return (
+                                                                                <div key={i} className="my-2 overflow-x-auto">
+                                                                                    <BlockMath math={content} renderError={(err) => {
+                                                                                        return <span className="text-stone-500">{content}</span>;
+                                                                                    }} />
+                                                                                </div>
+                                                                            );
+                                                                        }
+
+                                                                        // Inline Math: $...$ or \(...\)
+                                                                        if ((part.startsWith('$') && part.endsWith('$')) ||
+                                                                            (part.startsWith('\\(') && part.endsWith('\\)'))) {
+                                                                            const content = part.startsWith('$')
+                                                                                ? part.slice(1, -1)
+                                                                                : part.slice(2, -2);
+                                                                            return (
+                                                                                <span key={i} className="inline-block mx-0.5 align-middle">
+                                                                                    <InlineMath math={content} renderError={(err) => {
+                                                                                        return <span className="text-stone-500">{content}</span>;
+                                                                                    }} />
+                                                                                </span>
+                                                                            );
+                                                                        }
+
+                                                                        // Regular text
+                                                                        return <span key={i}>{part}</span>;
+                                                                    })}
+                                                                </p>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                     {isLoadingAnswer && (
                                         <div className="flex justify-start">
                                             <div className="bg-stone-100 dark:bg-stone-700 text-stone-500 px-3 py-2 rounded-2xl rounded-bl-md text-sm flex items-center gap-2">
@@ -978,13 +1024,13 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                                         onChange={(e) => setChatInput(e.target.value)}
                                         onKeyDown={handleKeyDown}
                                         disabled={isLoadingAnswer}
-                                        className="w-full px-4 py-3 pr-12 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-2 focus:ring-[#FF4A1C]/20 focus:border-[#FF4A1C] outline-none transition-all text-stone-700 dark:text-stone-200 placeholder:text-stone-400 disabled:opacity-50"
+                                        className="w-full px-4 py-3 pr-12 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl focus:ring-1 focus:ring-black/10 focus:border-black focus:shadow-[0_0_15px_rgba(0,0,0,0.15)] outline-none transition-all text-stone-700 dark:text-stone-200 placeholder:text-stone-400 disabled:opacity-50"
                                         placeholder="Type your question..."
                                     />
                                     <button
                                         onClick={handleSendQuestion}
                                         disabled={isLoadingAnswer || !chatInput.trim()}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-[#FF4A1C] text-white rounded-lg hover:bg-[#E03E15] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black text-white rounded-lg hover:bg-stone-800 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                                     </button>
