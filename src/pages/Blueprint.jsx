@@ -3191,29 +3191,30 @@ const Blueprint = () => {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      // 2. Generate Structure WITH Solution Walkthroughs
+      // 2. Generate Structure WITH Solution Walkthroughs (PARALLEL VERSION - much faster!)
       setGenerationStatus('generating');
-      console.log('[Blueprint] Deep Dive: Generating structure with solution walkthroughs (may take several minutes)...');
+      console.log('[Blueprint] Deep Dive: Generating structure with solution walkthroughs (parallel mode)...');
 
-      // Call the new function - works like generate-structure-legacy but includes walkthroughs
+      // Use the parallel function - generates walkthroughs concurrently for ~3-5x speedup
       const structureResponse = await fetchWithTimeout(
-        `${supabaseUrl}/functions/v1/generate-blueprint-solution-with-notes-layout`,
+        `${supabaseUrl}/functions/v1/generate-blueprint-solution-parallel`,
         {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            blueprint_id: id  // Just like generate-structure-legacy
+            blueprint_id: id  // Same API as original
           }),
         },
-        600000, // 10 minutes - generating walkthroughs takes time
+        300000, // 5 minutes - parallel mode is much faster
         true
       );
 
       const structureData = await structureResponse.json();
       if (!structureData.success) throw new Error(structureData.error || 'Structure generation with walkthroughs failed');
 
-      console.log('[Blueprint] Deep Dive: Structure with walkthroughs generated successfully');
+      console.log('[Blueprint] Deep Dive: Structure with walkthroughs generated successfully (parallel mode)');
       console.log(`[Blueprint] Generated ${structureData.metrics?.total_solution_walkthroughs || 0} solution walkthroughs`);
+      console.log(`[Blueprint] Timing - Phase 1: ${structureData.metrics?.phase1_time_ms}ms, Phase 2: ${structureData.metrics?.phase2_time_ms}ms, Total: ${structureData.metrics?.total_time_ms}ms`);
 
       // Store the structure result
       setStructureGenerationResult(structureData);
@@ -3222,7 +3223,8 @@ const Blueprint = () => {
       // Refresh blueprint to load the new structure
       await fetchBlueprint();
 
-      alert(`Deep Dive Guide Generated! Created ${structureData.metrics?.total_solution_walkthroughs || 0} detailed solution walkthroughs. Refresh the page to see them.`);
+      const totalSeconds = Math.round((structureData.metrics?.total_time_ms || 0) / 1000);
+      alert(`Deep Dive Guide Generated! Created ${structureData.metrics?.total_solution_walkthroughs || 0} detailed solution walkthroughs in ${totalSeconds}s (parallel mode).`);
 
     } catch (error) {
       console.error('[Blueprint] Deep Dive Error:', error);
