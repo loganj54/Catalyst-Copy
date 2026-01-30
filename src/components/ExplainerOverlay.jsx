@@ -18,12 +18,18 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
     const [rating, setRating] = useState(4);
     const [isRerolling, setIsRerolling] = useState(false);
     const [videos, setVideos] = useState([]);
+    const [rankedVideos, setRankedVideos] = useState([]);  // Full ranked list for reroll
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
     const [isLoadingVideos, setIsLoadingVideos] = useState(false);
     const [hasFetchedVideos, setHasFetchedVideos] = useState(false);
     const [selectedVideoType, setSelectedVideoType] = useState(null);
     const [showVideoTypeSelector, setShowVideoTypeSelector] = useState(explainer.type === 'video');
     const [debugInfo, setDebugInfo] = useState(null);
+
+    // AI Query Generation state
+    const [generatedQueries, setGeneratedQueries] = useState([]);
+    const [isGeneratingQueries, setIsGeneratingQueries] = useState(false);
+    const [selectedQuery, setSelectedQuery] = useState(null);
 
 
     // Explanation specific state
@@ -39,10 +45,12 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
 
     const handleReroll = (e) => {
         e.stopPropagation();
-        if (videos.length <= 1) return;
+        if (rankedVideos.length <= 1) return;
 
         setIsRerolling(true);
-        setCurrentVideoIndex(prev => (prev + 1) % videos.length);
+        const nextIndex = (currentVideoIndex + 1) % rankedVideos.length;
+        setCurrentVideoIndex(nextIndex);
+        setVideos([rankedVideos[nextIndex]]);
         setTimeout(() => setIsRerolling(false), 500);
     };
 
@@ -130,11 +138,55 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
     useEffect(() => {
         setHasFetchedVideos(false);
         setVideos([]);
+        setRankedVideos([]);
+        setGeneratedQueries([]);
+        setSelectedQuery(null);
     }, [explainer.term, explainer.context]);
 
-    // Fetch Video Effect - Only fetch after video type is selected
+    // Generate AI queries when video overlay opens
+    useEffect(() => {
+        const generateQueries = async () => {
+            // Only generate for video type when we don't already have queries
+            if (explainer.type !== 'video' || generatedQueries.length > 0 || isGeneratingQueries) {
+                return;
+            }
+
+            setIsGeneratingQueries(true);
+
+            try {
+                console.log(`[ExplainerBubble] Generating AI queries for term: "${explainer.term}"`);
+
+                const { data, error } = await supabase.functions.invoke('generate-video-queries', {
+                    body: {
+                        term: explainer.term,
+                        context: explainer.context || '',
+                        solutionContext: explainer.solutionContext || ''
+                    }
+                });
+
+                if (error) throw error;
+
+                if (data && data.success && data.queries && data.queries.length > 0) {
+                    console.log(`[ExplainerBubble] Generated ${data.queries.length} queries:`, data.queries);
+                    setGeneratedQueries(data.queries);
+                } else {
+                    console.log('[ExplainerBubble] No queries generated, falling back to defaults');
+                    // Fall back to showing the old UI
+                }
+            } catch (err) {
+                console.error('[ExplainerBubble] Failed to generate queries:', err);
+                // Fall back to showing the old UI (generatedQueries stays empty)
+            } finally {
+                setIsGeneratingQueries(false);
+            }
+        };
+
+        generateQueries();
+    }, [explainer.type, explainer.term, explainer.context, explainer.solutionContext]);
+
+    // Fetch Video Effect - Only fetch after query is selected
     const fetchVideos = async () => {
-        if (!selectedVideoType) return;
+        if (!selectedQuery) return;
 
         setIsLoadingVideos(true);
         setShowVideoTypeSelector(false);
@@ -145,22 +197,23 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
             const unitTopic = explainer.context || '';
             const problemText = explainer.problemContext || '';
 
-            console.log(`[ExplainerBubble] Calling 'find-videos-sandbox' for term: "${term}", type: "${selectedVideoType}"`);
+            console.log(`[ExplainerBubble] Calling 'find-videos-sandbox' for term: "${term}", query: "${selectedQuery}"`);
 
             const { data, error } = await supabase.functions.invoke('find-videos-sandbox', {
                 body: {
                     term: term,
+                    selected_query: selectedQuery,
                     unit_topic: unitTopic,
                     problem_text: problemText,
-                    video_type: selectedVideoType
+                    blueprint_id: explainer.blueprintId || null
                 }
             });
 
             if (error) throw error;
 
-            // Handle the new response format from sandbox
+            // Handle the new response format with ranked videos
             if (data && data.success && data.video) {
-                // Sandbox returns a single best match, wrap it in an array for consistency
+                // Set the current video
                 setVideos([{
                     url: data.video.url,
                     title: data.video.title,
@@ -170,6 +223,20 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                     summary: data.video.summary,
                     scores: data.video.scores
                 }]);
+
+                // Store full ranked list for reroll
+                if (data.ranked_videos && data.ranked_videos.length > 0) {
+                    setRankedVideos(data.ranked_videos.map(v => ({
+                        url: v.url,
+                        title: v.title,
+                        channelName: v.channel_name,
+                        thumbnailUrl: v.thumbnail_url,
+                        duration: v.duration_seconds,
+                        summary: v.summary,
+                        rank: v.rank
+                    })));
+                    setCurrentVideoIndex(0);
+                }
 
                 // Store debug information
                 if (data.debug) {
@@ -462,7 +529,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                             </h3>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
-                            {explainer.type === 'video' && videos.length > 1 && (
+                            {explainer.type === 'video' && rankedVideos.length > 1 && (
                                 <button
                                     onClick={handleReroll}
                                     disabled={isRerolling}
@@ -487,46 +554,93 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                             <div className="space-y-4">
                                 {showVideoTypeSelector ? (
                                     <div className="space-y-5">
-                                        <h4 className="text-base font-semibold text-stone-700 dark:text-stone-200 mb-4">
-                                            What type of video are you looking for?
-                                        </h4>
+                                        {isGeneratingQueries ? (
+                                            <div className="flex flex-col items-center justify-center py-8 text-stone-500">
+                                                <RefreshCw className="w-6 h-6 animate-spin mb-3" />
+                                                <span>Generating search queries...</span>
+                                            </div>
+                                        ) : generatedQueries.length > 0 ? (
+                                            <>
+                                                <h4 className="text-base font-semibold text-stone-700 dark:text-stone-200 mb-4">
+                                                    What would you like to learn about {explainer.term}?
+                                                </h4>
 
-                                        <div className="space-y-3">
-                                            {[
-                                                { value: 'beginner-overview', label: 'Beginner overview (I don\'t even know where to start)' },
-                                                { value: 'visualization', label: 'I need help visualizing this' },
-                                                { value: 'math-explanation', label: 'Show me how the math works' },
-                                                { value: 'real-world', label: 'Let me see real world applications of this' }
-                                            ].map((option) => (
-                                                <label
-                                                    key={option.value}
-                                                    className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${selectedVideoType === option.value
-                                                        ? 'border-stone-900 dark:border-stone-100 bg-stone-50 dark:bg-stone-800'
-                                                        : 'border-stone-200 dark:border-stone-700 hover:border-stone-300 dark:hover:border-stone-600'
-                                                        }`}
+                                                <div className="space-y-3">
+                                                    {generatedQueries.map((query, index) => (
+                                                        <label
+                                                            key={index}
+                                                            className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${selectedQuery === query
+                                                                ? 'border-stone-900 dark:border-stone-100 bg-stone-50 dark:bg-stone-800'
+                                                                : 'border-stone-200 dark:border-stone-700 hover:border-stone-300 dark:hover:border-stone-600'
+                                                                }`}
+                                                        >
+                                                            <input
+                                                                type="radio"
+                                                                name="videoQuery"
+                                                                value={query}
+                                                                checked={selectedQuery === query}
+                                                                onChange={(e) => setSelectedQuery(e.target.value)}
+                                                                className="mt-0.5 w-4 h-4 text-stone-900 dark:text-stone-100 focus:ring-stone-900 dark:focus:ring-stone-100"
+                                                            />
+                                                            <span className="text-sm text-stone-700 dark:text-stone-200 leading-snug">
+                                                                {query}
+                                                            </span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+
+                                                <button
+                                                    onClick={fetchVideos}
+                                                    disabled={!selectedQuery}
+                                                    className="w-full py-3 px-4 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg font-semibold text-sm hover:bg-stone-800 dark:hover:bg-stone-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-stone-900 dark:disabled:hover:bg-stone-100"
                                                 >
-                                                    <input
-                                                        type="radio"
-                                                        name="videoType"
-                                                        value={option.value}
-                                                        checked={selectedVideoType === option.value}
-                                                        onChange={(e) => setSelectedVideoType(e.target.value)}
-                                                        className="mt-0.5 w-4 h-4 text-stone-900 dark:text-stone-100 focus:ring-stone-900 dark:focus:ring-stone-100"
-                                                    />
-                                                    <span className="text-sm text-stone-700 dark:text-stone-200 leading-snug">
-                                                        {option.label}
-                                                    </span>
-                                                </label>
-                                            ))}
-                                        </div>
+                                                    Find Videos
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <div className="space-y-5">
+                                                <h4 className="text-base font-semibold text-stone-700 dark:text-stone-200 mb-4">
+                                                    What type of video are you looking for?
+                                                </h4>
 
-                                        <button
-                                            onClick={fetchVideos}
-                                            disabled={!selectedVideoType}
-                                            className="w-full py-3 px-4 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg font-semibold text-sm hover:bg-stone-800 dark:hover:bg-stone-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-stone-900 dark:disabled:hover:bg-stone-100"
-                                        >
-                                            Find Videos
-                                        </button>
+                                                <div className="space-y-3">
+                                                    {[
+                                                        { value: 'beginner-overview', label: 'Beginner overview (I don\'t even know where to start)' },
+                                                        { value: 'visualization', label: 'I need help visualizing this' },
+                                                        { value: 'math-explanation', label: 'Show me how the math works' },
+                                                        { value: 'real-world', label: 'Let me see real world applications of this' }
+                                                    ].map((option) => (
+                                                        <label
+                                                            key={option.value}
+                                                            className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${selectedVideoType === option.value
+                                                                ? 'border-stone-900 dark:border-stone-100 bg-stone-50 dark:bg-stone-800'
+                                                                : 'border-stone-200 dark:border-stone-700 hover:border-stone-300 dark:hover:border-stone-600'
+                                                                }`}
+                                                        >
+                                                            <input
+                                                                type="radio"
+                                                                name="videoType"
+                                                                value={option.value}
+                                                                checked={selectedVideoType === option.value}
+                                                                onChange={(e) => setSelectedVideoType(e.target.value)}
+                                                                className="mt-0.5 w-4 h-4 text-stone-900 dark:text-stone-100 focus:ring-stone-900 dark:focus:ring-stone-100"
+                                                            />
+                                                            <span className="text-sm text-stone-700 dark:text-stone-200 leading-snug">
+                                                                {option.label}
+                                                            </span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+
+                                                <button
+                                                    onClick={fetchVideos}
+                                                    disabled={!selectedVideoType}
+                                                    className="w-full py-3 px-4 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-lg font-semibold text-sm hover:bg-stone-800 dark:hover:bg-stone-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-stone-900 dark:disabled:hover:bg-stone-100"
+                                                >
+                                                    Find Videos
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : isLoadingVideos ? (
                                     <div className="flex items-center justify-center p-8 text-stone-500">

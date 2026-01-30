@@ -36,7 +36,7 @@ export function createSupabaseClientWithAuth(authHeader: string) {
 // ============================================================================
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-const CLAUDE_MODEL = 'claude-haiku-4-5';
+const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 
 export interface ClaudeResponse {
   content: string;
