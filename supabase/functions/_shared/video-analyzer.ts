@@ -197,110 +197,12 @@ async function analyzeVideoWithTranscript(
 /**
  * Generate embedding text from video and analysis
  *
- * CRITICAL: This structure MIRRORS the query text format exactly.
- * Query says "looking for X", embedding says "this video provides X".
- * Same sections, same vocabulary, opposite perspective.
+ * We embed just the summary for vector search - it contains the core
+ * semantic content of what the video teaches.
  */
-function generateEmbeddingText(video: ApifyVideo, analysis: VideoAnalysis): string {
-    // Helper to describe score levels (matches query language)
-    const describeScore = (score: number, dimension: string): string => {
-        if (score >= 0.9) return `EXCELLENT ${dimension}`;
-        if (score >= 0.75) return `STRONG ${dimension}`;
-        if (score >= 0.6) return `GOOD ${dimension}`;
-        if (score >= 0.4) return `MODERATE ${dimension}`;
-        if (score >= 0.2) return `LIMITED ${dimension}`;
-        return `MINIMAL ${dimension}`;
-    };
-
-    // Get key topics from analysis
-    const keyTopics = analysis.key_phrases?.slice(0, 10).join(', ') || video.title;
-
-    // Build VIDEO TYPE section - mirrors query's VIDEO TYPE NEEDED section exactly
-    // Uses SAME vocabulary so semantic similarity is high
-    const beginnerBlock = analysis.beginner_score >= 0.75
-        ? `BEGINNER-FRIENDLY video suitable for complete beginners with no prior knowledge required.
-Features ${describeScore(analysis.beginner_score, 'beginner accessibility')} with foundational explanations.
-Explains concepts from the ground up in simple terms.
-Teaching style emphasizes clarity and basic understanding.
-Assumes NO prerequisites.
-Good for students just starting to learn this topic.`
-        : analysis.beginner_score >= 0.5
-            ? `Suitable for intermediate learners with some foundational knowledge.
-Features ${describeScore(analysis.beginner_score, 'beginner accessibility')}.
-Some prior knowledge helpful but not required.`
-            : `Advanced video requiring significant prior knowledge.
-Features ${describeScore(analysis.beginner_score, 'beginner accessibility')}.
-Best for students with existing foundation in this topic.`;
-
-    const visualBlock = analysis.visualization_score >= 0.75
-        ? `Features STRONG VISUAL EXPLANATIONS with animations, diagrams, and visual demonstrations throughout.
-Contains ${describeScore(analysis.visualization_score, 'visual quality')} using graphical representations.
-Shows rather than tells with simulation and animated explanations.
-Visual elements present include: ${analysis.visual_elements?.join(', ') || 'diagrams, animations'}.
-Teaching style: visual demonstration.
-Highly visual video for understanding abstract concepts.`
-        : analysis.visualization_score >= 0.5
-            ? `Includes visual aids to support explanations.
-Features ${describeScore(analysis.visualization_score, 'visual quality')}.
-Some diagrams and visual elements present.`
-            : `Primarily lecture-based with minimal visual aids.
-Features ${describeScore(analysis.visualization_score, 'visual quality')}.
-Focus on verbal explanation over visuals.`;
-
-    const mathBlock = analysis.math_explanation_score >= 0.75
-        ? `Contains DETAILED MATHEMATICAL DERIVATIONS with step-by-step equation work and calculations.
-Features ${describeScore(analysis.math_explanation_score, 'mathematical coverage')} with formulas and computational methods.
-Shows step-by-step derivations, multiple worked examples with calculations.
-Mathematical content includes: ${analysis.math_coverage?.join(', ') || 'equations, derivations, calculations'}.
-Teaching style: worked-example.
-Focused on step-by-step problem solving and formula explanations.`
-        : analysis.math_explanation_score >= 0.5
-            ? `Includes mathematical explanations and formulas.
-Features ${describeScore(analysis.math_explanation_score, 'mathematical coverage')}.
-Some equations and worked examples present.`
-            : `Light on mathematical detail, focuses on conceptual understanding.
-Features ${describeScore(analysis.math_explanation_score, 'mathematical coverage')}.
-Emphasizes intuition over equations.`;
-
-    const realWorldBlock = analysis.real_world_score >= 0.75
-        ? `Emphasizes REAL-WORLD APPLICATIONS with practical engineering examples and case studies.
-Features ${describeScore(analysis.real_world_score, 'practical applications')} connecting theory to practice.
-Shows multiple real engineering examples, industry applications, case studies.
-Real-world applications include: ${analysis.applications?.join(', ') || 'practical examples, engineering problems'}.
-Teaching style: applied demonstration.
-Connects theoretical concepts to real-world scenarios.`
-        : analysis.real_world_score >= 0.5
-            ? `Includes practical applications and examples.
-Features ${describeScore(analysis.real_world_score, 'practical applications')}.
-Some real-world context provided.`
-            : `Focuses on theoretical concepts rather than applications.
-Features ${describeScore(analysis.real_world_score, 'practical applications')}.
-Primarily conceptual coverage.`;
-
-    // SCORES section - mirrors query's SCORE REQUIREMENTS section
-    const scoresBlock = `SCORES:
-- Beginner-Friendliness: ${(analysis.beginner_score * 100).toFixed(0)}% - ${describeScore(analysis.beginner_score, 'beginner-friendliness')}
-- Visual Quality: ${(analysis.visualization_score * 100).toFixed(0)}% - ${describeScore(analysis.visualization_score, 'visual explanations')}
-- Math Depth: ${(analysis.math_explanation_score * 100).toFixed(0)}% - ${describeScore(analysis.math_explanation_score, 'mathematical coverage')}
-- Real-World Focus: ${(analysis.real_world_score * 100).toFixed(0)}% - ${describeScore(analysis.real_world_score, 'practical applications')}`;
-
-    // Construct embedding text - MIRRORS query structure exactly
-    return `KEY TOPICS: ${keyTopics}
-Related context: ${analysis.summary}
-
-This video helps students understand: ${keyTopics}.
-${analysis.detailed_description || ''}
-
-VIDEO TYPE:
-${beginnerBlock}
-
-${visualBlock}
-
-${mathBlock}
-
-${realWorldBlock}
-
-${scoresBlock}`;
+function generateEmbeddingText(_video: ApifyVideo, analysis: VideoAnalysis): string {
+    // Simply use the summary as the embedding text
+    return analysis.summary;
 }
 
 // ============================================================================

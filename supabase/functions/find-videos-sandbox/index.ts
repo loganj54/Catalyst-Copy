@@ -14,7 +14,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { createSupabaseClient, callClaude } from '../_shared/supabase-client.ts';
-import { smartSearch, SearchContext } from '../_shared/smart-search.ts';
+import { searchYouTubeWithApify, extractVideoId } from '../_shared/youtube-helpers.ts';
 import { analyzeVideosBatch, findBestMatch, AnalyzedVideo } from '../_shared/video-analyzer.ts';
 import {
     searchVideosByEmbedding,
@@ -38,9 +38,6 @@ interface FindVideosSandboxRequest {
     blueprint_id?: string;           // For saving rankings to DB
     min_similarity?: number;         // Minimum similarity score for cache hit (default 0.65)
     force_refresh?: boolean;         // Skip cache and force new search
-
-    // Legacy support - still accept video_type for backwards compatibility
-    video_type?: string;
 }
 
 interface RankedVideo {
@@ -248,13 +245,11 @@ serve(async (req: Request) => {
             problem_text,
             blueprint_id,
             min_similarity = 0.65,
-            force_refresh = false,
-            video_type  // Legacy support
+            force_refresh = false
         } = body;
 
-        // Use selected_query if provided, otherwise fall back to video_type for legacy
+        // Use selected_query if provided, otherwise generate a default
         const searchQuery = selected_query || `What is ${term}?`;
-        const effectiveVideoType = video_type || 'general';
 
         console.log(`[Sandbox] Term: "${term}"`);
         console.log(`[Sandbox] Selected query: "${searchQuery}"`);
@@ -310,9 +305,7 @@ serve(async (req: Request) => {
                 // Use target profile as query text for semantic search
                 const cacheResults = await searchVideosByEmbedding(
                     targetResourceProfile,
-                    effectiveVideoType,
-                    15, // top 15 results
-                    0.0  // No type score filter - we'll use Grok to rank
+                    15 // top 15 results
                 );
 
                 console.log(`[Sandbox] Cache search returned ${cacheResults.length} results`);
@@ -387,17 +380,20 @@ serve(async (req: Request) => {
             console.log('[Sandbox] STEP 3: FRESH YOUTUBE SEARCH');
             console.log('='.repeat(80));
 
-            const searchContext: SearchContext = {
-                term,
-                unitTopic: unit_topic,
-                problemText: problem_text,
-                videoType: effectiveVideoType
-            };
+            // Use ONLY the user's selected query - no multi-query generation
+            console.log(`[Sandbox] Searching YouTube with single query: "${searchQuery}"`);
+            const youtubeVideos = await searchYouTubeWithApify(searchQuery);
 
-            const searchResult = await smartSearch(searchContext);
-            console.log(`[Sandbox] Found ${searchResult.videos.length} videos from YouTube`);
+            // Filter videos by duration (2-45 min)
+            const filteredVideos = youtubeVideos.filter(video => {
+                if (video.duration && video.duration < 120) return false;  // Too short
+                if (video.duration && video.duration > 2700) return false; // Too long (45 min)
+                return true;
+            });
 
-            if (searchResult.videos.length === 0) {
+            console.log(`[Sandbox] Found ${filteredVideos.length} videos from YouTube (filtered from ${youtubeVideos.length})`);
+
+            if (filteredVideos.length === 0) {
                 return new Response(
                     JSON.stringify({
                         success: false,
@@ -411,7 +407,7 @@ serve(async (req: Request) => {
             // Analyze videos
             console.log('[Sandbox] Analyzing videos...');
             const analyzedVideos = await analyzeVideosBatch(
-                searchResult.videos,
+                filteredVideos,
                 5,
                 1000,
                 false

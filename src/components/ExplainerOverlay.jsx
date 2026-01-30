@@ -50,7 +50,6 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
         setIsRerolling(true);
         const nextIndex = (currentVideoIndex + 1) % rankedVideos.length;
         setCurrentVideoIndex(nextIndex);
-        setVideos([rankedVideos[nextIndex]]);
         setTimeout(() => setIsRerolling(false), 500);
     };
 
@@ -64,13 +63,16 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
 
     // Helper: Get YouTube Thumbnail
     const getThumbnail = (video) => {
-        if (video.thumbnail_url) return video.thumbnail_url;
+        if (video.thumbnail_url || video.thumbnailUrl) return video.thumbnail_url || video.thumbnailUrl;
         // Fallback for YouTube
         const match = video.url?.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
         return match ? `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg` : null;
     };
 
-    const currentVideo = videos.length > 0 ? videos[currentVideoIndex] : null;
+    // Get current video - use rankedVideos directly for reroll support
+    const currentVideo = rankedVideos.length > 0
+        ? rankedVideos[currentVideoIndex]
+        : (videos.length > 0 ? videos[0] : null);
 
     // Auto-scroll chat to bottom when new messages arrive
     useEffect(() => {
