@@ -153,9 +153,15 @@ const SmartTextSelection = ({ children, unitId, context, blueprintId, solutionCo
 
             // Position the menu near the selection
             const rect = range.getBoundingClientRect();
+
+            // Capture scroll offset of the main container to ensure anchored position is correct even if user scrolls while menu is open
+            const scrollContainer = document.getElementById('main-scroll-container');
+            const currentScrollOffset = scrollContainer ? scrollContainer.scrollTop : 0;
+
             setMenuPosition({
                 x: rect.left + (rect.width / 2),
                 y: rect.top,
+                scrollOffset: currentScrollOffset, // Store for explainer creation
                 rect: {
                     top: rect.top,
                     left: rect.left,
@@ -243,6 +249,7 @@ const SmartTextSelection = ({ children, unitId, context, blueprintId, solutionCo
                 y: menuPosition.y
             },
             anchorRect: menuPosition.rect,
+            capturedScrollTop: menuPosition.scrollOffset || 0, // Pass the captured scroll offset
             anchorElement: null,
             id: Date.now()
         });

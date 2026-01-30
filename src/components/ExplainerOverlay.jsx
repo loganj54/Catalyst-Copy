@@ -304,6 +304,9 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
             if (!parentElement) return;
             if (!containerRef.current || !containerRef.current.parentElement) return;
 
+            // Get scroll container to calculate absolute layout position relative to CONTENT, not Viewport
+            const scrollContainer = document.getElementById('main-scroll-container');
+            const currentScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
             const parentRect = containerRef.current.parentElement.getBoundingClientRect();
 
             let startX, startY;
@@ -317,17 +320,41 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
             if (liveElement && liveElement.isConnected) {
                 const rect = liveElement.getBoundingClientRect();
                 startX = rect.left - parentRect.left + (rect.width / 2);
-                startY = rect.bottom - parentRect.top - 2;
+                // FIX: Add scrollTop to make position absolute relative to content, protecting against scroll drift
+                startY = (rect.bottom - parentRect.top) + currentScrollTop - 2;
             } else if (explainer.anchorRect) {
-                if (explainer.anchorRect.docTop && explainer.anchorRect.docLeft) {
+                const capturedScroll = (typeof explainer.capturedScrollTop === 'number')
+                    ? explainer.capturedScrollTop
+                    : currentScrollTop;
+
+                // FIX: Calculate absolute Y position in the content container correctly
+                // We calculate the absolute position in the content (CaptureVisual + CaptureScroll)
+                // Then subtract the current container top and current scroll to get the relative position
+                // BUT, since the overlay doesn't scroll with content (it's absolute in the viewport frame of the container),
+                // we actually need to produce a value that moves UP as we scroll DOWN.
+                // Formula: startY = (AnchorVisualY_AtCapture + CaptureScroll) - (ContainerVisualY_Current + CurrentScroll)
+                // Wait, if Overlay doesn't scroll, we want visual position relative to container.
+                // VisualY = AnchorVisualY_AtCapture - (CurrentScroll - CaptureScroll).
+                // RelativeY (startY) = VisualY - ContainerVisualY.
+                // So: startY = (AnchorVisualY_AtCapture - CurrentScroll + CaptureScroll) - ContainerVisualY
+                // Which rearranges to: (AnchorVisualY - ContainerVisualY) + CaptureScroll - CurrentScroll
+                // My plan formula: (AnchorVisual + CaptureScroll) - (ContainerVisual + CurrentScroll) is:
+                // AnchorVisual - ContainerVisual + CaptureScroll - CurrentScroll.
+                // IT MATCHES.
+
+                if (explainer.anchorRect.docTop && explainer.anchorRect.docLeft && typeof explainer.capturedScrollTop === 'undefined') {
+                    // Legacy path
                     const parentDocTop = parentRect.top + window.scrollY;
                     const parentDocLeft = parentRect.left + window.scrollX;
 
                     startX = explainer.anchorRect.docLeft - parentDocLeft + (explainer.anchorRect.width / 2);
                     startY = explainer.anchorRect.docBottom ? (explainer.anchorRect.docBottom - parentDocTop - 2) : (explainer.anchorRect.docTop + explainer.anchorRect.height - parentDocTop - 2);
+                    startY += currentScrollTop;
                 } else {
                     startX = explainer.anchorRect.left - parentRect.left + (explainer.anchorRect.width / 2);
-                    startY = explainer.anchorRect.bottom - parentRect.top - 2;
+
+                    // New corrected formula
+                    startY = (explainer.anchorRect.bottom + capturedScroll) - (parentRect.top + currentScrollTop) - 2;
                 }
             } else {
                 return;
@@ -461,12 +488,26 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
         };
 
         updatePosition();
+
+        // Observers
         const resizeObserver = new ResizeObserver(() => { requestAnimationFrame(updatePosition); });
         resizeObserver.observe(document.body);
         const parent = document.getElementById('blueprint-content-column')?.parentElement;
         if (parent) resizeObserver.observe(parent);
         if (bubbleRef.current) resizeObserver.observe(bubbleRef.current);
-        return () => { resizeObserver.disconnect(); };
+
+        // FIX: Add Scroll Listener
+        const scrollContainer = document.getElementById('main-scroll-container');
+        if (scrollContainer) {
+            scrollContainer.addEventListener('scroll', updatePosition);
+        }
+
+        return () => {
+            resizeObserver.disconnect();
+            if (scrollContainer) {
+                scrollContainer.removeEventListener('scroll', updatePosition);
+            }
+        };
     }, [explainer, index, layoutOffset, obstacles, horizontalJitter, verticalLaneOffset]); // Dependency on verticalLaneOffset ensures we re-measure when offset changes
 
     const handleClose = () => {

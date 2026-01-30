@@ -4908,6 +4908,7 @@ const Blueprint = () => {
               )}
             </div>
             {/* End Content Wrapper */}
+            <ExplainerOverlay />
           </div>
 
           {/* Floating Chat Toggle Button - Always rendered */}
@@ -4950,7 +4951,6 @@ const Blueprint = () => {
               </div>
             </div>
           )}
-          <ExplainerOverlay />
         </div>
       </div >
     </div >
