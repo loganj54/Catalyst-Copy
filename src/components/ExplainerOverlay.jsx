@@ -380,7 +380,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                 const rect = liveElement.getBoundingClientRect();
                 startX = rect.left - parentRect.left + (rect.width / 2);
                 // FIX: Add scrollTop to make position absolute relative to content, protecting against scroll drift
-                startY = (rect.bottom - parentRect.top) + currentScrollTop - 2;
+                startY = (rect.bottom - parentRect.top) + currentScrollTop + 2;
             } else if (explainer.anchorRect) {
                 const capturedScroll = (typeof explainer.capturedScrollTop === 'number')
                     ? explainer.capturedScrollTop
@@ -407,13 +407,13 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                     const parentDocLeft = parentRect.left + window.scrollX;
 
                     startX = explainer.anchorRect.docLeft - parentDocLeft + (explainer.anchorRect.width / 2);
-                    startY = explainer.anchorRect.docBottom ? (explainer.anchorRect.docBottom - parentDocTop - 2) : (explainer.anchorRect.docTop + explainer.anchorRect.height - parentDocTop - 2);
+                    startY = explainer.anchorRect.docBottom ? (explainer.anchorRect.docBottom - parentDocTop + 2) : (explainer.anchorRect.docTop + explainer.anchorRect.height - parentDocTop + 2);
                     startY += currentScrollTop;
                 } else {
                     startX = explainer.anchorRect.left - parentRect.left + (explainer.anchorRect.width / 2);
 
                     // New corrected formula
-                    startY = (explainer.anchorRect.bottom + capturedScroll) - (parentRect.top + currentScrollTop) - 2;
+                    startY = (explainer.anchorRect.bottom + capturedScroll) - (parentRect.top + currentScrollTop) + 2;
                 }
             } else if (explainer.isRestored && explainer.startPosition) {
                 // Fallback for restored explainers without anchor data
@@ -527,7 +527,9 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
             }
 
             // Adjust drop point
-            const dropEndY = horizontalY - CORNER_RADIUS;
+            const usableDrop = Math.max(0, DROP_HEIGHT);
+            const effectiveRadius = Math.min(CORNER_RADIUS, usableDrop);
+            const dropEndY = horizontalY - effectiveRadius;
 
             // Generate Path
             let path = "";
@@ -542,7 +544,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
             path = `
                 M ${startX} ${startY} 
                 L ${startX} ${dropEndY}
-                Q ${startX} ${horizontalY}, ${startX + CORNER_RADIUS} ${horizontalY}
+                Q ${startX} ${horizontalY}, ${startX + effectiveRadius} ${horizontalY}
                 L ${breakoutX} ${horizontalY}
                 C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}
             `;
