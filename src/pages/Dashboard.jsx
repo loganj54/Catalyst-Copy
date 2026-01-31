@@ -315,7 +315,7 @@ const Dashboard = () => {
               </defs>
             </svg>
 
-            <div className="relative isolate min-h-[400px]">
+            <div className="relative isolate text-left">
               {/* Background Layer (Gooey Filtered) */}
               <div
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 absolute inset-0 pointer-events-none -z-10"

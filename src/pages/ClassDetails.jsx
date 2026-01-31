@@ -531,7 +531,7 @@ const ClassDetails = () => {
                       </defs>
                     </svg>
 
-                    <div className="relative isolate min-h-[300px]">
+                    <div className="relative isolate text-left">
                       {/* Background Layer (Gooey Filtered) */}
                       <div
                         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 absolute inset-0 pointer-events-none -z-10"
@@ -679,7 +679,7 @@ const ClassDetails = () => {
                       </defs>
                     </svg>
 
-                    <div className="relative isolate min-h-[300px]">
+                    <div className="relative isolate text-left">
                       {/* Background Layer (Gooey Filtered) */}
                       <div
                         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 absolute inset-0 pointer-events-none -z-10"
