@@ -18,6 +18,8 @@ import { Card } from '../components/dub-ui/Card';
 import { Sidebar } from '../components/dub-ui/Sidebar';
 import { Badge } from '../components/dub-ui/Badge';
 import { Table, Thead, Tr, Th, Td } from '../components/dub-ui/Table';
+import { useGridColumns } from '../hooks/useGridColumns';
+import { getCornerClasses } from '../utils/gridUtils';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -31,6 +33,7 @@ const Dashboard = () => {
   const [recentBlueprints, setRecentBlueprints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, classId: null });
+  const cols = useGridColumns({ base: 1, sm: 2, lg: 3 });
 
   // --- LOGIC SECTION (Preserved) ---
 
@@ -301,63 +304,92 @@ const Dashboard = () => {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {classes.map((course) => (
-                <Card
-                  key={course.id}
-                  className="group hover:border-gray-300 hover:shadow-md transition-all cursor-pointer relative"
-                  onClick={() => navigate(`/class/${course.id}`)}
-                  noPadding
-                >
-                  <div className="p-5">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 shadow-sm flex items-center justify-center text-black">
-                        <BookOpen className="w-5 h-5" />
-                      </div>
-                      <div className="relative">
-                        <button
-                          onClick={(e) => toggleDropdown(course.id, e)}
-                          className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                        >
-                          <MoreHorizontal className="w-5 h-5" />
-                        </button>
+            {/* SVG Filter for smooth "Gooey" junctions */}
+            <svg className="absolute w-0 h-0 pointer-events-none" aria-hidden="true">
+              <defs>
+                <filter id="goo" colorInterpolationFilters="sRGB">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+                  <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9" result="goo" />
+                  <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+                </filter>
+              </defs>
+            </svg>
 
-                        {/* Dropdown Menu */}
-                        {activeDropdown === course.id && (
-                          <div
-                            className="absolute right-0 top-8 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-20 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-100"
-                            ref={dropdownRef}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              onClick={(e) => openEditModal(course, e)}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" /> Edit
-                            </button>
-                            <button
-                              onClick={(e) => handleDeleteClass(course.id, e)}
-                              className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-50"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" /> Delete
-                            </button>
+            <div className="relative isolate min-h-[400px]">
+              {/* Background Layer (Gooey Filtered) */}
+              <div
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 absolute inset-0 pointer-events-none -z-10"
+                style={{ filter: 'url(#goo)' }}
+              >
+                {classes.map((course, index) => (
+                  <div key={`bg-${course.id}`} className="relative h-full w-full">
+                    <div
+                      className={`absolute -inset-2 bg-stone-100 dark:bg-stone-900/50 ${getCornerClasses(index, classes.length, cols)}`}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Content Layer (Cards) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {classes.map((course) => (
+                  <div key={course.id} className="relative group">
+                    <Card
+                      className="h-full hover:bg-gray-50 transition-all cursor-pointer relative bg-white dark:bg-stone-900 border-none shadow-none rounded-2xl"
+                      onClick={() => navigate(`/class/${course.id}`)}
+                      noPadding
+                    >
+                      <div className="p-5">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 shadow-sm flex items-center justify-center text-black">
+                            <BookOpen className="w-5 h-5" />
                           </div>
-                        )}
+                          <div className="relative">
+                            <button
+                              onClick={(e) => toggleDropdown(course.id, e)}
+                              className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                              <MoreHorizontal className="w-5 h-5" />
+                            </button>
+
+                            {/* Dropdown Menu */}
+                            {activeDropdown === course.id && (
+                              <div
+                                className="absolute right-0 top-8 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-20 overflow-hidden py-1 animate-in fade-in zoom-in-95 duration-100"
+                                ref={dropdownRef}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  onClick={(e) => openEditModal(course, e)}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" /> Edit
+                                </button>
+                                <button
+                                  onClick={(e) => handleDeleteClass(course.id, e)}
+                                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-50"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h3 className="text-base font-semibold text-gray-900 leading-snug truncate pr-4">{course.name}</h3>
+                          <p className="text-sm text-gray-500 mt-1">{course.professor}</p>
+                        </div>
                       </div>
-                    </div>
 
-                    <div>
-                      <h3 className="text-base font-semibold text-gray-900 leading-snug truncate pr-4">{course.name}</h3>
-                      <p className="text-sm text-gray-500 mt-1">{course.professor}</p>
-                    </div>
+                      <div className="bg-gray-50 border-t border-gray-100 px-5 py-3 flex justify-between items-center mt-auto">
+                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Next Exam</span>
+                        <Badge variant="green" className="bg-white border border-green-100">On Track</Badge>
+                      </div>
+                    </Card>
                   </div>
-
-                  <div className="bg-gray-50 border-t border-gray-100 px-5 py-3 flex justify-between items-center">
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Next Exam</span>
-                    <Badge variant="green" className="bg-white border border-green-100">On Track</Badge>
-                  </div>
-                </Card>
-              ))}
+                ))}
+              </div>
             </div>
           </section>
 

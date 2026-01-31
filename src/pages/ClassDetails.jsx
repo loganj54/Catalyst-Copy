@@ -16,6 +16,9 @@ import {
 } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useTheme } from '../context/ThemeContext';
+import { Badge } from '../components/dub-ui/Badge';
+import { useGridColumns } from '../hooks/useGridColumns';
+import { getCornerClasses } from '../utils/gridUtils';
 import { Sidebar } from '../components/dub-ui/Sidebar';
 
 const ClassDetails = () => {
@@ -37,6 +40,7 @@ const ClassDetails = () => {
   const [editingBlueprint, setEditingBlueprint] = useState(null);
   const [newBlueprintName, setNewBlueprintName] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
+  const cols = useGridColumns({ base: 1, md: 2, lg: 3, xl: 4 });
 
   useEffect(() => {
     if (user && id) {
@@ -516,70 +520,99 @@ const ClassDetails = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {documents.map((doc) => (
-                        <div
-                          key={doc.id}
-                          className="bg-white border border-gray-300 rounded-xl p-5 shadow-sm hover:shadow-md transition-all group relative flex flex-col h-full cursor-pointer hover:border-gray-400"
-                          onClick={(e) => handleViewDocument(e, doc)}
-                        >
-                          <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-sm flex items-center justify-center text-black dark:text-stone-400">
-                              <FileText className="w-5 h-5" />
-                            </div>
+                    {/* SVG Filter for smooth "Gooey" junctions */}
+                    <svg className="absolute w-0 h-0 pointer-events-none" aria-hidden="true">
+                      <defs>
+                        <filter id="goo-docs" colorInterpolationFilters="sRGB">
+                          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+                          <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9" result="goo" />
+                          <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+                        </filter>
+                      </defs>
+                    </svg>
 
-                            <div className="relative">
-                              <button
-                                onClick={(e) => toggleDropdown(e, doc.id)}
-                                className="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                              >
-                                <MoreVertical className="w-4 h-4" />
-                              </button>
+                    <div className="relative isolate min-h-[300px]">
+                      {/* Background Layer (Gooey Filtered) */}
+                      <div
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 absolute inset-0 pointer-events-none -z-10"
+                        style={{ filter: 'url(#goo-docs)' }}
+                      >
+                        {documents.map((doc, index) => (
+                          <div key={`bg-${doc.id}`} className="relative h-full w-full">
+                            <div
+                              className={`absolute -inset-2 bg-stone-100 dark:bg-stone-900/50 ${getCornerClasses(index, documents.length, cols)}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
 
-                              {openDropdownId === doc.id && (
-                                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    onClick={(e) => handleViewDocument(e, doc)}
-                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                    View
-                                  </button>
-                                  <a
-                                    href={doc.file_url}
-                                    download
-                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <Download className="w-4 h-4" />
-                                    Download
-                                  </a>
-                                  <button
-                                    onClick={(e) => handleDeleteDocument(e, doc.id, doc.file_path)}
-                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-50"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                    Delete
-                                  </button>
+                      {/* Content Layer (Cards) */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                        {documents.map((doc) => (
+                          <div key={doc.id} className="relative group">
+                            <div
+                              className="bg-white rounded-2xl p-5 shadow-none hover:bg-gray-50 transition-all relative flex flex-col h-full cursor-pointer"
+                              onClick={(e) => handleViewDocument(e, doc)}
+                            >
+                              <div className="flex justify-between items-start mb-4">
+                                <div className="w-10 h-10 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-sm flex items-center justify-center text-black dark:text-stone-400">
+                                  <FileText className="w-5 h-5" />
                                 </div>
-                              )}
+
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => toggleDropdown(e, doc.id)}
+                                    className="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                  >
+                                    <MoreVertical className="w-4 h-4" />
+                                  </button>
+
+                                  {openDropdownId === doc.id && (
+                                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                                      <button
+                                        onClick={(e) => handleViewDocument(e, doc)}
+                                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                      >
+                                        <Eye className="w-4 h-4" />
+                                        View
+                                      </button>
+                                      <a
+                                        href={doc.file_url}
+                                        download
+                                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <Download className="w-4 h-4" />
+                                        Download
+                                      </a>
+                                      <button
+                                        onClick={(e) => handleDeleteDocument(e, doc.id, doc.file_path)}
+                                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-50"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="mb-2">
+                                <h4 className="text-sm font-medium text-gray-900 mb-1 truncate" title={doc.name}>
+                                  {doc.name}
+                                </h4>
+                                <p className="text-xs text-gray-500">
+                                  {(doc.file_size / 1024).toFixed(1)} KB
+                                </p>
+                              </div>
+
+                              <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
+                                <span>{new Date(doc.created_at).toLocaleDateString()}</span>
+                              </div>
                             </div>
                           </div>
-
-                          <div className="mb-2">
-                            <h4 className="text-sm font-medium text-gray-900 mb-1 truncate" title={doc.name}>
-                              {doc.name}
-                            </h4>
-                            <p className="text-xs text-gray-500">
-                              {(doc.file_size / 1024).toFixed(1)} KB
-                            </p>
-                          </div>
-
-                          <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
-                            <span>{new Date(doc.created_at).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -635,61 +668,90 @@ const ClassDetails = () => {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {blueprints.map((blueprint) => (
-                        <div
-                          key={blueprint.id}
-                          onClick={() => navigate(`/blueprint/${blueprint.id}`)}
-                          className="bg-white border border-gray-300 rounded-xl p-5 shadow-sm hover:shadow-md cursor-pointer transition-all group relative flex flex-col h-full hover:border-gray-400"
-                        >
-                          <div className="flex justify-between items-start mb-4">
-                            <div className="w-10 h-10 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-sm flex items-center justify-center text-black dark:text-stone-400">
-                              <PenTool className="w-5 h-5" />
-                            </div>
+                    {/* SVG Filter for smooth "Gooey" junctions */}
+                    <svg className="absolute w-0 h-0 pointer-events-none" aria-hidden="true">
+                      <defs>
+                        <filter id="goo-blueprints" colorInterpolationFilters="sRGB">
+                          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+                          <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9" result="goo" />
+                          <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+                        </filter>
+                      </defs>
+                    </svg>
 
-                            <div className="relative">
-                              <button
-                                onClick={(e) => toggleDropdown(e, blueprint.id)}
-                                className="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                              >
-                                <MoreVertical className="w-4 h-4" />
-                              </button>
+                    <div className="relative isolate min-h-[300px]">
+                      {/* Background Layer (Gooey Filtered) */}
+                      <div
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 absolute inset-0 pointer-events-none -z-10"
+                        style={{ filter: 'url(#goo-blueprints)' }}
+                      >
+                        {blueprints.map((blueprint, index) => (
+                          <div key={`bg-${blueprint.id}`} className="relative h-full w-full">
+                            <div
+                              className={`absolute -inset-2 bg-stone-100 dark:bg-stone-900/50 ${getCornerClasses(index, blueprints.length, cols)}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
 
-                              {openDropdownId === blueprint.id && (
-                                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    onClick={(e) => handleEditBlueprint(e, blueprint)}
-                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                                  >
-                                    <Edit2 className="w-4 h-4" />
-                                    Edit Name
-                                  </button>
-                                  <button
-                                    onClick={(e) => handleDeleteBlueprint(e, blueprint.id)}
-                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-50"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                    Delete
-                                  </button>
+                      {/* Content Layer (Cards) */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                        {blueprints.map((blueprint) => (
+                          <div key={blueprint.id} className="relative group">
+                            <div
+                              onClick={() => navigate(`/blueprint/${blueprint.id}`)}
+                              className="bg-white rounded-2xl p-5 shadow-none hover:bg-gray-50 cursor-pointer transition-all relative flex flex-col h-full"
+                            >
+                              <div className="flex justify-between items-start mb-4">
+                                <div className="w-10 h-10 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-sm flex items-center justify-center text-black dark:text-stone-400">
+                                  <PenTool className="w-5 h-5" />
                                 </div>
-                              )}
+
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => toggleDropdown(e, blueprint.id)}
+                                    className="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                  >
+                                    <MoreVertical className="w-4 h-4" />
+                                  </button>
+
+                                  {openDropdownId === blueprint.id && (
+                                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                                      <button
+                                        onClick={(e) => handleEditBlueprint(e, blueprint)}
+                                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                      >
+                                        <Edit2 className="w-4 h-4" />
+                                        Edit Name
+                                      </button>
+                                      <button
+                                        onClick={(e) => handleDeleteBlueprint(e, blueprint.id)}
+                                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-50"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="mb-2">
+                                <h4 className="text-sm font-medium text-gray-900 mb-1 truncate" title={blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}>
+                                  {blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}
+                                </h4>
+                                <p className="text-xs text-gray-500 line-clamp-2 h-8">
+                                  {blueprint.task_type}
+                                </p>
+                              </div>
+
+                              <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
+                                <span>{new Date(blueprint.created_at).toLocaleDateString()}</span>
+                              </div>
                             </div>
                           </div>
-
-                          <div className="mb-2">
-                            <h4 className="text-sm font-medium text-gray-900 mb-1 truncate" title={blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}>
-                              {blueprint.title || blueprint.content?.blueprintName || 'Untitled Blueprint'}
-                            </h4>
-                            <p className="text-xs text-gray-500 line-clamp-2 h-8">
-                              {blueprint.task_type}
-                            </p>
-                          </div>
-
-                          <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
-                            <span>{new Date(blueprint.created_at).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -713,7 +775,6 @@ const ClassDetails = () => {
               </div>
             )}
           </div>
-
         </main>
       </div>
     </div>
@@ -721,4 +782,3 @@ const ClassDetails = () => {
 };
 
 export default ClassDetails;
-
