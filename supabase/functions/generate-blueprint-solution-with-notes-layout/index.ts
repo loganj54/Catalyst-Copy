@@ -112,6 +112,7 @@ ALL mathematical expressions, equations, variables, and numbers with units MUST 
 - Block equations: $$E = mc^2$$
 - All variables: $x$, $T$, $\\theta$, $\\mu$
 - All numbers with units: $2.5 \\text{ kg}$, $300 \\text{ K}$
+- For multiplication dots, use $\\cdot$ (NOT \\cdotp which doesn't render correctly)
 
 **SOLUTION WALKTHROUGH STRUCTURE:**
 Each solutionWalkthrough should include:
@@ -129,29 +130,6 @@ Each solutionWalkthrough should include:
 - Connect concepts to build understanding
 - Use **bold** for key concepts
 - Write like a professor's detailed solution guide
-
-**CLICKABLE TERMS - CRITICAL:**
-Wrap important concepts, procedural steps, and KEY EQUATIONS in DOUBLE BRACKETS like [[term]].
-
-**INTENSITY: AGGRESSIVE / HIGH DENSITY**
-We want to flag MANY concepts. If it sounds like an engineering term, physics phenomenon, or technical concept, WRAP IT.
-Target **15-20+ terms per section**. Do not be shy.
-
-**What to wrap (Clickable):**
-1. **Engineering Concepts**: [[forced convection]], [[temperature gradient]], [[heat transfer]], [[boundary layer]], [[thermal equilibrium]]
-2. **Physical Phenomena**: [[radiation]], [[evaporation]], [[condensation]], [[laminar flow]], [[turbulent mixing]]
-3. **Properties & Variables**: [[Nusselt number]], [[film temperature]], [[emissivity]], [[Reynolds number]], [[thermal conductivity]]
-4. **Procedural Steps**: [[evaluate air properties]], [[determine flow regime]], [[calculate view factor]]
-5. **Fundamental Equations**: Wrap the ENTIRE LaTeX equation. [[$Nu = 0.023 Re^{0.8} Pr^{n}$]]
-
-**What NOT to wrap (Not Clickable):**
-1. **Simple Values/Assignments**: "Given that $T = 300K$" (Just a value)
-2. **Generic words**: "The problem asks...", "We calculate..."
-
-**Rules:**
-- **LOWER THE THRESHOLD**: If in doubt, WRAP IT.
-- **REPEAT OFFENDERS**: Mark EVERY instance of a key term. If "forced convection" appears 5 times, wrap it ALL 5 times.
-- Mark phrases, not just single words: [[combined convection, radiation, and evaporation]] is excellent.
 
 **STANDARD STRUCTURE GENERATION RULES:**
 (All the same rules as generate-structure-legacy apply)
@@ -216,6 +194,35 @@ Output valid JSON only. Ensure EVERY problem section includes solutionWalkthroug
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Sanitize LaTeX in generated content - fixes common LLM mistakes
+ */
+function sanitizeLatex(text: string): string {
+  if (!text) return text;
+  // Replace \cdotp with \cdot (common LLM mistake that doesn't render)
+  return text.replace(/\\cdotp/g, '\\cdot');
+}
+
+/**
+ * Recursively sanitize all string fields in a structure
+ */
+function sanitizeStructure(obj: any): any {
+  if (typeof obj === 'string') {
+    return sanitizeLatex(obj);
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeStructure(item));
+  }
+  if (obj && typeof obj === 'object') {
+    const result: any = {};
+    for (const key of Object.keys(obj)) {
+      result[key] = sanitizeStructure(obj[key]);
+    }
+    return result;
+  }
+  return obj;
+}
 
 /**
  * Count totals from the structure
@@ -392,11 +399,14 @@ serve(async (req) => {
     const inputType = body.input_type || 'document_analysis';
 
     // Use maximum token limit to ensure walkthroughs complete
-    const structure = await callClaudeJSON<LearningStructure>(
+    const rawStructure = await callClaudeJSON<LearningStructure>(
       SOLUTION_WALKTHROUGH_SYSTEM_PROMPT,
       generateUserPrompt(analysisData, inputType),
       { temperature: 0.3, maxTokens: 64000 } // Max for Haiku 4.5
     );
+
+    // Sanitize LaTeX (fix \cdotp -> \cdot, etc.)
+    const structure = sanitizeStructure(rawStructure) as LearningStructure;
 
     console.log('[generate-solution-structure] Structure generated:');
     console.log(`  - Title: ${structure.summary?.title}`);

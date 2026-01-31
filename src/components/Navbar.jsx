@@ -37,7 +37,7 @@ const Navbar = () => {
 
 
   return (
-    <nav className="lg:px-12 flex fixed z-50 bg-stone-100 dark:bg-stone-900/90 w-full border-stone-200 dark:border-stone-800 border-b py-3 top-0 backdrop-blur-sm items-center transition-all duration-300">
+    <nav className="lg:px-12 flex fixed z-50 bg-white dark:bg-stone-900/90 w-full border-stone-200 dark:border-stone-800 border-b py-3 top-0 backdrop-blur-sm items-center transition-all duration-300">
       <div className="flex items-center flex-1">
         <Link to="/" className="flex items-center gap-2">
           <img

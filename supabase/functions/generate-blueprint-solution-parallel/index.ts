@@ -95,25 +95,13 @@ In this phase, you generate the COMPLETE structure but WITHOUT solution walkthro
 For every problem section's walkthrough unit, set: "solutionWalkthrough": "PENDING_PARALLEL_GENERATION"
 The walkthroughs will be generated separately in parallel for speed.
 
-**CLICKABLE TERMS - CRITICAL:**
-Wrap important concepts, procedural steps, and KEY EQUATIONS in DOUBLE BRACKETS like [[term]].
-
-**INTENSITY: AGGRESSIVE / HIGH DENSITY**
-Target **15-20+ terms per section**. If it sounds like an engineering term, physics phenomenon, or technical concept, WRAP IT.
-
-**What to wrap (Clickable):**
-1. **Engineering Concepts**: [[forced convection]], [[temperature gradient]], [[heat transfer]]
-2. **Physical Phenomena**: [[radiation]], [[evaporation]], [[condensation]]
-3. **Properties & Variables**: [[Nusselt number]], [[film temperature]], [[emissivity]]
-4. **Procedural Steps**: [[evaluate air properties]], [[determine flow regime]]
-5. **Fundamental Equations**: Wrap the ENTIRE LaTeX equation. [[$Nu = 0.023 Re^{0.8} Pr^{n}$]]
-
 **LATEX FORMATTING - CRITICAL:**
 ALL mathematical expressions, equations, variables, and numbers with units MUST be wrapped in LaTeX:
 - Inline math: $F = ma$, $\\Delta x$, $25 \\text{ m/s}$
 - Block equations: $$E = mc^2$$
 - All variables: $x$, $T$, $\\theta$, $\\mu$
 - All numbers with units: $2.5 \\text{ kg}$, $300 \\text{ K}$
+- For multiplication dots, use $\\cdot$ (NOT \\cdotp which doesn't render correctly)
 
 **STANDARD STRUCTURE GENERATION RULES:**
 1. Generate EXACTLY 3 search queries for EACH topic/concept
@@ -184,6 +172,7 @@ ALL mathematical expressions, equations, variables, and numbers with units MUST 
 - Block equations: $$E = mc^2$$
 - All variables: $x$, $T$, $\\theta$, $\\mu$
 - All numbers with units: $2.5 \\text{ kg}$, $300 \\text{ K}$
+- For multiplication dots, use $\\cdot$ (NOT \\cdotp which doesn't render correctly)
 
 **SOLUTION WALKTHROUGH STRUCTURE:**
 1. ## Understanding the Problem - Explain what's being asked
@@ -192,17 +181,6 @@ ALL mathematical expressions, equations, variables, and numbers with units MUST 
 4. ## Step-by-Step Solution - Walk through each calculation step (all math in LaTeX)
 5. ## Final Answer - State the result clearly (in LaTeX)
 6. ## Common Mistakes to Avoid - Optional but helpful
-
-**CLICKABLE TERMS - CRITICAL:**
-Wrap important concepts, procedural steps, and KEY EQUATIONS in DOUBLE BRACKETS like [[term]].
-Target **15-20+ terms**. If in doubt, WRAP IT.
-
-**What to wrap:**
-1. Engineering Concepts: [[forced convection]], [[temperature gradient]]
-2. Physical Phenomena: [[radiation]], [[evaporation]]
-3. Properties & Variables: [[Nusselt number]], [[film temperature]]
-4. Procedural Steps: [[evaluate air properties]], [[determine flow regime]]
-5. Fundamental Equations: [[$Nu = 0.023 Re^{0.8} Pr^{n}$]]
 
 **WRITING STYLE:**
 - Be VERY explanatory and deep in your analysis
@@ -241,7 +219,7 @@ ${problemStatement}
 
 Generate a complete walkthrough with all sections (Understanding, Given Information, Concepts/Equations, Step-by-Step Solution, Final Answer, Common Mistakes).
 
-All math MUST be in LaTeX. Wrap technical terms in [[double brackets]].
+All math MUST be in LaTeX.
 
 Output as JSON: {"solutionWalkthrough": "..."}`;
 }
@@ -319,6 +297,35 @@ function mergeWalkthroughsIntoStructure(
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Sanitize LaTeX in generated content - fixes common LLM mistakes
+ */
+function sanitizeLatex(text: string): string {
+  if (!text) return text;
+  // Replace \cdotp with \cdot (common LLM mistake that doesn't render)
+  return text.replace(/\\cdotp/g, '\\cdot');
+}
+
+/**
+ * Recursively sanitize all string fields in a structure
+ */
+function sanitizeStructure(obj: any): any {
+  if (typeof obj === 'string') {
+    return sanitizeLatex(obj);
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeStructure(item));
+  }
+  if (obj && typeof obj === 'object') {
+    const result: any = {};
+    for (const key of Object.keys(obj)) {
+      result[key] = sanitizeStructure(obj[key]);
+    }
+    return result;
+  }
+  return obj;
+}
 
 function countStructureMetrics(structure: LearningStructure) {
   const prerequisiteUnits = structure.prerequisites_section?.learning_units?.length || 0;
@@ -503,7 +510,7 @@ serve(async (req) => {
     // =========================================================================
     // PHASE 2: GENERATE WALKTHROUGHS IN PARALLEL
     // =========================================================================
-    const problemSections = skeletonStructure.content_sections.filter(
+    const problemSections = (skeletonStructure.content_sections || []).filter(
       s => s.section_type === 'problem'
     );
 
@@ -540,9 +547,9 @@ serve(async (req) => {
     console.log(`[parallel-generate] Phase 2 complete in ${phase2Time}ms`);
 
     // =========================================================================
-    // FINAL STRUCTURE READY
+    // FINAL STRUCTURE READY - SANITIZE LATEX
     // =========================================================================
-    const structure = skeletonStructure;
+    const structure = sanitizeStructure(skeletonStructure) as LearningStructure;
     const totalTime = Date.now() - startTime;
 
     console.log(`[parallel-generate] ----------------------------------------`);
