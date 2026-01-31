@@ -4387,10 +4387,8 @@ const Blueprint = () => {
                                   {/* Concept Header & Text Content */}
                                   <div>
                                     <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
-                                      {unit.topic}
+                                      {unit.unit_title || unit.topic || 'Concept'}
                                     </h3>
-
-
                                   </div>
 
                                   {/* Solution Walkthrough - MOVED TO TOP */}
@@ -4475,6 +4473,13 @@ const Blueprint = () => {
 
                                   {/* Tutor Guidance / Intro Text - SECOND */}
                                   <div className="mb-12 prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none space-y-6">
+                                    {/* Content Block Sub-header */}
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <span className="px-3 py-1 bg-stone-100 dark:bg-stone-800 rounded-lg text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                                        Overview
+                                      </span>
+                                    </div>
+
                                     {/* Render Tutor Guidance if available */}
                                     {unit.tutor_guidance && (
                                       <div className="mb-4 whitespace-pre-wrap">
