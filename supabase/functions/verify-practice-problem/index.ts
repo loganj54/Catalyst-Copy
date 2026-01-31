@@ -103,6 +103,7 @@ serve(async (req: Request) => {
                         from_cache: true,
                         verified: true,
                         problem: {
+                            problem_name: cachedProblem.problem_name || 'Practice Problem',
                             practice_problem: cachedProblem.problem_statement,
                             given_values: cachedProblem.given_values,
                             hints: cachedProblem.hints,
@@ -295,6 +296,7 @@ serve(async (req: Request) => {
             const { data: cached } = await supabaseService
                 .from('practice_problems_cache')
                 .insert({
+                    problem_name: finalProblem.problem_name || 'Practice Problem',
                     problem_statement: finalProblem.practice_problem,
                     context: context || {},
                     given_values: finalProblem.given_values,

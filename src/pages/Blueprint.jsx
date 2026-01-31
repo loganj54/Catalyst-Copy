@@ -790,9 +790,15 @@ const TopicListItem = ({
                 <div className="space-y-8">
                   {/* Practice Problem Generator UI Removed as per User Request */}
 
-                  {practiceProblem ? (
+                  {isFocusView && practiceProblem ? (
                     (Array.isArray(practiceProblem) ? practiceProblem : [practiceProblem]).map((problem, idx) => (
                       <div key={idx} className="space-y-4">
+                        {/* Problem Name Header */}
+                        {problem.problem_name && (
+                          <h5 className="font-semibold text-lg text-stone-800 dark:text-stone-200 px-1">
+                            {problem.problem_name}
+                          </h5>
+                        )}
                         <div className="p-4 bg-stone-50 dark:bg-stone-900/50 rounded-xl border border-stone-200 dark:border-stone-700">
                           <p className="text-base font-normal tracking-tight text-stone-900 dark:text-stone-100 leading-relaxed">
                             <LatexText text={problem.practice_problem} context={finalContext} />
@@ -1596,6 +1602,18 @@ const Blueprint = () => {
     }
   };
 
+  // Handle practice problem generated from chat (PracticeProblemsChat component)
+  const handleProblemGeneratedFromChat = (problem, unitId) => {
+    setPracticeProblems(prev => {
+      const existingProblems = prev[unitId] || [];
+      const currentList = Array.isArray(existingProblems) ? existingProblems : [existingProblems];
+      return {
+        ...prev,
+        [unitId]: [...currentList, { ...problem, solving: false }]
+      };
+    });
+  };
+
   // Handle Deep Dive Solution Generation
   const handleGenerateDeepDive = async (unit) => {
     if (!session?.access_token) return;
@@ -1823,6 +1841,7 @@ const Blueprint = () => {
           .select(`
             unit_id,
           cached_problem: practice_problems_cache(
+            problem_name,
             problem_statement,
             given_values,
             hints,
@@ -2027,6 +2046,7 @@ const Blueprint = () => {
           if (p.cached_problem) {
             if (!problemsMap[p.unit_id]) problemsMap[p.unit_id] = [];
             problemsMap[p.unit_id].push({
+              problem_name: p.cached_problem.problem_name,
               practice_problem: p.cached_problem.problem_statement,
               given_values: p.cached_problem.given_values,
               hints: p.cached_problem.hints,
@@ -3743,6 +3763,10 @@ const Blueprint = () => {
           id: section.section_id || `section-${idx}`,
           label: label,
           fullTitle: section.title,
+          topic: section.learning_units?.[0]?.topic,
+          unit_title: section.learning_units?.[0]?.unit_title,
+          description: section.description || section.learning_units?.[0]?.description || section.learning_units?.[0]?.learning_objective || '',
+          learning_objective: section.learning_objective || section.learning_units?.[0]?.learning_objective || '',
           sectionIndex: idx
         });
       });
@@ -4050,8 +4074,8 @@ const Blueprint = () => {
               {/* Right: Actions */}
               <div className="flex items-center gap-2 shrink-0 pointer-events-auto">
 
-                {/* Chat Actions */}
-                {(activeTab === 'chat' || activeTab === 'practice-problems-chat') && activeThreadId && (
+                {/* Chat with Document Actions - History & New Thread */}
+                {activeTab === 'chat' && (
                   <>
                     <button
                       onClick={() => setShowChatHistory(!showChatHistory)}
@@ -4075,22 +4099,29 @@ const Blueprint = () => {
                   </>
                 )}
 
-                {/* Problem Bank Button */}
+                {/* Practice Problems Actions - Problem Bank & New Problem */}
                 {activeTab === 'practice-problems-chat' && (
-                  <button
-                    onClick={() => {
-                      setShowProblemBank(!showProblemBank);
-                      if (!showProblemBank) setShowChatHistory(false);
-                    }}
-                    className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-xs font-medium transition-all shadow-sm active:scale-95 ${showProblemBank
-                      ? 'bg-black text-white border-black hover:bg-stone-800'
-                      : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700'
-                      }`}
-                    title={showProblemBank ? "Close Problem Bank" : "Problem Bank"}
-                  >
-                    <Library className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{showProblemBank ? 'Close' : 'Problem Bank'}</span>
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setShowProblemBank(!showProblemBank)}
+                      className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-xs font-medium transition-all shadow-sm active:scale-95 ${showProblemBank
+                        ? 'bg-black text-white border-black hover:bg-stone-800'
+                        : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700'
+                        }`}
+                      title={showProblemBank ? "Close Problem Bank" : "Problem Bank"}
+                    >
+                      <Library className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">{showProblemBank ? 'Close' : 'Problem Bank'}</span>
+                    </button>
+                    <button
+                      onClick={() => chatRef.current?.createNewThread()}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-700 rounded-lg text-xs font-medium transition-all shadow-sm active:scale-95"
+                      title="New Problem"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">New Problem</span>
+                    </button>
+                  </>
                 )}
 
 
@@ -4150,17 +4181,13 @@ const Blueprint = () => {
                     documentId={blueprint.document_id}
                     hasDocument={!!blueprint.document_id}
                     initialQuery={blueprint.content?.text || ""}
-                    showHistory={showChatHistory}
-                    onToggleHistory={() => setShowChatHistory(!showChatHistory)}
-                    onThreadChange={(title, threadId) => {
-                      setChatTitle(title);
-                      setActiveThreadId(threadId);
-                    }}
-                    tabs={tabs} // Pass tabs for section selection
+                    tabs={tabs}
                     practiceProblems={practiceProblems}
                     structure={structure}
+                    documentAnalysis={documentAnalysis}
                     showProblemBank={showProblemBank}
                     onToggleProblemBank={() => setShowProblemBank(!showProblemBank)}
+                    onProblemGenerated={handleProblemGeneratedFromChat}
                   />
                 </div>
               ) : (
@@ -4311,9 +4338,11 @@ const Blueprint = () => {
                       <div className="bg-white dark:bg-stone-900 rounded-2xl p-8 md:p-12 shadow-xl border border-stone-200 dark:border-stone-700">
                         {/* 1. Problem Header (Active Section) */}
                         <div className="space-y-6 mb-16">
-                          <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
-                            {currentSectionTitle}
-                          </h2>
+                          {(!currentSectionTitle?.startsWith('Problem')) && (
+                            <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
+                              {currentSectionTitle}
+                            </h2>
+                          )}
                           {currentSectionTitle === 'Prerequisites' && (
                             <p className="text-xl text-stone-500 italic max-w-2xl font-light">
                               You must be comfortable with the following topics before moving forward.
@@ -4384,6 +4413,8 @@ const Blueprint = () => {
                               <div key={unit.unit_id} className="relative group">
 
                                 <div className="space-y-8">
+
+
                                   {/* Concept Header & Text Content */}
                                   <div>
                                     <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
@@ -4394,12 +4425,7 @@ const Blueprint = () => {
                                   {/* Solution Walkthrough - MOVED TO TOP */}
                                   {unit.solutionWalkthrough && (
                                     <div className="mt-12 mb-16">
-                                      <div className="mb-8">
-                                        <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 flex items-center gap-4">
-                                          <BookOpen className="w-8 h-8 md:w-10 md:h-10 text-stone-400 stroke-[1.5]" />
-                                          Complete Solution Walkthrough
-                                        </h3>
-                                      </div>
+
 
                                       <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
                                         <ReactMarkdown

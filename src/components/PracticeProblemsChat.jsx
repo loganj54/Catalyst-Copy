@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import {
     Send, Loader2, MessageSquare, Plus, Trash2, Clock, Folder, Library,
-    ArrowRight, Paperclip, X
+    ArrowRight, Paperclip, X, ChevronDown, ChevronUp
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
@@ -9,68 +9,118 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { supabase } from '../lib/supabase';
 
+const CollapsibleSection = ({ title, children, defaultOpen = false }) => {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+
+    return (
+        <div className="mt-4 border border-stone-200 dark:border-stone-800 rounded-xl overflow-hidden bg-stone-50/50 dark:bg-stone-900/50">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left transition-colors hover:bg-stone-100 dark:hover:bg-stone-800"
+            >
+                <span className="font-medium text-stone-900 dark:text-stone-100">{title}</span>
+                {isOpen ? (
+                    <ChevronUp className="w-4 h-4 text-stone-500" />
+                ) : (
+                    <ChevronDown className="w-4 h-4 text-stone-500" />
+                )}
+            </button>
+            {isOpen && (
+                <div className="px-5 pb-5 pt-0 animate-in slide-in-from-top-2 duration-200">
+                    <div className="pt-4 border-t border-stone-200 dark:border-stone-800">
+                        {children}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const truncateText = (text, maxWords) => {
+    if (!text) return '';
+    const words = text.split(/\s+/);
+    if (words.length <= maxWords) return text;
+    return words.slice(0, maxWords).join(' ') + '...';
+};
+
+const cleanDescription = (text) => {
+    if (!text) return '';
+    // Find the first colon or semicolon and return text after it
+    const match = text.match(/[:;]\s*(.+)$/);
+    return match ? match[1] : text;
+};
+
 const PracticeProblemsChat = forwardRef(({
     documentId,
     blueprintId,
     contextTitle = "Document Context",
     hasDocument = true,
     initialQuery = "",
-    onThreadChange, // Callback (title, threadId)
-    showHistory: propShowHistory,
-    onToggleHistory: propOnToggleHistory,
-    tabs = [], // New prop for sections
+    tabs = [],
     practiceProblems = {},
     structure = {},
+    documentAnalysis = null, // Contains raw_analysis.sections with problem data
     showProblemBank = false,
-    onToggleProblemBank
+    onToggleProblemBank,
+    onProblemGenerated // Callback to update Problem Bank when a new problem is generated
 }, ref) => {
-    // History Sidebar State
-    const [internalShowHistory, setInternalShowHistory] = useState(false);
-
-    // Determine if controlled or uncontrolled
-    const isControlled = typeof propShowHistory !== 'undefined';
-    const showHistory = isControlled ? propShowHistory : internalShowHistory;
-
-    // Helper to toggle
-    const toggleHistory = () => {
-        if (isControlled && propOnToggleHistory) {
-            propOnToggleHistory();
-        } else {
-            setInternalShowHistory(prev => !prev);
-        }
-    };
-
-    // Helper to set explicit
-    const setHistoryOpen = (isOpen) => {
-        if (isControlled && propOnToggleHistory) {
-            // Only if the clear intent matches (e.g. force close)
-            // For simple toggle, just toggle. But to "Close" explicitly:
-            if (showHistory !== isOpen) propOnToggleHistory();
-        } else {
-            setInternalShowHistory(isOpen);
-        }
-    };
 
     // Thread state
     const [threads, setThreads] = useState([]);
     const [activeThreadId, setActiveThreadId] = useState(null);
     const [isLoadingThreads, setIsLoadingThreads] = useState(false);
 
+    // View state
+    const [activeProblemId, setActiveProblemId] = useState(null); // ID of the problem currently being viewed
+
+
     // Chat state
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState(initialQuery);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Empty View condition: No active thread selected
-    const isEmptyView = !activeThreadId;
+    // Empty View condition: No active thread selected AND no active problem selected
+    const isEmptyView = !activeThreadId && !activeProblemId;
 
     const [fetchedDocumentId, setFetchedDocumentId] = useState(null);
     const [isResolvingDocId, setIsResolvingDocId] = useState(false);
     const [classId, setClassId] = useState(null);
     const [useClassContext, setUseClassContext] = useState(false);
     const [selectedSections, setSelectedSections] = useState(new Set()); // State for selected practice sections
+    const [selectedProblems, setSelectedProblems] = useState(new Set()); // State for selected problems
+    const [generatedProblem, setGeneratedProblem] = useState(null); // Stores the most recently generated problem
 
     const activeDocumentId = documentId || fetchedDocumentId;
+
+    // Extract problems from documentAnalysis with their full context
+    const extractedProblems = React.useMemo(() => {
+        const sections = documentAnalysis?.raw_analysis?.sections || [];
+        const structureSections = structure?.content_sections || structure?.learning_structure?.content_sections || [];
+
+        return sections
+            .filter(section => section.problem_statement) // Only include sections with actual problems
+            .map(section => {
+                // Find matching structure section for the label
+                const matchingTab = tabs.find(t =>
+                    t.id === section.section_id ||
+                    t.id === section.section_id?.replace('_walkthroughs', '') ||
+                    section.section_id?.includes(t.id)
+                );
+
+                return {
+                    id: section.section_id,
+                    label: matchingTab?.label || section.section_id || 'Problem',
+                    fullTitle: matchingTab?.fullTitle || section.section_id,
+                    description: cleanDescription(matchingTab?.unit_title || matchingTab?.topic || matchingTab?.description || matchingTab?.learning_objective || section.content_summary || section.concept_summary || section.summary || section.description || ''),
+                    problem_statement: section.problem_statement,
+                    given_values: section.given_values || [],
+                    solution_approach: section.solution_approach || [],
+                    common_mistakes: section.common_mistakes || [],
+                    concepts_covered: section.concepts_covered || [],
+                    difficulty_level: section.difficulty_level
+                };
+            });
+    }, [documentAnalysis, structure, tabs]);
 
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
@@ -79,20 +129,7 @@ const PracticeProblemsChat = forwardRef(({
     // Expose methods to parent
     useImperativeHandle(ref, () => ({
         createNewThread: () => createNewThread(),
-        toggleHistory: () => toggleHistory(),
     }));
-
-    // Notify parent of thread changes
-    useEffect(() => {
-        if (onThreadChange) {
-            if (activeThreadId) {
-                const currentThread = threads.find(t => t.id === activeThreadId);
-                onThreadChange(currentThread?.title || 'New Conversation', activeThreadId);
-            } else {
-                onThreadChange('AI Assistant', null);
-            }
-        }
-    }, [activeThreadId, threads, onThreadChange]);
 
     // Initial load
     useEffect(() => {
@@ -116,22 +153,15 @@ const PracticeProblemsChat = forwardRef(({
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isLoading, input, activeThreadId]);
 
-    // Lock scroll on main container when history sidebar is open
+    // Lock scroll on main container when problem bank sidebar is open
     useEffect(() => {
         const scrollContainer = document.getElementById('main-scroll-container');
         if (scrollContainer) {
-            if (showHistory) {
+            if (showProblemBank) {
                 scrollContainer.style.overflow = 'hidden';
-            } else {
-                // If we are in chat mode (which controls this component), the parent might expect hidden
-                // But this specific effect handles history toggle interactions.
-                // We'll let the parent manage the main container scroll state for "chat mode".
-                // Just reset if we messed with it, but check parent implementation.
-                // Actually, for this specific component, we want to ensure the MAIN container doesn't scroll if history is open.
-                // Implementation in Blueprint.jsx handles the global chat mode scroll lock.
             }
         }
-    }, [showHistory]);
+    }, [showProblemBank]);
 
     // --- DATA FETCHING ---
     const resolveDocumentId = async () => {
@@ -240,9 +270,12 @@ const PracticeProblemsChat = forwardRef(({
 
     const createNewThread = async () => {
         setActiveThreadId(null);
+        setActiveProblemId(null);
         setMessages([]);
         setInput('');
-        setHistoryOpen(false); // Close sidebar when starting new
+        if (showProblemBank && onToggleProblemBank) {
+            onToggleProblemBank(); // Close sidebar when starting new
+        }
     };
 
     const deleteThread = async (e, threadId) => {
@@ -423,42 +456,88 @@ const PracticeProblemsChat = forwardRef(({
         }
     };
 
-    const handleThreadClick = (threadId) => {
-        setActiveThreadId(threadId);
-        setHistoryOpen(false); // Close history when selecting a thread
+    // Generate practice problem and save to Problem Bank (not chat history)
+    const handleGeneratePracticeProblem = async (selectedProblemData) => {
+        setIsLoading(true);
+        setGeneratedProblem(null);
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+
+            // Use the first selected problem's section_id as unit_id
+            const unitId = selectedProblemData[0]?.id || 'generated';
+
+            // Build context from selected problems
+            const original_problem = selectedProblemData.map(p => p.problem_statement).join('\n\n');
+            const topic = selectedProblemData.map(p => p.label).join(', ');
+
+            const response = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-practice-problem`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        topic,
+                        original_problem,
+                        unit_id: unitId,
+                        blueprint_id: blueprintId,
+                        context: {
+                            concepts: selectedProblemData.flatMap(p => p.concepts_covered || []),
+                            source_problems: selectedProblemData.length
+                        }
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (result.success && result.problem) {
+                // Call parent callback to update Problem Bank
+                onProblemGenerated?.(result.problem, unitId);
+                // Show the generated problem in the UI
+                setGeneratedProblem(result.problem);
+                // Set as active problem to switch view
+                setActiveProblemId(unitId);
+                // Clear selection after successful generation
+                setSelectedProblems(new Set());
+            } else {
+                console.error('Failed to generate problem:', result.error);
+            }
+        } catch (error) {
+            console.error('Failed to generate problem:', error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // =================================================================================================
-    // MAIN RENDER WITH INLINED HISTORY SIDEBAR
+    // MAIN RENDER
     // =================================================================================================
     return (
         <div className="w-full h-full relative overflow-hidden flex flex-col">
 
-            {/* Sidebar Overlay (Inlined) */}
-            <div className={`absolute top-0 right-0 h-full w-80 bg-white dark:bg-stone-900 border-l border-stone-200 dark:border-stone-800 transform transition-transform duration-300 z-[60] ${(showHistory || showProblemBank) ? 'translate-x-0 shadow-2xl' : 'translate-x-full shadow-none'}`}>
+            {/* Problem Bank Sidebar */}
+            <div className={`absolute top-0 right-0 h-full w-80 bg-white dark:bg-stone-900 border-l border-stone-200 dark:border-stone-800 transform transition-transform duration-300 z-[60] ${showProblemBank ? 'translate-x-0 shadow-2xl' : 'translate-x-full shadow-none'}`}>
                 <div className="flex flex-col h-full bg-white dark:bg-stone-900">
-                    <div className="px-6 pb-6 pt-10 flex items-center justify-between">
-                        <h2 className="text-xl font-normal text-black dark:text-white tracking-tight leading-tight">
-                            {showProblemBank ? 'Problem Bank' : 'Past threads'}
-                        </h2>
-                        {showProblemBank && (
-                            <button onClick={onToggleProblemBank} className="text-stone-400 hover:text-stone-600">
-                                <X className="w-5 h-5" />
-                            </button>
-                        )}
+                    <div className="px-6 pb-6 pt-10">
+                        <h2 className="text-xl font-normal text-black dark:text-white tracking-tight leading-tight">Problem Bank</h2>
                     </div>
-                    {showProblemBank ? (
-                        /* PROBLEM BANK CONTENT */
-                        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
-                            {Object.keys(practiceProblems).length === 0 ? (
-                                <div className="px-2 py-2 text-sm text-stone-400 italic">
-                                    No practice problems generated yet.
-                                </div>
-                            ) : (
-                                Object.entries(practiceProblems).map(([unitId, problems]) => {
+                    <div className="flex-1 overflow-y-auto pt-5 px-3 space-y-0.5">
+                        {Object.keys(practiceProblems).length === 0 ? (
+                            <div className="px-2 py-2 text-sm text-stone-400 italic">
+                                No practice problems yet.
+                            </div>
+                        ) : (
+                            Object.entries(practiceProblems).flatMap(([unitId, problems]) => {
+                                // Handle if problems is an array or single object
+                                const problemList = Array.isArray(problems) ? problems : [problems];
+
+                                return problemList.map((prob, idx) => {
                                     // Resolve unit title
                                     let unitTitle = "Unknown Section";
-                                    // Try to find in structure
                                     if (structure?.content_sections) {
                                         for (const section of structure.content_sections) {
                                             const unit = section.learning_units?.find(u => u.unit_id === unitId);
@@ -469,73 +548,54 @@ const PracticeProblemsChat = forwardRef(({
                                         }
                                     }
 
+                                    // Make a unique ID (if we had real IDs use them, else composite)
+                                    const itemKey = `${unitId}-${idx}`;
+                                    const isActive = activeProblemId === unitId; // Simple check for now
+
                                     return (
-                                        <div key={unitId} className="space-y-2">
-                                            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 pl-2">
-                                                {unitTitle}
-                                            </h3>
-                                            <div className="space-y-2">
-                                                {(Array.isArray(problems) ? problems : [problems]).map((prob, idx) => (
-                                                    <div key={idx} className="p-3 bg-stone-50 dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700 text-sm">
-                                                        <div className="line-clamp-3 text-stone-700 dark:text-stone-300 mb-2">
-                                                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
-                                                                {prob.practice_problem}
-                                                            </ReactMarkdown>
-                                                        </div>
-                                                        <div className="text-[10px] text-stone-400 text-right">
-                                                            Problem {idx + 1}
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                        <button
+                                            key={itemKey}
+                                            onClick={() => {
+                                                setActiveProblemId(unitId);
+                                                onToggleProblemBank(); // Close sidebar on selection
+                                            }}
+                                            className={`
+                                                w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm font-medium transition-colors text-left group
+                                                ${isActive
+                                                    ? 'bg-stone-100 text-black'
+                                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+                                            `}
+                                        >
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <Library className="w-4 h-4 text-gray-400 group-hover:text-gray-500 shrink-0" />
+                                                <span className="truncate">
+                                                    {prob.problem_name || unitTitle || `Problem ${idx + 1}`}
+                                                </span>
                                             </div>
-                                        </div>
+                                            <span className="text-[10px] text-gray-400 shrink-0 ml-2 hidden group-hover:inline">
+                                                {unitTitle}
+                                            </span>
+                                        </button>
                                     );
-                                })
-                            )}
-                        </div>
-                    ) : (
-                        /* CHAT HISTORY CONTENT */
-                        <div className="flex-1 overflow-y-auto pt-5 px-3 space-y-0.5">
-                            {threads.length === 0 ? (
-                                <div className="px-2 py-2 text-sm text-stone-400 italic">
-                                    No history yet.
-                                </div>
-                            ) : (
-                                threads.map(thread => (
-                                    <button
-                                        key={thread.id}
-                                        onClick={() => handleThreadClick(thread.id)}
-                                        className={`
-                                        w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm font-medium transition-colors text-left group
-                                        ${activeThreadId === thread.id
-                                                ? 'bg-stone-100 text-black'
-                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
-                                    `}
-                                    >
-                                        <div className="flex items-center gap-2.5 min-w-0">
-                                            <MessageSquare className="w-4 h-4 text-gray-400 group-hover:text-gray-500 shrink-0" />
-                                            <span className="truncate">{thread.title || 'Conversation'}</span>
-                                        </div>
-                                        <span className="text-[10px] text-gray-400 shrink-0 ml-2">
-                                            {new Date(thread.updated_at).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}
-                                        </span>
-                                    </button>
-                                ))
-                            )}
-                        </div>
-                    )}
-                    {/* New Chat Button in Sidebar (Only for History) */}
-                    {!showProblemBank && (
-                        <div className="p-4 pb-6 border-t border-stone-100 dark:border-stone-800">
-                            <button
-                                onClick={createNewThread}
-                                className="w-full flex items-center justify-center gap-2 py-2 bg-stone-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
-                            >
-                                <Plus className="w-4 h-4" />
-                                New Chat
-                            </button>
-                        </div>
-                    )}
+                                });
+                            })
+                        )}
+                    </div>
+
+                    {/* New Problem Button in Sidebar */}
+                    <div className="p-4 pb-6 border-t border-stone-100 dark:border-stone-800">
+                        <button
+                            onClick={() => {
+                                setActiveThreadId(null);
+                                setActiveProblemId(null);
+                                onToggleProblemBank(); // Close sidebar to show generator
+                            }}
+                            className="w-full flex items-center justify-center gap-2 py-2 bg-stone-900 dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+                        >
+                            <Plus className="w-4 h-4" />
+                            New Problem
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -551,7 +611,7 @@ const PracticeProblemsChat = forwardRef(({
                             Ready for some practice?
                         </h1>
                         <p className="text-gray-600 dark:text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
-                            Select sections from your blueprint to generate tailored practice problems.
+                            Select problems to generate a custom practice scenario.
                         </p>
                     </div>
 
@@ -562,58 +622,64 @@ const PracticeProblemsChat = forwardRef(({
                                 <div className="border border-stone-200 dark:border-stone-800 rounded-lg p-3">
                                     <div className="flex items-center justify-between mb-4">
                                         <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100 tracking-wider">
-                                            Based on...
+                                            Base practice problem on...
                                         </h2>
                                         <button
                                             onClick={() => {
-                                                const practiceTabs = tabs.filter(t => t.id !== 'prerequisites');
-                                                if (selectedSections.size === practiceTabs.length) {
-                                                    setSelectedSections(new Set());
+                                                if (selectedProblems.size === extractedProblems.length) {
+                                                    setSelectedProblems(new Set());
                                                 } else {
-                                                    setSelectedSections(new Set(practiceTabs.map(t => t.id)));
+                                                    setSelectedProblems(new Set(extractedProblems.map(p => p.id)));
                                                 }
                                             }}
                                             className="text-xs font-medium text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 transition-colors"
                                         >
-                                            {selectedSections.size === tabs.filter(t => t.id !== 'prerequisites').length ? 'Deselect All' : 'Select All'}
+                                            {selectedProblems.size === extractedProblems.length ? 'Deselect All' : 'Select All'}
                                         </button>
                                     </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
-                                        {tabs.filter(t => t.id !== 'prerequisites').map((tab) => {
-                                            const isSelected = selectedSections.has(tab.id);
-                                            return (
-                                                <button
-                                                    key={tab.id}
-                                                    onClick={() => {
-                                                        setSelectedSections(prev => {
-                                                            const next = new Set(prev);
-                                                            if (next.has(tab.id)) next.delete(tab.id);
-                                                            else next.add(tab.id);
-                                                            return next;
-                                                        });
-                                                    }}
-                                                    className="flex items-center gap-4 py-2 px-1 transition-all text-left group"
-                                                >
-                                                    <div className={`
-                                                    w-3 h-3 rounded-full border flex items-center justify-center transition-all flex-shrink-0
-                                                    ${isSelected
-                                                            ? 'border-black dark:border-white bg-black dark:bg-white'
-                                                            : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 group-hover:border-stone-400 dark:group-hover:border-stone-500'}
-                                                `}>
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className={`text-sm transition-colors truncate text-stone-900 dark:text-stone-100 ${isSelected ? 'font-medium' : ''}`}>
-                                                            {tab.label}
-                                                        </p>
-                                                        <p className="text-xs text-stone-400 dark:text-stone-500 truncate">
-                                                            {tab.fullTitle}
-                                                        </p>
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
+                                    {extractedProblems.length === 0 ? (
+                                        <div className="text-center py-8 text-stone-400">
+                                            <p className="text-sm">No problems found in this blueprint.</p>
+                                            <p className="text-xs mt-1">Problems will appear here once the document is analyzed.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
+                                            {extractedProblems.map((problem) => {
+                                                const isSelected = selectedProblems.has(problem.id);
+                                                return (
+                                                    <button
+                                                        key={problem.id}
+                                                        onClick={() => {
+                                                            setSelectedProblems(prev => {
+                                                                const next = new Set(prev);
+                                                                if (next.has(problem.id)) next.delete(problem.id);
+                                                                else next.add(problem.id);
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        className="flex items-center gap-4 py-2 px-1 transition-all text-left group"
+                                                    >
+                                                        <div className={`
+                                                            w-3 h-3 rounded-full border flex items-center justify-center transition-all flex-shrink-0
+                                                            ${isSelected
+                                                                ? 'border-black dark:border-white bg-black dark:bg-white'
+                                                                : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 group-hover:border-stone-400 dark:group-hover:border-stone-500'}
+                                                        `}>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className={`text-sm transition-colors truncate text-stone-900 dark:text-stone-100 ${isSelected ? 'font-medium' : ''}`}>
+                                                                {problem.label}
+                                                            </p>
+                                                            <p className="text-xs text-stone-400 dark:text-stone-500 truncate">
+                                                                {truncateText(problem.description || problem.fullTitle, 10)}
+                                                            </p>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             {/* Bottom Bar */}
@@ -621,29 +687,35 @@ const PracticeProblemsChat = forwardRef(({
                                 <div className="w-full border-t border-stone-200 dark:border-stone-800 mb-5" />
                                 <button
                                     onClick={() => {
-                                        if (selectedSections.size === 0 || isLoading) return;
-                                        const sectionsList = tabs
-                                            .filter(t => selectedSections.has(t.id))
-                                            .map(t => `- ${t.fullTitle} (${t.label})`)
-                                            .join('\n');
-                                        handleSend(`Generate practice problems based on the following sections:\n${sectionsList}`);
+                                        if (selectedProblems.size === 0 || isLoading) return;
+
+                                        // Build rich context with full problem data
+                                        const selectedProblemData = extractedProblems.filter(p => selectedProblems.has(p.id));
+
+                                        // Call the dedicated problem generation function (saves to Problem Bank, not chat)
+                                        handleGeneratePracticeProblem(selectedProblemData);
                                     }}
-                                    className={`w-full flex items-center justify-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg font-medium text-sm border border-transparent shadow-sm hover:opacity-80 transition-all ${selectedSections.size === 0 ? 'cursor-not-allowed' : ''
+                                    disabled={selectedProblems.size === 0 || isLoading || extractedProblems.length === 0}
+                                    className={`w-full flex items-center justify-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg font-medium text-sm border border-transparent shadow-sm hover:opacity-80 transition-all ${(selectedProblems.size === 0 || extractedProblems.length === 0) ? 'opacity-50 cursor-not-allowed' : ''
                                         }`}
                                 >
                                     {isLoading ? (
                                         <>
                                             <Loader2 className="w-4 h-4 animate-spin" />
-                                            Thinking...
+                                            Generating practice problem...
                                         </>
                                     ) : (
                                         <>
                                             <span>
-                                                {selectedSections.size === 0
-                                                    ? 'Select sections above'
-                                                    : selectedSections.size === tabs.filter(t => t.id !== 'prerequisites').length
-                                                        ? 'Generate a practice problem based on full document'
-                                                        : `Generate practice problems based on ${selectedSections.size} sections`
+                                                {extractedProblems.length === 0
+                                                    ? 'No problems available'
+                                                    : selectedProblems.size === 0
+                                                        ? 'Select problems above'
+                                                        : selectedProblems.size === 1
+                                                            ? 'Generate practice problem based on 1 problem'
+                                                            : selectedProblems.size === extractedProblems.length
+                                                                ? 'Generate practice problem based on all problems'
+                                                                : `Generate practice problem based on ${selectedProblems.size} problems`
                                                 }
                                             </span>
                                             <ArrowRight className="w-4 h-4" />
@@ -653,7 +725,112 @@ const PracticeProblemsChat = forwardRef(({
                             </div>
                         </div>
                     </div>
+
                 </div >
+            ) : activeProblemId ? (
+                /* PRACTICE PROBLEM VIEW */
+                <div className="w-full h-full flex flex-col items-center overflow-y-auto px-6 py-10 lg:pr-[334px] bg-transparent animate-in fade-in duration-500 relative z-10">
+                    {(() => {
+                        // Find the problem data
+                        const problems = practiceProblems[activeProblemId];
+                        const problem = Array.isArray(problems) ? problems[0] : problems; // Just showing first for now if multiple
+
+                        // Resolve unit title
+                        let unitTitle = "Practice Problem";
+                        // Try to find in structure
+                        if (structure?.content_sections) {
+                            for (const section of structure.content_sections) {
+                                const unit = section.learning_units?.find(u => u.unit_id === activeProblemId);
+                                if (unit) {
+                                    unitTitle = unit.topic;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!problem) return (
+                            <div className="flex flex-col items-center justify-center h-full text-stone-500">
+                                <p>Problem not found.</p>
+                                <button onClick={() => setActiveProblemId(null)} className="mt-4 text-[#FF4A1C]">Back to generator</button>
+                            </div>
+                        );
+
+                        return (
+                            <div className="w-full max-w-4xl space-y-8 pb-20">
+                                {/* Header */}
+                                <div className="border-b border-stone-200 dark:border-stone-700 pb-6">
+                                    <h1 className="text-3xl font-display font-medium text-stone-900 dark:text-stone-100">
+                                        {problem.problem_name || unitTitle}
+                                    </h1>
+                                    <p className="text-sm text-stone-400 dark:text-stone-500 mt-2">
+                                        {new Date().toLocaleDateString()}
+                                    </p>
+                                </div>
+
+                                {/* Problem Content */}
+                                <div className="bg-white dark:bg-stone-900 rounded-2xl p-8 border border-stone-200 dark:border-stone-800 shadow-sm">
+                                    <div className="prose prose-lg max-w-none dark:prose-invert text-stone-800 dark:text-stone-200 leading-relaxed">
+                                        <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                            {problem.practice_problem}
+                                        </ReactMarkdown>
+                                    </div>
+
+                                    {/* Hints Section */}
+                                    {problem.hints && problem.hints.length > 0 && (
+                                        <CollapsibleSection title="Hints" defaultOpen={false}>
+                                            <ul className="list-disc list-outside ml-4 space-y-2">
+                                                {problem.hints.map((hint, idx) => (
+                                                    <li key={idx} className="text-stone-600 dark:text-stone-300">
+                                                        <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                                            {hint}
+                                                        </ReactMarkdown>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </CollapsibleSection>
+                                    )}
+
+                                    {/* Solution Section */}
+                                    {(problem.solution_steps?.length > 0 || problem.final_answer) && (
+                                        <CollapsibleSection title="Solution" defaultOpen={false}>
+                                            <div className="space-y-6">
+                                                {problem.solution_steps?.map((step, idx) => (
+                                                    <div key={idx} className="flex gap-4">
+                                                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-xs font-bold text-stone-500">
+                                                            {idx + 1}
+                                                        </div>
+                                                        <div className="flex-1 text-stone-600 dark:text-stone-300">
+                                                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                                                {step}
+                                                            </ReactMarkdown>
+                                                        </div>
+                                                    </div>
+                                                ))}
+
+                                                {problem.final_answer && (
+                                                    <div className="mt-6 pt-4 border-t border-stone-100 dark:border-stone-800">
+                                                        <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-100 dark:border-green-800/30">
+                                                            <p className="text-xs font-bold uppercase tracking-wider text-green-700 dark:text-green-400 mb-1">Final Answer</p>
+                                                            <div className="text-green-900 dark:text-green-100 font-medium">
+                                                                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                                                    {problem.final_answer}
+                                                                </ReactMarkdown>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </CollapsibleSection>
+                                    )}
+
+
+                                </div>
+
+
+                            </div>
+                        );
+                    })()}
+                </div>
             ) : (
                 /* ACTIVE CHAT STATE */
                 <div className="w-full h-full flex flex-col bg-transparent">

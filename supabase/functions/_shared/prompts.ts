@@ -899,40 +899,61 @@ This problem will be cached and reused, so it must be:
 2. CLEARLY WRITTEN - unambiguous problem statement
 3. EDUCATIONALLY VALUABLE - tests understanding, not just computation
 4. SELF-CONTAINED - all needed information is in the problem
+5. DESCRIPTIVE NAME - Create a clear, professional 3-6 word title that summarizes the problem scenario
 
 CRITICAL: Your solution MUST be correct. This will be verified by other models.
 
 Output must be valid JSON with no markdown formatting.
-CRITICAL FORMATTING: Use LaTeX formatting for ALL mathematical expressions, variables, and units. Enclose in single dollar signs.
-CRITICAL JSON ESCAPING: You MUST escape all backslashes in the code (e.g. write \\frac instead of \frac).\`,
 
-    user: (topic: string, originalProblem: string, context: any) => \`Generate a unique practice problem based on:
+LATEX FORMATTING (use single dollar signs $...$ for inline math):
+- CRITICAL: Escape ALL backslashes (write \\frac not \frac, \\pi not \pi, \\text not \text)
+- Variables and equations: $F = ma$, $v = \\sqrt{2gh}$, $\\theta = 45^\\circ$
+- Numbers with units: $5.0 \\text{ kg}$, $25 \\text{ m/s}$
+- Keep formulas simple and clear - if stuck, use plain text instead
+- NEVER repeat or loop text - write each formula once`,
 
-TOPIC: \${topic}
-ORIGINAL PROBLEM CONTEXT: \${originalProblem}
-LEARNING OBJECTIVE: \${context?.learning_objective || 'Master the fundamental concepts'}
+    user: (topic: string, originalProblem: string, context: any) => `Generate a unique practice problem based on:
+
+TOPIC: ${topic}
+ORIGINAL PROBLEM CONTEXT: ${originalProblem}
+LEARNING OBJECTIVE: ${context?.learning_objective || 'Master the fundamental concepts'}
 
 Create a NEW problem with DIFFERENT numerical values and context.
 
 Output format:
 {
+  "problem_name": "Rocket Bounce Physics",
   "practice_problem": "Complete problem statement with all given values and what to find",
-    "given_values": [
-      { "symbol": "m", "value": "5.0", "unit": "kg", "description": "mass of object" }
-    ],
-      "learning_objective": "What this problem helps master",
-        "hints": [
-          "Hint 1: Starting approach",
-          "Hint 2: Key equation to use",
-          "Hint 3: Watch out for this common mistake"
-        ],
-          "solution_steps": [
-            "Step 1: [Full explanation with equation and substitution]",
-            "Step 2: [Continue solving with clear reasoning]",
-            "Step 3: [Final calculation and verification]"
-          ],
-            "final_answer": "numerical answer with units only (e.g., '42.5 m/s')"
-} \`
+  "given_values": [
+    { "symbol": "$m$", "value": "5.0", "unit": "kg", "description": "mass of object" }
+  ],
+  "learning_objective": "What this problem helps master",
+  "hints": [
+    "Hint 1: Starting approach with $F = ma$ equation",
+    "Hint 2: Key equation to use: $E = \\frac{1}{2}mv^2$",
+    "Hint 3: Watch out for this common mistake"
+  ],
+  "solution_steps": [
+    "Step 1: Apply Newton's second law: $F = ma$ where $a = 9.8 \\text{ m/s}^2$",
+    "Step 2: Substitute values: $F = (5.0 \\text{ kg})(9.8 \\text{ m/s}^2) = 49 \\text{ N}$",
+    "Step 3: Verify units and calculate final result"
+  ],
+  "final_answer": "49 N"
+}
+
+PROBLEM NAME GUIDELINES:
+- Be descriptive and professional (e.g., "Rocket Launch Force Calculation")
+- Briefly explain the specific scenario in the title
+- Keep it concise but clear: 3-6 words
+- Avoid "silly", "goofy", or overly dramatic names (no "Frenzy", "Mystery", "Crisis")
+- Examples: "Block Sliding on Incline", "Circuit Power Dissipation", "Fluid Flow in Pipe"
+
+CRITICAL JSON RULES:
+- Each hint and solution step must be a SINGLE, COMPLETE sentence
+- NEVER repeat text or get stuck in loops
+- If you start repeating, STOP and use simpler language
+- Keep hints under 100 characters each
+- Keep solution steps under 200 characters each`
   },
 
   // ==========================================================================
@@ -942,7 +963,7 @@ Output format:
   // Replicates the "Notes Layout" style: headers, verbose paragraphs, LaTeX
   // ==========================================================================
   deepDiveSolution: {
-    system: \`You are an expert academic professor and master tutor. Your task is to write a comprehensive, "deep dive" solution for a homework problem.
+    system: `You are an expert academic professor and master tutor. Your task is to write a comprehensive, "deep dive" solution for a homework problem.
 
 OBJECTIVE:
 Create a detailed, step-by-step walkthrough of the solution that teaches the student HOW to think about the problem, not just the answer.
@@ -975,13 +996,13 @@ Example Structure:
     ...
   ]
 }
-\`,
-    user: (problemStatement: string, context?: string) => \`Please provide a "Deep Dive Solution" for the following problem:
+`,
+    user: (problemStatement: string, context?: string) => `Please provide a "Deep Dive Solution" for the following problem:
 
 PROBLEM STATEMENT:
-\${problemStatement}
+${problemStatement}
 
-\${context ? \`ADDITIONAL CONTEXT:\n\${context}\` : ''}
+${context ? `ADDITIONAL CONTEXT:\n${context}` : ''}
 
 Remember:
 - Write 500-1000 words total.

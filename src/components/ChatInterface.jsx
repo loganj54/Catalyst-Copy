@@ -507,20 +507,6 @@ const ChatInterface = forwardRef(({
                                 {/* Bottom Bar */}
                                 <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-stone-700">
                                     <div className="flex items-center gap-2">
-
-                                        {/* HISTORY TOGGLE BUTTON (As Requested) */}
-                                        <button
-                                            onClick={() => toggleHistory()}
-                                            className={`flex items-center gap-2 px-3 py-2 border rounded-lg font-medium text-sm transition-all shadow-sm ${showHistory
-                                                ? 'bg-black text-white border-black'
-                                                : 'bg-white dark:bg-stone-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-stone-700 hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            {showHistory ? <X className="w-4 h-4" /> : <Folder className="w-4 h-4" />}
-                                            <span>{showHistory ? "Close" : "History"}</span>
-                                        </button>
-
-
                                         {/* Context Toggle */}
                                         {classId && (
                                             <button
