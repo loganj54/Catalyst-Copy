@@ -112,7 +112,9 @@ ALL mathematical expressions, equations, variables, and numbers with units MUST 
 - Block equations: $$E = mc^2$$
 - All variables: $x$, $T$, $\\theta$, $\\mu$
 - All numbers with units: $2.5 \\text{ kg}$, $300 \\text{ K}$
-- For multiplication dots, use $\\cdot$ (NOT \\cdotp which doesn't render correctly)
+- For multiplication dots, ALWAYS use $\\cdot$ (backslash-cdot)
+- NEVER use \\cdotp (with p) - it causes rendering errors
+- For units with dots like W/(m²·K), use: $\\text{W}/(\\text{m}^2 \\cdot \\text{K})$
 
 **SOLUTION WALKTHROUGH STRUCTURE:**
 Each solutionWalkthrough should include:
@@ -200,8 +202,29 @@ Output valid JSON only. Ensure EVERY problem section includes solutionWalkthroug
  */
 function sanitizeLatex(text: string): string {
   if (!text) return text;
+  
+  let sanitized = text;
+  let changesMade = false;
+  
   // Replace \cdotp with \cdot (common LLM mistake that doesn't render)
-  return text.replace(/\\cdotp/g, '\\cdot');
+  const cdotpRegex = /\\cdotp/g;
+  if (cdotpRegex.test(sanitized)) {
+    sanitized = sanitized.replace(cdotpRegex, '\\cdot');
+    changesMade = true;
+  }
+  
+  // Also catch any \cdotp that might be followed by other characters (like K)
+  const cdotpFollowedRegex = /\\cdotp([A-Za-z])/g;
+  if (cdotpFollowedRegex.test(sanitized)) {
+    sanitized = sanitized.replace(cdotpFollowedRegex, '\\cdot $1');
+    changesMade = true;
+  }
+  
+  if (changesMade) {
+    console.log('[sanitize] Fixed LaTeX errors: replaced \\cdotp with \\cdot');
+  }
+  
+  return sanitized;
 }
 
 /**

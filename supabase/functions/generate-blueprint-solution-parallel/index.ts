@@ -3,7 +3,9 @@
 // ============================================================================
 // Optimized version using two-phase parallel processing:
 // Phase 1: Generate structure skeleton (fast, no walkthroughs)
-// Phase 2: Generate all walkthroughs in parallel
+// Phase 2: Generate all content in parallel:
+//          - Problem solution walkthroughs
+//          - Comprehensive prerequisite lesson (textbook-style, casual language)
 //
 // This dramatically reduces total time from 6-8 minutes to ~60-90 seconds
 // for documents with 5-10 problems.
@@ -57,6 +59,31 @@ interface LearningUnit {
 interface PrerequisitesSection {
   description: string;
   learning_units: LearningUnit[];
+  comprehensive_lesson?: PrerequisiteLessonResponse;
+}
+
+// ============================================================================
+// PREREQUISITE LESSON TYPE DEFINITIONS
+// ============================================================================
+
+interface PrerequisiteEquation {
+  latex: string;
+  label: string;
+  description: string;
+}
+
+interface PrerequisiteConcept {
+  concept_id: string;
+  concept_name: string;
+  summary: string;  // 2-3 sentences
+  lesson_content: string;  // 100-200 words with equations
+  equations?: PrerequisiteEquation[];
+}
+
+interface PrerequisiteLessonResponse {
+  lesson_title: string;
+  lesson_intro: string;  // 2-3 sentences introducing the prerequisites
+  concepts: PrerequisiteConcept[];
 }
 
 interface ContentSection {
@@ -101,7 +128,9 @@ ALL mathematical expressions, equations, variables, and numbers with units MUST 
 - Block equations: $$E = mc^2$$
 - All variables: $x$, $T$, $\\theta$, $\\mu$
 - All numbers with units: $2.5 \\text{ kg}$, $300 \\text{ K}$
-- For multiplication dots, use $\\cdot$ (NOT \\cdotp which doesn't render correctly)
+- For multiplication dots, ALWAYS use $\\cdot$ (backslash-cdot)
+- NEVER use \\cdotp (with p) - it causes rendering errors
+- For units with dots like W/(m²·K), use: $\\text{W}/(\\text{m}^2 \\cdot \\text{K})$
 
 **STANDARD STRUCTURE GENERATION RULES:**
 1. Generate EXACTLY 3 search queries for EACH topic/concept
@@ -172,7 +201,9 @@ ALL mathematical expressions, equations, variables, and numbers with units MUST 
 - Block equations: $$E = mc^2$$
 - All variables: $x$, $T$, $\\theta$, $\\mu$
 - All numbers with units: $2.5 \\text{ kg}$, $300 \\text{ K}$
-- For multiplication dots, use $\\cdot$ (NOT \\cdotp which doesn't render correctly)
+- For multiplication dots, ALWAYS use $\\cdot$ (backslash-cdot)
+- NEVER use \\cdotp (with p) - it causes rendering errors
+- For units with dots like W/(m²·K), use: $\\text{W}/(\\text{m}^2 \\cdot \\text{K})$
 
 **SOLUTION WALKTHROUGH STRUCTURE:**
 1. ## Understanding the Problem - Explain what's being asked
@@ -225,6 +256,140 @@ Output as JSON: {"solutionWalkthrough": "..."}`;
 }
 
 // ============================================================================
+// PREREQUISITE LESSON PROMPT (Comprehensive, textbook-style lesson)
+// ============================================================================
+
+const PREREQUISITE_LESSON_SYSTEM_PROMPT = `You are an expert tutor creating a comprehensive lesson on prerequisite concepts. Your goal is to give students the foundational knowledge they need before tackling a homework problem or topic.
+
+**WRITING STYLE:**
+- Write like you're explaining to a smart friend, not a textbook
+- Casual but educational - college freshman or advanced high school level
+- Use "you" to address the student directly
+- Be conversational: "So basically...", "Here's the deal...", "Think of it like..."
+- Avoid overly formal academic language
+- Still be accurate and thorough - just approachable
+
+**STRUCTURE FOR EACH CONCEPT:**
+1. **concept_name**: Clear, descriptive name for the concept
+2. **summary**: 2-3 sentences that give the quick "what is this and why does it matter" overview
+3. **lesson_content**: 150-250 words using RICH MARKDOWN FORMATTING (see below)
+
+**LESSON_CONTENT FORMATTING - CRITICAL:**
+The lesson_content field MUST use markdown to create visual structure. DO NOT write dense paragraphs!
+
+Use these formatting techniques:
+- **Subheadings** with ### for key terms or properties (e.g., "### Density ($\\\\rho$)")
+- **Bold** for important terms and symbols on first mention
+- **Bullet points** for listing properties, characteristics, or steps
+- **Inline code or emphasis** for symbols: *symbol: $\\\\rho$* or showing units
+- **Short paragraphs** - max 2-3 sentences each, then break
+
+Example structure for a concept like "Thermal Properties":
+\`\`\`
+### Density ($\\\\rho$)
+*Symbol: $\\\\rho$ (rho) | Units: kg/m³*
+
+Density tells you how much mass is packed into a given volume. Think of it as "how heavy something feels for its size."
+
+**Key points:**
+- Higher density = more mass in the same space
+- Water has a density of about $1000 \\\\text{ kg/m}^3$
+- Density changes with temperature (things expand when heated)
+
+### Specific Heat Capacity ($c$)
+*Symbol: $c$ | Units: J/(kg·K)*
+
+This measures how much energy it takes to heat something up...
+\`\`\`
+
+**EQUATION FORMATTING:**
+- Extract key equations into the "equations" array
+- Each equation needs: latex, label, description
+- In lesson_content, reference equations naturally
+- ALL math must use $...$ for inline or $$...$$ for display
+- Double-escape backslashes in JSON: \\\\frac, \\\\sigma, \\\\rho, etc.
+
+**OUTPUT REQUIREMENTS:**
+- Generate 3-6 prerequisite concepts
+- Each concept should be self-contained but flow naturally
+- lesson_intro should set up why these concepts matter
+- Make it scannable - a student should be able to skim and find what they need
+
+**JSON FORMAT:**
+{
+  "lesson_title": "Prerequisites for [Topic]",
+  "lesson_intro": "Before diving into [topic], you'll want to be comfortable with a few key ideas...",
+  "concepts": [
+    {
+      "concept_id": "prereq_1",
+      "concept_name": "Concept Name Here",
+      "summary": "2-3 sentence overview...",
+      "lesson_content": "### Subheading\\n*Symbol info*\\n\\nShort explanation...\\n\\n**Key points:**\\n- Point one\\n- Point two",
+      "equations": [
+        {
+          "latex": "F = ma",
+          "label": "Newton's Second Law",
+          "description": "Force equals mass times acceleration"
+        }
+      ]
+    }
+  ]
+}`;
+
+function generatePrerequisiteLessonUserPrompt(
+  prerequisites: LearningUnit[],
+  analysisData: any,
+  problemContext: string
+): string {
+  const documentContext = {
+    subject_area: analysisData?.subject_area || 'Unknown',
+    specific_topic: analysisData?.specific_topic || 'Unknown',
+    document_type: analysisData?.document_type || 'problem_set'
+  };
+
+  return `Generate a comprehensive prerequisite lesson for the following context.
+
+**DOCUMENT CONTEXT:**
+- Subject: ${documentContext.subject_area}
+- Topic: ${documentContext.specific_topic}
+- Document Type: ${documentContext.document_type}
+
+**MAIN PROBLEM/TOPIC THE STUDENT IS WORKING ON:**
+${problemContext}
+
+**EXISTING PREREQUISITE CONCEPTS TO EXPAND ON:**
+${prerequisites.map((p, i) => `
+${i + 1}. ${p.topic}
+   - Summary: ${p.concept_summary || 'N/A'}
+   - Guidance: ${p.tutor_guidance || 'N/A'}
+   - Equations: ${JSON.stringify(p.equations?.map((e: any) => e.name || e.latex) || [])}
+`).join('\n')}
+
+**YOUR TASK:**
+Create a comprehensive lesson covering 3-6 of the most important prerequisite concepts. For each concept:
+1. Write a clear concept_name
+2. Write a 2-3 sentence summary  
+3. Write 150-250 words of WELL-FORMATTED teaching content using markdown
+4. Extract key equations with labels and descriptions
+
+**CRITICAL FORMATTING FOR lesson_content:**
+- Use ### subheadings for each key term/property (e.g., "### Density ($\\\\rho$)")
+- Use *italics* for symbol definitions (e.g., "*Symbol: $\\\\rho$ | Units: kg/m³*")
+- Use **bold** for important terms
+- Use bullet points for lists of properties or key points
+- Keep paragraphs SHORT (2-3 sentences max)
+- DO NOT write dense walls of text!
+
+Remember:
+- Write casually but accurately (college freshman level)
+- Actually TEACH the concepts, don't just describe them
+- Make it scannable with clear visual hierarchy
+- Double-escape all LaTeX backslashes (\\\\frac, \\\\rho, \\\\sigma, etc.)
+
+Output valid JSON only.`;
+}
+
+// ============================================================================
 // PARALLEL WALKTHROUGH GENERATOR
 // ============================================================================
 
@@ -260,6 +425,40 @@ async function generateSingleWalkthrough(
       solutionWalkthrough: `Error generating walkthrough: ${error?.message || 'Unknown error'}. Please try regenerating this section.`,
       error: error?.message,
     };
+  }
+}
+
+// ============================================================================
+// PREREQUISITE LESSON GENERATOR (Runs in parallel with walkthroughs)
+// ============================================================================
+
+async function generatePrerequisiteLesson(
+  prerequisites: LearningUnit[],
+  analysisData: any,
+  problemContext: string
+): Promise<PrerequisiteLessonResponse | null> {
+  // Skip if no prerequisites
+  if (!prerequisites || prerequisites.length === 0) {
+    console.log('[prerequisite-lesson] No prerequisites found, skipping lesson generation');
+    return null;
+  }
+
+  try {
+    console.log(`[prerequisite-lesson] Starting generation for ${prerequisites.length} prerequisites...`);
+
+    const result = await callClaudeJSON<PrerequisiteLessonResponse>(
+      PREREQUISITE_LESSON_SYSTEM_PROMPT,
+      generatePrerequisiteLessonUserPrompt(prerequisites, analysisData, problemContext),
+      { temperature: 0.5, maxTokens: 8000 }
+    );
+
+    console.log(`[prerequisite-lesson] Completed! Generated ${result.concepts?.length || 0} concept lessons`);
+
+    return result;
+  } catch (error) {
+    console.error('[prerequisite-lesson] Error generating prerequisite lesson:', error);
+    // Return null on error - don't fail the whole generation
+    return null;
   }
 }
 
@@ -303,8 +502,29 @@ function mergeWalkthroughsIntoStructure(
  */
 function sanitizeLatex(text: string): string {
   if (!text) return text;
+  
+  let sanitized = text;
+  let changesMade = false;
+  
   // Replace \cdotp with \cdot (common LLM mistake that doesn't render)
-  return text.replace(/\\cdotp/g, '\\cdot');
+  const cdotpRegex = /\\cdotp/g;
+  if (cdotpRegex.test(sanitized)) {
+    sanitized = sanitized.replace(cdotpRegex, '\\cdot');
+    changesMade = true;
+  }
+  
+  // Also catch any \cdotp that might be followed by other characters (like K)
+  const cdotpFollowedRegex = /\\cdotp([A-Za-z])/g;
+  if (cdotpFollowedRegex.test(sanitized)) {
+    sanitized = sanitized.replace(cdotpFollowedRegex, '\\cdot $1');
+    changesMade = true;
+  }
+  
+  if (changesMade) {
+    console.log('[sanitize] Fixed LaTeX errors: replaced \\cdotp with \\cdot');
+  }
+  
+  return sanitized;
 }
 
 /**
@@ -350,12 +570,18 @@ function countStructureMetrics(structure: LearningStructure) {
     }
   }
 
+  // Track prerequisite lesson
+  const hasPrerequisiteLesson = !!structure.prerequisites_section?.comprehensive_lesson;
+  const prerequisiteLessonConcepts = structure.prerequisites_section?.comprehensive_lesson?.concepts?.length || 0;
+
   return {
     total_prerequisites: prerequisiteUnits,
     total_sections: contentSections,
     total_learning_units: totalLearningUnits,
     total_search_queries: totalSearchQueries,
     total_solution_walkthroughs: totalSolutionWalkthroughs,
+    has_prerequisite_lesson: hasPrerequisiteLesson,
+    prerequisite_lesson_concepts: prerequisiteLessonConcepts,
   };
 }
 
@@ -508,39 +734,60 @@ serve(async (req) => {
     console.log(`[parallel-generate] - Content sections: ${skeletonStructure.content_sections?.length || 0}`);
 
     // =========================================================================
-    // PHASE 2: GENERATE WALKTHROUGHS IN PARALLEL
+    // PHASE 2: GENERATE WALKTHROUGHS + PREREQUISITE LESSON IN PARALLEL
     // =========================================================================
     const problemSections = (skeletonStructure.content_sections || []).filter(
       s => s.section_type === 'problem'
     );
 
+    // Build problem context for prerequisite lesson
+    const problemContext = skeletonStructure.content_sections
+      ?.map((s: ContentSection) => `${s.title}: ${s.description}`)
+      .join('\n') || 'General topic study';
+
     console.log(`[parallel-generate] ----------------------------------------`);
-    console.log(`[parallel-generate] PHASE 2: Generating ${problemSections.length} walkthroughs in PARALLEL...`);
+    console.log(`[parallel-generate] PHASE 2: Generating ${problemSections.length} walkthroughs + prerequisite lesson in PARALLEL...`);
     const phase2Start = Date.now();
 
-    if (problemSections.length > 0) {
-      // Create parallel promises for all walkthroughs
-      const walkthroughPromises = problemSections.map(section => {
-        // Find the original section from analysis data
-        const originalSection = analysisData.sections?.find(
-          (s: any) => s.section_id === section.section_id ||
-                      s.problem_id === section.section_id ||
-                      s.title === section.title
-        );
+    // Create parallel promises for all walkthroughs
+    const walkthroughPromises = problemSections.map(section => {
+      // Find the original section from analysis data
+      const originalSection = analysisData.sections?.find(
+        (s: any) => s.section_id === section.section_id ||
+                    s.problem_id === section.section_id ||
+                    s.title === section.title
+      );
 
-        return generateSingleWalkthrough(section, originalSection);
-      });
+      return generateSingleWalkthrough(section, originalSection);
+    });
 
-      // Execute ALL in parallel
-      const walkthroughResults = await Promise.all(walkthroughPromises);
+    // Create prerequisite lesson promise (runs in parallel with walkthroughs)
+    const prerequisiteLessonPromise = generatePrerequisiteLesson(
+      skeletonStructure.prerequisites_section?.learning_units || [],
+      analysisData,
+      problemContext
+    );
 
-      // Log results
-      const successCount = walkthroughResults.filter(r => !r.error).length;
-      const errorCount = walkthroughResults.filter(r => r.error).length;
-      console.log(`[parallel-generate] Walkthroughs complete: ${successCount} success, ${errorCount} errors`);
+    // Execute ALL in parallel (walkthroughs + prerequisite lesson)
+    const [walkthroughResults, prerequisiteLessonResult] = await Promise.all([
+      Promise.all(walkthroughPromises),
+      prerequisiteLessonPromise
+    ]);
 
-      // Merge results into structure
+    // Log walkthrough results
+    const successCount = walkthroughResults.filter(r => !r.error).length;
+    const errorCount = walkthroughResults.filter(r => r.error).length;
+    console.log(`[parallel-generate] Walkthroughs complete: ${successCount} success, ${errorCount} errors`);
+
+    // Merge walkthrough results into structure
+    if (walkthroughResults.length > 0) {
       mergeWalkthroughsIntoStructure(skeletonStructure, walkthroughResults);
+    }
+
+    // Merge prerequisite lesson into structure
+    if (prerequisiteLessonResult) {
+      skeletonStructure.prerequisites_section.comprehensive_lesson = prerequisiteLessonResult;
+      console.log(`[parallel-generate] Prerequisite lesson added with ${prerequisiteLessonResult.concepts?.length || 0} concepts`);
     }
 
     const phase2Time = Date.now() - phase2Start;
@@ -563,6 +810,7 @@ serve(async (req) => {
     console.log(`[parallel-generate] - Total learning units: ${metrics.total_learning_units}`);
     console.log(`[parallel-generate] - Total search queries: ${metrics.total_search_queries}`);
     console.log(`[parallel-generate] - Solution walkthroughs: ${metrics.total_solution_walkthroughs}`);
+    console.log(`[parallel-generate] - Prerequisite lesson: ${metrics.has_prerequisite_lesson ? `Yes (${metrics.prerequisite_lesson_concepts} concepts)` : 'No'}`);
 
     // Store the learning structure in the database
     const insertData = {
@@ -619,7 +867,7 @@ serve(async (req) => {
           phase2_time_ms: phase2Time,
           total_time_ms: totalTime,
         },
-        message: `Learning structure generated with ${metrics.total_solution_walkthroughs} solution walkthroughs in ${Math.round(totalTime / 1000)}s (parallel mode).`,
+        message: `Learning structure generated with ${metrics.total_solution_walkthroughs} solution walkthroughs${metrics.has_prerequisite_lesson ? ` and ${metrics.prerequisite_lesson_concepts} prerequisite lessons` : ''} in ${Math.round(totalTime / 1000)}s (parallel mode).`,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -4350,7 +4350,188 @@ const Blueprint = () => {
                           )}
                         </div>
 
-                        {/* 2. Concepts Loop (Sequential) */}
+                        {/* Comprehensive Prerequisite Lesson Display */}
+                        {currentSectionTitle === 'Prerequisites' && structure?.prerequisites_section?.comprehensive_lesson && (
+                          <div className="mb-16 space-y-12">
+                            {/* Lesson Intro */}
+                            <div className="border-l-4 border-indigo-500 pl-6 py-2">
+                              <h3 className="text-2xl font-light text-stone-800 dark:text-stone-200 mb-3">
+                                {structure.prerequisites_section.comprehensive_lesson.lesson_title}
+                              </h3>
+                              <p className="text-lg text-stone-600 dark:text-stone-400 leading-relaxed">
+                                <LatexText text={structure.prerequisites_section.comprehensive_lesson.lesson_intro} />
+                              </p>
+                            </div>
+
+                            {/* Concept Cards */}
+                            {structure.prerequisites_section.comprehensive_lesson.concepts?.map((concept, idx) => (
+                              <div key={concept.concept_id || idx} className="space-y-6">
+                                {/* Concept Header */}
+                                <h3 className="text-3xl md:text-4xl font-light tracking-tight text-stone-800 dark:text-stone-200">
+                                  {concept.concept_name}
+                                </h3>
+                                
+                                {/* Summary - Quick overview */}
+                                <div className="bg-stone-50 dark:bg-stone-800/50 rounded-xl p-5 border border-stone-200 dark:border-stone-700">
+                                  <p className="text-lg text-stone-600 dark:text-stone-400 leading-relaxed italic">
+                                    <LatexText text={concept.summary} />
+                                  </p>
+                                </div>
+
+                                {/* Main Lesson Content - Rendered with Markdown */}
+                                <div className="prose prose-lg dark:prose-invert max-w-none text-stone-600 dark:text-stone-400 leading-relaxed">
+                                  <ReactMarkdown
+                                    components={{
+                                      // Paragraphs with LaTeX support
+                                      p: ({ node, children }) => {
+                                        const extractText = (child) => {
+                                          if (typeof child === 'string') return child;
+                                          if (Array.isArray(child)) return child.map(extractText).join('');
+                                          if (child?.props?.children) return extractText(child.props.children);
+                                          return '';
+                                        };
+                                        const textContent = Array.isArray(children)
+                                          ? children.map(extractText).join('')
+                                          : extractText(children);
+                                        return (
+                                          <p className="mb-4 text-stone-600 dark:text-stone-400 text-lg leading-relaxed">
+                                            <LatexText text={textContent} />
+                                          </p>
+                                        );
+                                      },
+                                      // List items with LaTeX
+                                      li: ({ node, children }) => {
+                                        const extractText = (child) => {
+                                          if (typeof child === 'string') return child;
+                                          if (Array.isArray(child)) return child.map(extractText).join('');
+                                          if (child?.props?.children) return extractText(child.props.children);
+                                          return '';
+                                        };
+                                        const textContent = Array.isArray(children)
+                                          ? children.map(extractText).join('')
+                                          : extractText(children);
+                                        return (
+                                          <li className="text-stone-600 dark:text-stone-400 text-lg leading-relaxed mb-2 ml-4">
+                                            <LatexText text={textContent} />
+                                          </li>
+                                        );
+                                      },
+                                      // Unordered lists
+                                      ul: ({ node, children }) => (
+                                        <ul className="list-disc list-outside pl-4 my-4 space-y-1">
+                                          {children}
+                                        </ul>
+                                      ),
+                                      // Ordered lists
+                                      ol: ({ node, children }) => (
+                                        <ol className="list-decimal list-outside pl-4 my-4 space-y-1">
+                                          {children}
+                                        </ol>
+                                      ),
+                                      // Subheadings for properties/terms
+                                      h3: ({ node, children }) => {
+                                        const extractText = (child) => {
+                                          if (typeof child === 'string') return child;
+                                          if (Array.isArray(child)) return child.map(extractText).join('');
+                                          if (child?.props?.children) return extractText(child.props.children);
+                                          return '';
+                                        };
+                                        const textContent = Array.isArray(children)
+                                          ? children.map(extractText).join('')
+                                          : extractText(children);
+                                        return (
+                                          <h3 className="text-xl font-semibold text-stone-800 dark:text-stone-200 mt-6 mb-2 border-b border-stone-200 dark:border-stone-700 pb-2">
+                                            <LatexText text={textContent} />
+                                          </h3>
+                                        );
+                                      },
+                                      h4: ({ node, children }) => {
+                                        const extractText = (child) => {
+                                          if (typeof child === 'string') return child;
+                                          if (Array.isArray(child)) return child.map(extractText).join('');
+                                          if (child?.props?.children) return extractText(child.props.children);
+                                          return '';
+                                        };
+                                        const textContent = Array.isArray(children)
+                                          ? children.map(extractText).join('')
+                                          : extractText(children);
+                                        return (
+                                          <h4 className="text-lg font-medium text-stone-700 dark:text-stone-300 mt-4 mb-2">
+                                            <LatexText text={textContent} />
+                                          </h4>
+                                        );
+                                      },
+                                      // Bold text
+                                      strong: ({ node, children }) => (
+                                        <strong className="font-semibold text-stone-800 dark:text-stone-200">
+                                          {children}
+                                        </strong>
+                                      ),
+                                      // Italic/emphasis for symbols
+                                      em: ({ node, children }) => {
+                                        const extractText = (child) => {
+                                          if (typeof child === 'string') return child;
+                                          if (Array.isArray(child)) return child.map(extractText).join('');
+                                          if (child?.props?.children) return extractText(child.props.children);
+                                          return '';
+                                        };
+                                        const textContent = Array.isArray(children)
+                                          ? children.map(extractText).join('')
+                                          : extractText(children);
+                                        return (
+                                          <em className="text-indigo-600 dark:text-indigo-400 not-italic font-medium">
+                                            <LatexText text={textContent} />
+                                          </em>
+                                        );
+                                      },
+                                      // Code blocks for inline symbols
+                                      code: ({ node, children }) => (
+                                        <code className="bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono text-base">
+                                          {children}
+                                        </code>
+                                      ),
+                                    }}
+                                  >
+                                    {concept.lesson_content}
+                                  </ReactMarkdown>
+                                </div>
+
+                                {/* Equations Display */}
+                                {concept.equations && concept.equations.length > 0 && (
+                                  <div className="space-y-4 my-8">
+                                    {concept.equations.map((eq, eqIdx) => (
+                                      <div key={eqIdx} className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+                                        <div className="flex flex-col items-center gap-3">
+                                          {/* Equation Label */}
+                                          <span className="text-sm font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                                            {eq.label}
+                                          </span>
+                                          {/* Equation Display */}
+                                          <div className="text-2xl text-stone-900 dark:text-stone-100">
+                                            <LatexText text={`$$${eq.latex}$$`} />
+                                          </div>
+                                          {/* Equation Description */}
+                                          <p className="text-sm text-stone-500 dark:text-stone-400 text-center max-w-md">
+                                            {eq.description}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Divider between concepts */}
+                                {idx < structure.prerequisites_section.comprehensive_lesson.concepts.length - 1 && (
+                                  <div className="border-b border-stone-200 dark:border-stone-700 my-12" />
+                                )}
+                              </div>
+                            ))}
+
+                          </div>
+                        )}
+
+                        {/* 2. Concepts Loop (Sequential) - Only show if no comprehensive lesson */}
+                        {!(currentSectionTitle === 'Prerequisites' && structure?.prerequisites_section?.comprehensive_lesson) && (
                         <div className="space-y-24 relative transition-all">
                           {currentUnits.filter(u => u.unit_type !== 'solution').map((unit, index) => {
                             const unitEquations = topicEquations[unit.unit_id] || [];
@@ -4765,6 +4946,7 @@ const Blueprint = () => {
                             );
                           })}
                         </div>
+                        )}
 
                         {/* Solution Removed */}
 
