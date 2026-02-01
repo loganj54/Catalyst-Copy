@@ -47,6 +47,7 @@ interface LearningUnit {
   learning_objective?: string;
   tutor_guidance: string;
   solutionWalkthrough?: string;
+  topicLesson?: TopicLessonPage;  // For lecture mode - full topic lesson page
   category?: string;
   difficulty?: string;
   priority?: string;
@@ -86,6 +87,44 @@ interface PrerequisiteLessonResponse {
   concepts: PrerequisiteConcept[];
 }
 
+// ============================================================================
+// TOPIC LESSON PAGE TYPE DEFINITIONS (For Lecture Mode)
+// ============================================================================
+
+interface TopicLessonPage {
+  topic_id: string;
+  title: string;
+  short_title: string;  // 3-4 word punchy title for sidebar navigation
+  // Section A: Header
+  why_this_matters: string;  // Single paragraph, 1-2 sentences, 7th grade reading level
+  // Section B: Foundation
+  big_picture_intuition: string;  // Mental model, short story
+  // Section C: Combined concepts, definitions, equations, and principles
+  concepts_and_equations: string;  // Fluid prose covering all definitions, equations, and key ideas from the document
+  // Section D: Sanity checks
+  units_and_magnitudes: string;  // Dimensional analysis, expected ranges
+  // Section E: Quiz (70% conceptual, 30% calculation)
+  quiz_questions: Array<{
+    question: string;
+    options?: string[];  // For multiple choice: ["A) ...", "B) ...", "C) ...", "D) ..."]
+    answer: string;
+    type: 'conceptual' | 'calculation';
+  }>;
+  // Section F: References (charts/tables/diagrams only, NOT textbooks)
+  suggested_references: string[];
+  // Optional
+  faq?: Array<{
+    question: string;
+    answer: string;
+  }>;
+}
+
+interface TopicLessonResult {
+  section_id: string;
+  topicLesson: TopicLessonPage;
+  error?: string;
+}
+
 interface ContentSection {
   section_id: string;
   section_type: 'problem' | 'topic' | 'chapter';
@@ -109,6 +148,27 @@ interface LearningStructure {
   };
   prerequisites_section: PrerequisitesSection;
   content_sections: ContentSection[];
+}
+
+// ============================================================================
+// DOCUMENT MODE DETECTION
+// ============================================================================
+
+/**
+ * Determines whether to use homework mode (problem walkthroughs) or lecture mode (topic lessons)
+ * based on the document analysis results.
+ */
+function determineDocumentMode(analysis: any): 'homework' | 'lecture' {
+  const docType = analysis?.document_type || analysis?.content_classification?.primary_type;
+  const problemRatio = analysis?.content_classification?.problem_ratio || 0;
+  
+  // Homework mode: problem_set OR hybrid with >50% problems
+  if (docType === 'problem_set' || (docType === 'hybrid' && problemRatio > 0.5)) {
+    return 'homework';
+  }
+  
+  // Lecture mode: lecture, textbook, study_guide, or hybrid with ≤50% problems
+  return 'lecture';
 }
 
 // ============================================================================
@@ -185,6 +245,85 @@ Output valid JSON only. Structure must include all fields, with solutionWalkthro
 }
 
 // ============================================================================
+// LECTURE MODE: SKELETON PROMPT (Topic-based structure, max 7 sections)
+// ============================================================================
+
+const LECTURE_SKELETON_PROMPT = `You are an expert educational curriculum designer. Your job is to transform lecture/instructional document analyses into comprehensive topic-based learning structures.
+
+**LECTURE MODE - TOPIC-BASED STRUCTURE**
+This document contains instructional/lecture content, NOT a problem set.
+Generate a structure with MAX 7 main topic sections that cover the key concepts.
+
+**CRITICAL: SKELETON GENERATION ONLY**
+In this phase, you generate the COMPLETE structure but WITHOUT full topic lessons.
+For every topic section's learning unit, set: "topicLesson": "PENDING_PARALLEL_GENERATION"
+The full topic lessons will be generated separately in parallel for speed.
+
+**LATEX FORMATTING - CRITICAL:**
+ALL mathematical expressions, equations, variables, and numbers with units MUST be wrapped in LaTeX:
+- Inline math: $F = ma$, $\\Delta x$, $25 \\text{ m/s}$
+- Block equations: $$E = mc^2$$
+- All variables: $x$, $T$, $\\theta$, $\\mu$
+- All numbers with units: $2.5 \\text{ kg}$, $300 \\text{ K}$
+- For multiplication dots, ALWAYS use $\\cdot$ (backslash-cdot)
+- NEVER use \\cdotp (with p) - it causes rendering errors
+
+**STRUCTURE GENERATION RULES:**
+1. Identify 3-7 BIG PICTURE topics from the document (MAX 7)
+2. Group related concepts under each topic
+3. Create a logical learning progression from foundational to advanced
+4. Each topic becomes a sidebar item (like problems do for homework)
+5. Generate EXACTLY 3 search queries for EACH topic
+6. All output must be valid JSON with no markdown formatting
+7. JSON ESCAPING: Double-escape all backslashes (\\\\frac not \\frac)
+8. ALWAYS include "tutor_guidance" for EVERY learning unit (50-75 words)
+9. ALWAYS set "unit_type": "topic" for EVERY learning unit
+10. ALWAYS generate "concept_summary" (10-15 words) for EVERY unit
+
+**FOR TOPIC SECTIONS:**
+- Create an array called "learning_units" containing ONE learning unit with unit_type: "topic" for each section
+- Set topicLesson: "PENDING_PARALLEL_GENERATION" (placeholder) inside that unit
+- Include tutor_guidance, search_queries, concept_summary, etc.
+- section_type MUST be "topic" (not "problem")
+
+OUTPUT: Valid JSON with summary, prerequisites_section, content_sections array (max 7 sections). Each section in content_sections MUST have a "learning_units" array.`;
+
+function generateLectureSkeletonUserPrompt(input: any): string {
+  return `Generate a topic-based learning structure for this LECTURE/INSTRUCTIONAL document.
+
+DOCUMENT TYPE: ${input?.content_classification?.primary_type || input?.document_type || 'lecture'}
+SUBJECT: ${input?.subject_area || 'Unknown'}
+TOPIC: ${input?.specific_topic || 'Unknown'}
+GOAL: ${input?.content_classification?.inferred_student_goal || 'Understand and master this material'}
+
+**CRITICAL INSTRUCTIONS:**
+1. This is LECTURE content - focus on TEACHING concepts, not solving problems
+2. Create MAX 7 main topic sections (big picture organization)
+3. Each section should cover a coherent concept or theme
+4. Set section_type: "topic" for ALL sections
+5. Set topicLesson: "PENDING_PARALLEL_GENERATION" for each topic unit
+6. Group related concepts logically
+7. Progress from foundational to more advanced topics
+
+**WHAT TO EXTRACT FROM THE DOCUMENT:**
+- Main concepts and themes
+- Key equations and formulas
+- Important definitions
+- Relationships between concepts
+- Prerequisites needed
+
+**OUTPUT STRUCTURE:**
+- summary: Title, description, time estimate
+- prerequisites_section: Foundational concepts needed
+- content_sections: Array of 3-7 topic sections (each with one learning unit)
+
+INPUT DATA:
+${JSON.stringify(input, null, 2)}
+
+Output valid JSON only. All sections must have section_type: "topic" and topicLesson: "PENDING_PARALLEL_GENERATION".`;
+}
+
+// ============================================================================
 // PHASE 2: SINGLE WALKTHROUGH PROMPT (One per problem, runs in parallel)
 // ============================================================================
 
@@ -253,6 +392,125 @@ Generate a complete walkthrough with all sections (Understanding, Given Informat
 All math MUST be in LaTeX.
 
 Output as JSON: {"solutionWalkthrough": "..."}`;
+}
+
+// ============================================================================
+// LECTURE MODE: TOPIC LESSON PROMPT (Full teaching page for each topic)
+// ============================================================================
+
+const TOPIC_LESSON_SYSTEM_PROMPT = `You are an expert engineering instructor. Create ONE self-contained learning page that teaches a specific topic.
+
+**CRITICAL - DOCUMENT-ONLY CONTENT:**
+- ONLY include definitions, terms, and equations that EXPLICITLY appear in the source document
+- Do NOT add content from your general knowledge base
+- Use the EXACT form and variable names from the document - do NOT substitute standard forms
+- If the document uses non-standard notation, preserve it exactly
+- If a term appears in the document but isn't defined there, you may define it briefly
+
+**AUDIENCE:**
+- Engineering students who want to understand this material
+- Write at a 7th grade reading level for explanations - simple words, short sentences
+- Still be accurate and thorough, just use plain language
+
+**TONE & STYLE:**
+- Casual, clear, confident. No fluff, no "as an AI"
+- Write like you're explaining to a friend - conversational but accurate
+- Avoid jargon when simpler words work
+
+**LATEX FORMATTING - CRITICAL:**
+- For multiplication dots, ALWAYS use $\\cdot$ (backslash-cdot)
+- NEVER use \\cdotp (with p) - it causes rendering errors
+- Double-escape backslashes in JSON: \\\\frac, \\\\sigma, \\\\rho, etc.
+- Use $...$ for inline math, $$...$$ for block equations
+
+**OUTPUT JSON STRUCTURE:**
+{
+  "topicLesson": {
+    "topic_id": "unique_id",
+    "title": "Full Topic Title",
+    "short_title": "3-4 word punchy title for sidebar (e.g., 'Heat Transfer Basics', 'Bernoulli Equation')",
+    "why_this_matters": "1-2 sentences at 7th grade reading level explaining the ONE most important reason this topic matters. No bullet points, just a simple paragraph.",
+    "big_picture_intuition": "Mental model explanation (2-3 paragraphs). Help them visualize what's happening.",
+    "concepts_and_equations": "300-500 words of flowing, casual prose that naturally weaves together all the key definitions, equations, and principles FROM THE DOCUMENT. Write like you're explaining to a friend. Reference equations inline using LaTeX. Mention common mistakes naturally in context (e.g., 'A lot of people mess this up by...'). NO headers or bullet points - just flowing paragraphs.",
+    "units_and_magnitudes": "Dimensional analysis, expected ranges, sanity checks",
+    "quiz_questions": [
+      {"question": "Conceptual Q with options?", "options": ["A) First option", "B) Second option", "C) Third option", "D) Fourth option"], "answer": "B) Second option - explanation", "type": "conceptual"},
+      {"question": "Calculate X given Y = 5?", "answer": "X = 10 because...", "type": "calculation"}
+    ],
+    "suggested_references": ["Only list charts, tables, or diagrams needed for this topic (e.g., Moody diagram, steam tables). Leave empty if none needed."],
+    "faq": [{"question": "Common Q?", "answer": "Answer"}]
+  }
+}
+
+**QUIZ REQUIREMENTS:**
+- Generate 5-8 questions total
+- 70% conceptual multiple-choice (test understanding, not memorization)
+- 30% calculation-based
+- Conceptual questions MUST have options array with A, B, C, D choices
+- Good conceptual questions: "Which would increase X?", "What happens when Y changes?", "Why does Z occur?"
+
+**SUGGESTED REFERENCES - IMPORTANT:**
+- ONLY include if the topic requires external charts, tables, or diagrams to solve problems
+- Examples: Moody diagram for pipe flow, steam tables for thermodynamics, stress concentration charts
+- Do NOT list textbooks or general references
+- If the document references a specific table or chart, include it
+- If no external visual aids are needed, leave this array EMPTY []
+
+**CONTENT LENGTH:**
+- Total should be roughly 600-1000 words
+- Keep it focused and practical`;
+
+function generateTopicLessonUserPrompt(
+  section: ContentSection,
+  originalSection: any,
+  analysisData: any
+): string {
+  const topicTitle = section.title || originalSection?.title || 'Unknown Topic';
+  const topicSummary = originalSection?.topic_summary || section.description || '';
+  const keyConcepts = originalSection?.key_concepts?.join(', ') || section.concepts?.join(', ') || '';
+  const equations = originalSection?.equations_needed?.join(', ') || '';
+  const subjectArea = analysisData?.subject_area || 'Engineering';
+  const specificTopic = analysisData?.specific_topic || topicTitle;
+  
+  // Include raw document content if available for document-faithful extraction
+  const rawContent = originalSection?.raw_content || originalSection?.content || '';
+  const documentTerms = originalSection?.terms || originalSection?.definitions || [];
+  const documentEquations = originalSection?.equations || originalSection?.formulas || [];
+
+  return `Generate a topic lesson page based ONLY on the following document content.
+
+**CRITICAL: DOCUMENT-ONLY CONTENT**
+- Extract definitions, terms, and equations ONLY from the document content below
+- Do NOT add information from your knowledge base
+- Use the EXACT variable names and equation forms from the document
+- If the document uses non-standard notation, preserve it exactly
+
+**TOPIC:** ${topicTitle}
+
+**SUBJECT AREA:** ${subjectArea}
+**SPECIFIC TOPIC:** ${specificTopic}
+
+**DOCUMENT CONTENT FOR THIS SECTION:**
+${topicSummary}
+
+${rawContent ? `**RAW DOCUMENT TEXT:**\n${rawContent}\n` : ''}
+
+**TERMS/DEFINITIONS FOUND IN DOCUMENT:**
+${documentTerms.length > 0 ? JSON.stringify(documentTerms, null, 2) : keyConcepts || 'Extract from document content above'}
+
+**EQUATIONS FOUND IN DOCUMENT:**
+${documentEquations.length > 0 ? JSON.stringify(documentEquations, null, 2) : equations || 'Extract from document content above'}
+
+**INSTRUCTIONS:**
+1. Create a learning page using ONLY content from the document above
+2. Follow the exact JSON structure from the system prompt
+3. Write "why_this_matters" as 1-2 simple sentences (7th grade reading level)
+4. Write "concepts_and_equations" as flowing prose (300-500 words) - no headers or bullets
+5. Generate 5-8 quiz questions: 70% conceptual multiple-choice, 30% calculation
+6. For "suggested_references": ONLY include if charts/tables/diagrams are needed (e.g., Moody diagram, steam tables). Leave empty [] if not needed. Do NOT list textbooks.
+7. All math MUST use proper LaTeX formatting
+
+Output as JSON: {"topicLesson": {...}}`;
 }
 
 // ============================================================================
@@ -429,6 +687,65 @@ async function generateSingleWalkthrough(
 }
 
 // ============================================================================
+// PARALLEL TOPIC LESSON GENERATOR (For Lecture Mode)
+// ============================================================================
+
+async function generateSingleTopicLesson(
+  section: ContentSection,
+  originalSection: any,
+  analysisData: any
+): Promise<TopicLessonResult> {
+  try {
+    console.log(`[topic-lesson] Starting generation for section: ${section.section_id} - ${section.title}`);
+
+    const result = await callClaudeJSON<{ topicLesson: TopicLessonPage }>(
+      TOPIC_LESSON_SYSTEM_PROMPT,
+      generateTopicLessonUserPrompt(section, originalSection, analysisData),
+      { temperature: 0.4, maxTokens: 12000 }
+    );
+
+    console.log(`[topic-lesson] Completed for section: ${section.section_id} (title: ${result.topicLesson?.title || 'N/A'})`);
+
+    // Ensure topic_id is set
+    if (result.topicLesson && !result.topicLesson.topic_id) {
+      result.topicLesson.topic_id = section.section_id;
+    }
+
+    return {
+      section_id: section.section_id,
+      topicLesson: result.topicLesson || {
+        topic_id: section.section_id,
+        title: section.title || 'Unknown Topic',
+        short_title: section.title?.split(':')[0]?.trim() || 'Topic',
+        why_this_matters: 'Error generating lesson content.',
+        big_picture_intuition: 'Error: Topic lesson generation failed. Please try regenerating.',
+        concepts_and_equations: '',
+        units_and_magnitudes: '',
+        quiz_questions: [],
+        suggested_references: [],
+      },
+    };
+  } catch (error) {
+    console.error(`[topic-lesson] Error for section ${section.section_id}:`, error);
+    return {
+      section_id: section.section_id,
+      topicLesson: {
+        topic_id: section.section_id,
+        title: section.title || 'Unknown Topic',
+        short_title: section.title?.split(':')[0]?.trim() || 'Topic',
+        why_this_matters: `Error generating lesson: ${error?.message || 'Unknown error'}`,
+        big_picture_intuition: 'Error: Topic lesson generation failed. Please try regenerating this section.',
+        concepts_and_equations: '',
+        units_and_magnitudes: '',
+        quiz_questions: [],
+        suggested_references: [],
+      },
+      error: error?.message,
+    };
+  }
+}
+
+// ============================================================================
 // PREREQUISITE LESSON GENERATOR (Runs in parallel with walkthroughs)
 // ============================================================================
 
@@ -481,12 +798,57 @@ function mergeWalkthroughsIntoStructure(
     if (section.section_type === 'problem') {
       const walkthrough = walkthroughMap.get(section.section_id);
       if (walkthrough) {
-        // Find the walkthrough unit and update it
-        for (const unit of section.learning_units) {
-          if (unit.unit_type === 'walkthrough' ||
-              unit.solutionWalkthrough === 'PENDING_PARALLEL_GENERATION') {
-            unit.solutionWalkthrough = walkthrough;
+        // Handle plural learning_units
+        if (section.learning_units) {
+          for (const unit of section.learning_units) {
+            if (unit.unit_type === 'walkthrough' ||
+                unit.solutionWalkthrough === 'PENDING_PARALLEL_GENERATION') {
+              unit.solutionWalkthrough = walkthrough;
+            }
           }
+        }
+        // Handle singular learning_unit
+        const unit = (section as any).learning_unit;
+        if (unit && (unit.unit_type === 'walkthrough' || unit.solutionWalkthrough === 'PENDING_PARALLEL_GENERATION')) {
+          unit.solutionWalkthrough = walkthrough;
+        }
+      }
+    }
+  }
+}
+
+// ============================================================================
+// MERGE TOPIC LESSONS INTO STRUCTURE (For Lecture Mode)
+// ============================================================================
+
+function mergeTopicLessonsIntoStructure(
+  structure: LearningStructure,
+  topicLessonResults: TopicLessonResult[]
+): void {
+  // Create a map for O(1) lookup
+  const topicLessonMap = new Map<string, TopicLessonPage>();
+  for (const result of topicLessonResults) {
+    topicLessonMap.set(result.section_id, result.topicLesson);
+  }
+
+  // Update each content section's topic unit
+  for (const section of structure.content_sections) {
+    if (section.section_type === 'topic') {
+      const topicLesson = topicLessonMap.get(section.section_id);
+      if (topicLesson) {
+        // Handle plural learning_units
+        if (section.learning_units) {
+          for (const unit of section.learning_units) {
+            if (unit.unit_type === 'topic' ||
+                (unit as any).topicLesson === 'PENDING_PARALLEL_GENERATION') {
+              unit.topicLesson = topicLesson;
+            }
+          }
+        }
+        // Handle singular learning_unit
+        const unit = (section as any).learning_unit;
+        if (unit && (unit.unit_type === 'topic' || (unit as any).topicLesson === 'PENDING_PARALLEL_GENERATION')) {
+          unit.topicLesson = topicLesson;
         }
       }
     }
@@ -554,18 +916,26 @@ function countStructureMetrics(structure: LearningStructure) {
   let totalLearningUnits = prerequisiteUnits;
   let totalSearchQueries = 0;
   let totalSolutionWalkthroughs = 0;
+  let totalTopicLessons = 0;
 
   for (const unit of structure.prerequisites_section?.learning_units || []) {
     totalSearchQueries += unit.search_queries?.length || 0;
   }
 
   for (const section of structure.content_sections || []) {
-    totalLearningUnits += section.learning_units?.length || 0;
-    for (const unit of section.learning_units || []) {
+    const units = section.learning_units || ((section as any).learning_unit ? [(section as any).learning_unit] : []);
+    totalLearningUnits += units.length;
+    for (const unit of units) {
       totalSearchQueries += unit.search_queries?.length || 0;
+      // Count solution walkthroughs (homework mode)
       if (unit.solutionWalkthrough &&
           unit.solutionWalkthrough !== 'PENDING_PARALLEL_GENERATION') {
         totalSolutionWalkthroughs++;
+      }
+      // Count topic lessons (lecture mode)
+      if (unit.topicLesson &&
+          (unit.topicLesson as any) !== 'PENDING_PARALLEL_GENERATION') {
+        totalTopicLessons++;
       }
     }
   }
@@ -580,6 +950,7 @@ function countStructureMetrics(structure: LearningStructure) {
     total_learning_units: totalLearningUnits,
     total_search_queries: totalSearchQueries,
     total_solution_walkthroughs: totalSolutionWalkthroughs,
+    total_topic_lessons: totalTopicLessons,
     has_prerequisite_lesson: hasPrerequisiteLesson,
     prerequisite_lesson_concepts: prerequisiteLessonConcepts,
   };
@@ -715,83 +1086,174 @@ serve(async (req) => {
     const inputType = body.input_type || 'document_analysis';
 
     // =========================================================================
-    // PHASE 1: GENERATE STRUCTURE SKELETON (Fast - no walkthroughs)
+    // DETERMINE DOCUMENT MODE (Homework vs Lecture)
     // =========================================================================
+    const documentMode = determineDocumentMode(analysisData);
     console.log(`[parallel-generate] ----------------------------------------`);
-    console.log(`[parallel-generate] PHASE 1: Generating structure skeleton...`);
-    const phase1Start = Date.now();
+    console.log(`[parallel-generate] Document mode: ${documentMode.toUpperCase()}`);
+    console.log(`[parallel-generate] Document type: ${analysisData?.document_type || 'unknown'}`);
+    console.log(`[parallel-generate] Problem ratio: ${analysisData?.content_classification?.problem_ratio || 'N/A'}`);
 
-    const skeletonStructure = await callClaudeJSON<LearningStructure>(
-      STRUCTURE_SKELETON_PROMPT,
-      generateSkeletonUserPrompt(analysisData, inputType),
-      { temperature: 0.3, maxTokens: 32000 }
-    );
+    let skeletonStructure: LearningStructure;
+    let phase1Time: number;
+    let phase2Time: number;
 
-    const phase1Time = Date.now() - phase1Start;
-    console.log(`[parallel-generate] Phase 1 complete in ${phase1Time}ms`);
-    console.log(`[parallel-generate] - Title: ${skeletonStructure.summary?.title}`);
-    console.log(`[parallel-generate] - Prerequisites: ${skeletonStructure.prerequisites_section?.learning_units?.length || 0}`);
-    console.log(`[parallel-generate] - Content sections: ${skeletonStructure.content_sections?.length || 0}`);
+    if (documentMode === 'homework') {
+      // =========================================================================
+      // HOMEWORK MODE: Problem Walkthroughs (Existing Flow - Unchanged)
+      // =========================================================================
+      console.log(`[parallel-generate] ----------------------------------------`);
+      console.log(`[parallel-generate] HOMEWORK MODE - PHASE 1: Generating problem skeleton...`);
+      const phase1Start = Date.now();
 
-    // =========================================================================
-    // PHASE 2: GENERATE WALKTHROUGHS + PREREQUISITE LESSON IN PARALLEL
-    // =========================================================================
-    const problemSections = (skeletonStructure.content_sections || []).filter(
-      s => s.section_type === 'problem'
-    );
-
-    // Build problem context for prerequisite lesson
-    const problemContext = skeletonStructure.content_sections
-      ?.map((s: ContentSection) => `${s.title}: ${s.description}`)
-      .join('\n') || 'General topic study';
-
-    console.log(`[parallel-generate] ----------------------------------------`);
-    console.log(`[parallel-generate] PHASE 2: Generating ${problemSections.length} walkthroughs + prerequisite lesson in PARALLEL...`);
-    const phase2Start = Date.now();
-
-    // Create parallel promises for all walkthroughs
-    const walkthroughPromises = problemSections.map(section => {
-      // Find the original section from analysis data
-      const originalSection = analysisData.sections?.find(
-        (s: any) => s.section_id === section.section_id ||
-                    s.problem_id === section.section_id ||
-                    s.title === section.title
+      skeletonStructure = await callClaudeJSON<LearningStructure>(
+        STRUCTURE_SKELETON_PROMPT,
+        generateSkeletonUserPrompt(analysisData, inputType),
+        { temperature: 0.3, maxTokens: 32000 }
       );
 
-      return generateSingleWalkthrough(section, originalSection);
-    });
+      phase1Time = Date.now() - phase1Start;
+      console.log(`[parallel-generate] Phase 1 complete in ${phase1Time}ms`);
+      console.log(`[parallel-generate] - Title: ${skeletonStructure.summary?.title}`);
+      console.log(`[parallel-generate] - Prerequisites: ${skeletonStructure.prerequisites_section?.learning_units?.length || 0}`);
+      console.log(`[parallel-generate] - Content sections: ${skeletonStructure.content_sections?.length || 0}`);
 
-    // Create prerequisite lesson promise (runs in parallel with walkthroughs)
-    const prerequisiteLessonPromise = generatePrerequisiteLesson(
-      skeletonStructure.prerequisites_section?.learning_units || [],
-      analysisData,
-      problemContext
-    );
+      // PHASE 2: GENERATE WALKTHROUGHS + PREREQUISITE LESSON IN PARALLEL
+      const problemSections = (skeletonStructure.content_sections || []).filter(
+        s => s.section_type === 'problem'
+      );
 
-    // Execute ALL in parallel (walkthroughs + prerequisite lesson)
-    const [walkthroughResults, prerequisiteLessonResult] = await Promise.all([
-      Promise.all(walkthroughPromises),
-      prerequisiteLessonPromise
-    ]);
+      // Build problem context for prerequisite lesson
+      const problemContext = skeletonStructure.content_sections
+        ?.map((s: ContentSection) => `${s.title}: ${s.description}`)
+        .join('\n') || 'General topic study';
 
-    // Log walkthrough results
-    const successCount = walkthroughResults.filter(r => !r.error).length;
-    const errorCount = walkthroughResults.filter(r => r.error).length;
-    console.log(`[parallel-generate] Walkthroughs complete: ${successCount} success, ${errorCount} errors`);
+      console.log(`[parallel-generate] ----------------------------------------`);
+      console.log(`[parallel-generate] HOMEWORK MODE - PHASE 2: Generating ${problemSections.length} walkthroughs + prerequisite lesson in PARALLEL...`);
+      const phase2Start = Date.now();
 
-    // Merge walkthrough results into structure
-    if (walkthroughResults.length > 0) {
-      mergeWalkthroughsIntoStructure(skeletonStructure, walkthroughResults);
+      // Create parallel promises for all walkthroughs
+      const walkthroughPromises = problemSections.map(section => {
+        // Find the original section from analysis data
+        const originalSection = analysisData.sections?.find(
+          (s: any) => s.section_id === section.section_id ||
+                      s.problem_id === section.section_id ||
+                      s.title === section.title
+        );
+
+        return generateSingleWalkthrough(section, originalSection);
+      });
+
+      // Create prerequisite lesson promise (runs in parallel with walkthroughs)
+      const prerequisiteLessonPromise = generatePrerequisiteLesson(
+        skeletonStructure.prerequisites_section?.learning_units || [],
+        analysisData,
+        problemContext
+      );
+
+      // Execute ALL in parallel (walkthroughs + prerequisite lesson)
+      const [walkthroughResults, prerequisiteLessonResult] = await Promise.all([
+        Promise.all(walkthroughPromises),
+        prerequisiteLessonPromise
+      ]);
+
+      // Log walkthrough results
+      const successCount = walkthroughResults.filter(r => !r.error).length;
+      const errorCount = walkthroughResults.filter(r => r.error).length;
+      console.log(`[parallel-generate] Walkthroughs complete: ${successCount} success, ${errorCount} errors`);
+
+      // Merge walkthrough results into structure
+      if (walkthroughResults.length > 0) {
+        mergeWalkthroughsIntoStructure(skeletonStructure, walkthroughResults);
+      }
+
+      // Merge prerequisite lesson into structure
+      if (prerequisiteLessonResult) {
+        skeletonStructure.prerequisites_section.comprehensive_lesson = prerequisiteLessonResult;
+        console.log(`[parallel-generate] Prerequisite lesson added with ${prerequisiteLessonResult.concepts?.length || 0} concepts`);
+      }
+
+      phase2Time = Date.now() - phase2Start;
+      console.log(`[parallel-generate] Phase 2 complete in ${phase2Time}ms`);
+
+    } else {
+      // =========================================================================
+      // LECTURE MODE: Topic Lesson Pages (New Flow)
+      // =========================================================================
+      console.log(`[parallel-generate] ----------------------------------------`);
+      console.log(`[parallel-generate] LECTURE MODE - PHASE 1: Generating topic skeleton (max 7 sections)...`);
+      const phase1Start = Date.now();
+
+      skeletonStructure = await callClaudeJSON<LearningStructure>(
+        LECTURE_SKELETON_PROMPT,
+        generateLectureSkeletonUserPrompt(analysisData),
+        { temperature: 0.3, maxTokens: 32000 }
+      );
+
+      phase1Time = Date.now() - phase1Start;
+      console.log(`[parallel-generate] Phase 1 complete in ${phase1Time}ms`);
+      console.log(`[parallel-generate] - Title: ${skeletonStructure.summary?.title}`);
+      console.log(`[parallel-generate] - Prerequisites: ${skeletonStructure.prerequisites_section?.learning_units?.length || 0}`);
+      console.log(`[parallel-generate] - Topic sections: ${skeletonStructure.content_sections?.length || 0}`);
+
+      // PHASE 2: GENERATE TOPIC LESSONS + PREREQUISITE LESSON IN PARALLEL
+      const topicSections = (skeletonStructure.content_sections || []).filter(
+        s => s.section_type === 'topic'
+      );
+
+      // Build topic context for prerequisite lesson
+      const topicContext = skeletonStructure.content_sections
+        ?.map((s: ContentSection) => `${s.title}: ${s.description}`)
+        .join('\n') || 'General topic study';
+
+      console.log(`[parallel-generate] ----------------------------------------`);
+      console.log(`[parallel-generate] LECTURE MODE - PHASE 2: Generating ${topicSections.length} topic lessons + prerequisite lesson in PARALLEL...`);
+      const phase2Start = Date.now();
+
+      // Create parallel promises for all topic lessons
+      const topicLessonPromises = topicSections.map(section => {
+        // Find the original section from analysis data
+        const originalSection = analysisData.sections?.find(
+          (s: any) => s.section_id === section.section_id ||
+                      s.topic_id === section.section_id ||
+                      s.title === section.title
+        );
+
+        return generateSingleTopicLesson(section, originalSection, analysisData);
+      });
+
+      // Create prerequisite lesson promise (runs in parallel with topic lessons)
+      const prerequisiteLessonPromise = generatePrerequisiteLesson(
+        skeletonStructure.prerequisites_section?.learning_units || [],
+        analysisData,
+        topicContext
+      );
+
+      // Execute ALL in parallel (topic lessons + prerequisite lesson)
+      const [topicLessonResults, prerequisiteLessonResult] = await Promise.all([
+        Promise.all(topicLessonPromises),
+        prerequisiteLessonPromise
+      ]);
+
+      // Log topic lesson results
+      const successCount = topicLessonResults.filter(r => !r.error).length;
+      const errorCount = topicLessonResults.filter(r => r.error).length;
+      console.log(`[parallel-generate] Topic lessons complete: ${successCount} success, ${errorCount} errors`);
+
+      // Merge topic lesson results into structure
+      if (topicLessonResults.length > 0) {
+        mergeTopicLessonsIntoStructure(skeletonStructure, topicLessonResults);
+      }
+
+      // Merge prerequisite lesson into structure
+      if (prerequisiteLessonResult) {
+        skeletonStructure.prerequisites_section.comprehensive_lesson = prerequisiteLessonResult;
+        console.log(`[parallel-generate] Prerequisite lesson added with ${prerequisiteLessonResult.concepts?.length || 0} concepts`);
+      }
+
+      phase2Time = Date.now() - phase2Start;
+      console.log(`[parallel-generate] Phase 2 complete in ${phase2Time}ms`);
     }
-
-    // Merge prerequisite lesson into structure
-    if (prerequisiteLessonResult) {
-      skeletonStructure.prerequisites_section.comprehensive_lesson = prerequisiteLessonResult;
-      console.log(`[parallel-generate] Prerequisite lesson added with ${prerequisiteLessonResult.concepts?.length || 0} concepts`);
-    }
-
-    const phase2Time = Date.now() - phase2Start;
-    console.log(`[parallel-generate] Phase 2 complete in ${phase2Time}ms`);
 
     // =========================================================================
     // FINAL STRUCTURE READY - SANITIZE LATEX
@@ -800,16 +1262,20 @@ serve(async (req) => {
     const totalTime = Date.now() - startTime;
 
     console.log(`[parallel-generate] ----------------------------------------`);
-    console.log(`[parallel-generate] GENERATION COMPLETE`);
+    console.log(`[parallel-generate] GENERATION COMPLETE (${documentMode.toUpperCase()} MODE)`);
     console.log(`[parallel-generate] Phase 1 (skeleton): ${phase1Time}ms`);
-    console.log(`[parallel-generate] Phase 2 (walkthroughs): ${phase2Time}ms`);
+    console.log(`[parallel-generate] Phase 2 (content): ${phase2Time}ms`);
     console.log(`[parallel-generate] Total time: ${totalTime}ms`);
 
     // Calculate metrics
     const metrics = countStructureMetrics(structure);
     console.log(`[parallel-generate] - Total learning units: ${metrics.total_learning_units}`);
     console.log(`[parallel-generate] - Total search queries: ${metrics.total_search_queries}`);
-    console.log(`[parallel-generate] - Solution walkthroughs: ${metrics.total_solution_walkthroughs}`);
+    if (documentMode === 'homework') {
+      console.log(`[parallel-generate] - Solution walkthroughs: ${metrics.total_solution_walkthroughs}`);
+    } else {
+      console.log(`[parallel-generate] - Topic lessons: ${metrics.total_topic_lessons}`);
+    }
     console.log(`[parallel-generate] - Prerequisite lesson: ${metrics.has_prerequisite_lesson ? `Yes (${metrics.prerequisite_lesson_concepts} concepts)` : 'No'}`);
 
     // Store the learning structure in the database
@@ -867,7 +1333,10 @@ serve(async (req) => {
           phase2_time_ms: phase2Time,
           total_time_ms: totalTime,
         },
-        message: `Learning structure generated with ${metrics.total_solution_walkthroughs} solution walkthroughs${metrics.has_prerequisite_lesson ? ` and ${metrics.prerequisite_lesson_concepts} prerequisite lessons` : ''} in ${Math.round(totalTime / 1000)}s (parallel mode).`,
+        message: documentMode === 'homework'
+          ? `Learning structure generated with ${metrics.total_solution_walkthroughs} solution walkthroughs${metrics.has_prerequisite_lesson ? ` and ${metrics.prerequisite_lesson_concepts} prerequisite lessons` : ''} in ${Math.round(totalTime / 1000)}s (parallel mode).`
+          : `Learning structure generated with ${metrics.total_topic_lessons} topic lessons${metrics.has_prerequisite_lesson ? ` and ${metrics.prerequisite_lesson_concepts} prerequisite lessons` : ''} in ${Math.round(totalTime / 1000)}s (lecture mode).`,
+        document_mode: documentMode,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

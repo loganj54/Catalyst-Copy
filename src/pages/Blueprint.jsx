@@ -304,6 +304,317 @@ const ResourceTable = ({ resources, session }) => {
   );
 };
 
+// ============================================================================
+// TOPIC LESSON RENDERER COMPONENT (For Lecture Mode)
+// ============================================================================
+const TopicLessonRenderer = ({ lesson, unitId, blueprintId }) => {
+  const [showQuizAnswers, setShowQuizAnswers] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({
+    whyMatters: true,
+    bigPicture: true,
+    concepts: true,
+    magnitudes: true,
+    quiz: false,
+    references: false,
+    faq: false,
+  });
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  if (!lesson) return null;
+
+  const SectionHeader = ({ title, section, icon: Icon, badge, badgeColor = 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400' }) => (
+    <button
+      onClick={() => toggleSection(section)}
+      className="w-full flex items-center justify-between py-3 group"
+    >
+      <div className="flex items-center gap-3">
+        {Icon && <Icon className="w-5 h-5 text-stone-400 dark:text-stone-500" />}
+        <h3 className="text-xl font-medium tracking-tight text-stone-900 dark:text-stone-100">
+          {title}
+        </h3>
+        {badge && (
+          <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${badgeColor}`}>
+            {badge}
+          </span>
+        )}
+      </div>
+      <ChevronDown className={`w-5 h-5 text-stone-400 transition-transform ${expandedSections[section] ? 'rotate-180' : ''}`} />
+    </button>
+  );
+
+  // Helper to render why_this_matters (handles both string and array for backwards compatibility)
+  const renderWhyThisMatters = () => {
+    if (!lesson.why_this_matters) return null;
+    
+    // Handle string (new format)
+    if (typeof lesson.why_this_matters === 'string') {
+      return (
+        <p className="mt-4 text-stone-600 dark:text-stone-400 leading-relaxed text-lg">
+          <LatexText text={lesson.why_this_matters} unitId={unitId} blueprintId={blueprintId} />
+        </p>
+      );
+    }
+    
+    // Handle array (old format for backwards compatibility)
+    if (Array.isArray(lesson.why_this_matters) && lesson.why_this_matters.length > 0) {
+      return (
+        <ul className="mt-4 space-y-3">
+          {lesson.why_this_matters.map((item, i) => (
+            <li key={i} className="flex items-start gap-3 text-stone-600 dark:text-stone-400">
+              <span className="text-[#FF4A1C] mt-1">•</span>
+              <LatexText text={item} unitId={unitId} blueprintId={blueprintId} />
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    
+    return null;
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* Why This Matters */}
+      {lesson.why_this_matters && (
+        <div className="border-b border-stone-200 dark:border-stone-700 pb-6">
+          <SectionHeader title="Why This Matters" section="whyMatters" icon={Target} />
+          {expandedSections.whyMatters && renderWhyThisMatters()}
+        </div>
+      )}
+
+      {/* Big Picture / Intuition */}
+      {lesson.big_picture_intuition && (
+        <div className="border-b border-stone-200 dark:border-stone-700 pb-6">
+          <SectionHeader title="Big Picture" section="bigPicture" icon={Eye} />
+          {expandedSections.bigPicture && (
+            <div className="mt-4 prose prose-lg dark:prose-invert max-w-none">
+              <ReactMarkdown
+                components={{
+                  p: ({ children }) => (
+                    <p className="text-stone-600 dark:text-stone-400 leading-relaxed mb-4">
+                      <LatexText text={String(children)} unitId={unitId} blueprintId={blueprintId} />
+                    </p>
+                  ),
+                }}
+              >
+                {lesson.big_picture_intuition}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Concepts & Equations - Combined fluid prose section */}
+      {lesson.concepts_and_equations && (
+        <div className="border-b border-stone-200 dark:border-stone-700 pb-6">
+          <SectionHeader title="Concepts & Equations" section="concepts" icon={BookOpen} />
+          {expandedSections.concepts && (
+            <div className="mt-4 prose prose-lg dark:prose-invert max-w-none">
+              <ReactMarkdown
+                components={{
+                  p: ({ children }) => (
+                    <p className="text-stone-600 dark:text-stone-400 leading-relaxed mb-4">
+                      <LatexText text={String(children)} unitId={unitId} blueprintId={blueprintId} />
+                    </p>
+                  ),
+                }}
+              >
+                {lesson.concepts_and_equations}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Legacy support: Core Definitions (for old data) */}
+      {!lesson.concepts_and_equations && lesson.core_definitions?.length > 0 && (
+        <div className="border-b border-stone-200 dark:border-stone-700 pb-6">
+          <SectionHeader title="Core Definitions" section="concepts" icon={BookOpen} badge={`${lesson.core_definitions.length} terms`} />
+          {expandedSections.concepts && (
+            <div className="mt-4 grid gap-4">
+              {lesson.core_definitions.map((def, i) => (
+                <div key={i} className="bg-stone-50 dark:bg-stone-800/50 rounded-lg p-4 border border-stone-200 dark:border-stone-700">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-semibold text-stone-900 dark:text-stone-100">{def.term}</span>
+                        {def.symbol && (
+                          <span className="text-[#FF4A1C] font-mono">
+                            <LatexText text={def.symbol} unitId={unitId} blueprintId={blueprintId} />
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-stone-600 dark:text-stone-400">
+                        <LatexText text={def.definition} unitId={unitId} blueprintId={blueprintId} />
+                      </p>
+                    </div>
+                    {def.units && (
+                      <span className="shrink-0 px-2 py-1 bg-stone-200 dark:bg-stone-700 rounded text-xs font-mono text-stone-600 dark:text-stone-400">
+                        {def.units}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Legacy support: Governing Principles (for old data) */}
+      {!lesson.concepts_and_equations && lesson.governing_principles && (
+        <div className="border-b border-stone-200 dark:border-stone-700 pb-6">
+          <SectionHeader title="Key Equations & Principles" section="concepts" icon={Calculator} />
+          {expandedSections.concepts && (
+            <div className="mt-4 prose prose-lg dark:prose-invert max-w-none">
+              <ReactMarkdown
+                components={{
+                  p: ({ children }) => (
+                    <p className="text-stone-600 dark:text-stone-400 leading-relaxed mb-4">
+                      <LatexText text={String(children)} unitId={unitId} blueprintId={blueprintId} />
+                    </p>
+                  ),
+                  li: ({ children }) => (
+                    <li className="text-stone-600 dark:text-stone-400 mb-2">
+                      <LatexText text={String(children)} unitId={unitId} blueprintId={blueprintId} />
+                    </li>
+                  ),
+                  h3: ({ children }) => (
+                    <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100 mt-6 mb-3">{children}</h3>
+                  ),
+                }}
+              >
+                {lesson.governing_principles}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Units & Magnitudes */}
+      {lesson.units_and_magnitudes && (
+        <div className="border-b border-stone-200 dark:border-stone-700 pb-6">
+          <SectionHeader title="Units & Magnitudes" section="magnitudes" icon={Calculator} />
+          {expandedSections.magnitudes && (
+            <div className="mt-4 prose prose-lg dark:prose-invert max-w-none">
+              <ReactMarkdown
+                components={{
+                  p: ({ children }) => (
+                    <p className="text-stone-600 dark:text-stone-400 leading-relaxed mb-4">
+                      <LatexText text={String(children)} unitId={unitId} blueprintId={blueprintId} />
+                    </p>
+                  ),
+                }}
+              >
+                {lesson.units_and_magnitudes}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Quick Quiz - Updated to support multiple choice options */}
+      {lesson.quiz_questions?.length > 0 && (
+        <div className="border-b border-stone-200 dark:border-stone-700 pb-6">
+          <SectionHeader title="Quick Quiz" section="quiz" icon={HelpCircle} badge={`${lesson.quiz_questions.length} questions`} badgeColor="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400" />
+          {expandedSections.quiz && (
+            <div className="mt-4">
+              <div className="space-y-4 mb-4">
+                {lesson.quiz_questions.map((q, i) => (
+                  <div key={i} className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                    <div className="flex items-start gap-2 mb-2">
+                      <span className="text-purple-600 dark:text-purple-400 font-medium shrink-0">Q{i + 1}:</span>
+                      <p className="font-medium text-stone-900 dark:text-stone-100">
+                        <LatexText text={q.question} unitId={unitId} blueprintId={blueprintId} />
+                      </p>
+                    </div>
+                    {/* Question type badge */}
+                    {q.type && (
+                      <span className={`inline-block mb-2 px-2 py-0.5 text-xs rounded-full font-medium ${
+                        q.type === 'conceptual' 
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' 
+                          : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                      }`}>
+                        {q.type === 'conceptual' ? 'Conceptual' : 'Calculation'}
+                      </span>
+                    )}
+                    {/* Multiple choice options */}
+                    {q.options && q.options.length > 0 && (
+                      <div className="ml-6 mb-3 space-y-1">
+                        {q.options.map((option, optIdx) => (
+                          <p key={optIdx} className="text-stone-600 dark:text-stone-400">
+                            <LatexText text={option} unitId={unitId} blueprintId={blueprintId} />
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    {/* Answer */}
+                    {showQuizAnswers && (
+                      <div className="pl-6 border-l-2 border-purple-300 dark:border-purple-700 mt-2">
+                        <p className="text-stone-600 dark:text-stone-400">
+                          <span className="font-medium text-green-600 dark:text-green-400 mr-2">Answer:</span>
+                          <LatexText text={q.answer} unitId={unitId} blueprintId={blueprintId} />
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowQuizAnswers(!showQuizAnswers)}
+                className="px-4 py-2 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors text-sm font-medium"
+              >
+                {showQuizAnswers ? 'Hide Answers' : 'Show Answers'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* FAQ */}
+      {lesson.faq?.length > 0 && (
+        <div className="border-b border-stone-200 dark:border-stone-700 pb-6">
+          <SectionHeader title="Frequently Asked Questions" section="faq" icon={MessageSquare} badge={`${lesson.faq.length} FAQs`} />
+          {expandedSections.faq && (
+            <div className="mt-4 space-y-3">
+              {lesson.faq.map((item, i) => (
+                <div key={i} className="bg-stone-50 dark:bg-stone-800/50 rounded-lg p-4 border border-stone-200 dark:border-stone-700">
+                  <p className="font-medium text-stone-900 dark:text-stone-100 mb-2">
+                    <LatexText text={item.question} unitId={unitId} blueprintId={blueprintId} />
+                  </p>
+                  <p className="text-stone-600 dark:text-stone-400">
+                    <LatexText text={item.answer} unitId={unitId} blueprintId={blueprintId} />
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Suggested References - Only shows for charts/tables/diagrams */}
+      {lesson.suggested_references?.length > 0 && (
+        <div className="pb-6">
+          <SectionHeader title="Required Charts & Tables" section="references" icon={Library} badge={`${lesson.suggested_references.length} resources`} />
+          {expandedSections.references && (
+            <ul className="mt-4 space-y-2">
+              {lesson.suggested_references.map((ref, i) => (
+                <li key={i} className="text-stone-600 dark:text-stone-400 flex items-start gap-2">
+                  <span className="text-stone-400">📊</span>
+                  {ref}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 // ============================================================================
 // STEP BY STEP SOLUTION CARD COMPONENT
@@ -3724,8 +4035,18 @@ const Blueprint = () => {
       structure.content_sections.forEach((section, idx) => {
         let label = '';
 
-        // Try to parse clean label from title (e.g. "Problem 1A: ..." -> "Problem 1A")
-        if (section.title) {
+        // PRIORITY 1: Use short_title from topicLesson if available (new format)
+        const unit = section.learning_units?.[0] || section.learning_unit;
+        const topicLesson = unit?.topicLesson;
+        if (topicLesson?.short_title) {
+          label = topicLesson.short_title;
+        }
+        // PRIORITY 2: Use unit title if it's reasonably short
+        else if (unit?.title && unit.title.split(' ').length <= 4) {
+          label = unit.title;
+        }
+        // PRIORITY 3: Try to parse clean label from title (e.g. "Problem 1A: ..." -> "Problem 1A")
+        else if (section.title) {
           // Check for colon separator first (most common format: "Topic 1: Introduction")
           // We limit length to avoid using long titles as labels if they just happen to have a colon far in
           const colonMatch = section.title.match(/^([^:]+):/);
@@ -3763,10 +4084,10 @@ const Blueprint = () => {
           id: section.section_id || `section-${idx}`,
           label: label,
           fullTitle: section.title,
-          topic: section.learning_units?.[0]?.topic,
-          unit_title: section.learning_units?.[0]?.unit_title,
-          description: section.description || section.learning_units?.[0]?.description || section.learning_units?.[0]?.learning_objective || '',
-          learning_objective: section.learning_objective || section.learning_units?.[0]?.learning_objective || '',
+          topic: unit?.topic || unit?.title,
+          unit_title: unit?.unit_title || unit?.title,
+          description: section.description || unit?.description || unit?.learning_objective || '',
+          learning_objective: section.learning_objective || unit?.learning_objective || '',
           sectionIndex: idx
         });
       });
@@ -3790,31 +4111,31 @@ const Blueprint = () => {
       section_id: s.section_id,
       fallback: `section-${idx}`,
       title: s.title,
-      has_units: !!s.learning_units,
-      unit_count: s.learning_units?.length || 0
+      has_units: !!(s.learning_units || s.learning_unit),
+      unit_count: s.learning_units?.length || (s.learning_unit ? 1 : 0)
     })));
 
     const activeSection = structure.content_sections.find(
-      (s, idx) => (s.section_id || `section-${idx}`) === activeTab
+      (s, idx) => (s.section_id?.toString() || `section-${idx}`) === activeTab?.toString()
     );
 
     console.log('[Blueprint] Found activeSection:', !!activeSection);
     if (activeSection) {
       console.log('[Blueprint] Active section details:', {
         title: activeSection.title,
-        has_learning_units: !!activeSection.learning_units,
-        unit_count: activeSection.learning_units?.length || 0
+        has_learning_units: !!(activeSection.learning_units || activeSection.learning_unit),
+        unit_count: activeSection.learning_units?.length || (activeSection.learning_unit ? 1 : 0)
       });
     }
 
-    currentUnits = activeSection?.learning_units || [];
+    currentUnits = activeSection?.learning_units || (activeSection?.learning_unit ? [activeSection.learning_unit] : []);
     // Use title if available, otherwise fallback to the tab label (e.g. "Topic 1")
     const activeTabLabel = tabs.find(t => t.id === activeTab)?.label;
     currentSectionTitle = activeSection?.title || activeTabLabel || 'Untitled Section';
 
     // CHECK FOR SOLUTION DATA & INJECT VIRTUAL UNIT
     if (documentAnalysis?.raw_analysis?.sections) {
-      const normalizeId = (id) => id?.replace('_walkthroughs', '') || '';
+      const normalizeId = (id) => id?.toString()?.replace('_walkthroughs', '') || '';
       const analysisSection = documentAnalysis.raw_analysis.sections.find(s =>
         normalizeId(s.section_id) === normalizeId(activeSection?.section_id)
       );
@@ -4534,6 +4855,15 @@ const Blueprint = () => {
                         {!(currentSectionTitle === 'Prerequisites' && structure?.prerequisites_section?.comprehensive_lesson) && (
                         <div className="space-y-24 relative transition-all">
                           {currentUnits.filter(u => u.unit_type !== 'solution').map((unit, index) => {
+                            // DEBUG: Log unit data to see why it's not rendering
+                            console.log(`[Blueprint] Rendering unit ${index}:`, {
+                              unit_id: unit.unit_id,
+                              title: unit.title,
+                              topicLesson: unit.topicLesson,
+                              is_pending: unit.topicLesson === 'PENDING_PARALLEL_GENERATION',
+                              show_overview: !unit.topicLesson || unit.topicLesson === 'PENDING_PARALLEL_GENERATION'
+                            });
+
                             const unitEquations = topicEquations[unit.unit_id] || [];
                             const unitResources = topicResources[unit.unit_id] || [];
 
@@ -4599,12 +4929,44 @@ const Blueprint = () => {
                                   {/* Concept Header & Text Content */}
                                   <div>
                                     <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
-                                      {unit.unit_title || unit.topic || 'Concept'}
+                                      {unit.title || unit.unit_title || unit.topic || unit.topicLesson?.title || 'Concept'}
                                     </h3>
                                   </div>
 
-                                  {/* Solution Walkthrough - MOVED TO TOP */}
-                                  {unit.solutionWalkthrough && (
+                                  {/* Topic Lesson - For Lecture Mode */}
+                                  {unit.topicLesson && unit.topicLesson !== 'PENDING_PARALLEL_GENERATION' && (
+                                    <div className="mt-8 mb-16">
+                                      <TopicLessonRenderer 
+                                        lesson={(() => {
+                                          if (typeof unit.topicLesson !== 'string') return unit.topicLesson;
+                                          // If it's a string but NOT a JSON object (like a placeholder), don't try to parse it
+                                          if (!unit.topicLesson.trim().startsWith('{') && !unit.topicLesson.trim().startsWith('[')) {
+                                            return null;
+                                          }
+                                          try {
+                                            return JSON.parse(unit.topicLesson);
+                                          } catch (e) {
+                                            console.error('[Blueprint] Failed to parse topicLesson JSON:', e);
+                                            return null;
+                                          }
+                                        })()} 
+                                        unitId={unit.unit_id} 
+                                        blueprintId={id} 
+                                      />
+                                    </div>
+                                  )}
+
+                                  {/* Loading state for pending parallel generation */}
+                                  {unit.topicLesson === 'PENDING_PARALLEL_GENERATION' && (
+                                    <div className="mt-8 mb-16 p-8 bg-stone-50 dark:bg-stone-900/50 rounded-2xl border border-dashed border-stone-300 dark:border-stone-700 flex flex-col items-center justify-center text-center">
+                                      <Loader2 className="w-8 h-8 animate-spin text-[#FF4A1C] mb-4" />
+                                      <h4 className="text-lg font-medium text-stone-900 dark:text-stone-100 mb-2">Generating Deep Dive...</h4>
+                                      <p className="text-stone-500 max-w-xs">We're crafting a comprehensive lesson for this topic. This usually takes 30-60 seconds.</p>
+                                    </div>
+                                  )}
+
+                                  {/* Solution Walkthrough - For Homework Mode */}
+                                  {unit.solutionWalkthrough && !unit.topicLesson && (
                                     <div className="mt-12 mb-16">
 
 
@@ -4678,36 +5040,38 @@ const Blueprint = () => {
                                     </div>
                                   )}
 
-                                  {/* Tutor Guidance / Intro Text - SECOND */}
-                                  <div className="mb-12 prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none space-y-6">
-                                    {/* Content Block Sub-header */}
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <span className="px-3 py-1 bg-stone-100 dark:bg-stone-800 rounded-lg text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                                        Overview
-                                      </span>
+                                  {/* Tutor Guidance / Intro Text - SECOND (Show if topicLesson is missing OR still pending) */}
+                                  {(!unit.topicLesson || unit.topicLesson === 'PENDING_PARALLEL_GENERATION' || unit.topicLesson === '') && (
+                                    <div className="mb-12 prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none space-y-6">
+                                      {/* Content Block Sub-header */}
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <span className="px-3 py-1 bg-stone-100 dark:bg-stone-800 rounded-lg text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                                          Overview
+                                        </span>
+                                      </div>
+
+                                      {/* Render Tutor Guidance if available */}
+                                      {(unit.tutor_guidance || unit.guidance) && (
+                                        <div className="mb-4 whitespace-pre-wrap">
+                                          <LatexText text={unit.tutor_guidance || unit.guidance} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
+                                        </div>
+                                      )}
+
+                                      {/* Render Concept Summary */}
+                                      {(unit.concept_summary || unit.summary) && (
+                                        <div className="whitespace-pre-wrap">
+                                          <LatexText text={unit.concept_summary || unit.summary} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
+                                        </div>
+                                      )}
+
+                                      {/* Fallback to description if no specific fields */}
+                                      {!unit.tutor_guidance && !unit.guidance && !unit.concept_summary && !unit.summary && (unit.description || unit.learning_objective) && (
+                                        <div className="whitespace-pre-wrap">
+                                          <LatexText text={unit.description || unit.learning_objective} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
+                                        </div>
+                                      )}
                                     </div>
-
-                                    {/* Render Tutor Guidance if available */}
-                                    {unit.tutor_guidance && (
-                                      <div className="mb-4 whitespace-pre-wrap">
-                                        <LatexText text={unit.tutor_guidance} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
-                                      </div>
-                                    )}
-
-                                    {/* Render Concept Summary */}
-                                    {unit.concept_summary && (
-                                      <div className="whitespace-pre-wrap">
-                                        <LatexText text={unit.concept_summary} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
-                                      </div>
-                                    )}
-
-                                    {/* Fallback to description if no specific fields */}
-                                    {!unit.tutor_guidance && !unit.concept_summary && unit.description && (
-                                      <div className="whitespace-pre-wrap">
-                                        <LatexText text={unit.description} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
-                                      </div>
-                                    )}
-                                  </div>
+                                  )}
 
                                   {/* Video Module - Horizontal Layout */}
                                   {primaryVideo ? (
