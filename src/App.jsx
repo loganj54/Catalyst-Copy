@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import Create from './pages/Create';
 import CreateBlueprint from './pages/CreateBlueprint';
 import Blueprint from './pages/Blueprint';
+import LectureBlueprintSkeleton from './pages/LectureBlueprintSkeleton';
 import Projects from './pages/Projects';
 import Career from './pages/Career';
 import Skills from './pages/Skills';
@@ -99,6 +100,10 @@ const router = createBrowserRouter([
         path: 'blueprint/:id',
         element: <ProtectedRoute><Blueprint /></ProtectedRoute>,
         loader: blueprintLoader
+      },
+      {
+        path: 'blueprint/:id/lecture',
+        element: <ProtectedRoute><LectureBlueprintSkeleton /></ProtectedRoute>
       },
       {
         path: 'projects',

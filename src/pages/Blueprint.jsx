@@ -3132,9 +3132,10 @@ const Blueprint = () => {
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      let currentAnalysis = documentAnalysis;
 
       // 1. Analyze Document (if not already done)
-      if (!documentAnalysis) {
+      if (!currentAnalysis) {
         setGenerationStatus('analyzing');
         console.log('[Blueprint] Deep Dive: Starting Analysis...');
 
@@ -3160,12 +3161,25 @@ const Blueprint = () => {
         if (!analyzeData.success) throw new Error(analyzeData.error || 'Analysis failed');
 
         setDocumentAnalysis(analyzeData);
+        currentAnalysis = analyzeData;
         console.log('[Blueprint] Deep Dive: Analysis complete');
         // We wait a bit to let the user see the progress
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      // 2. Generate Structure WITH Solution Walkthroughs (PARALLEL VERSION - much faster!)
+      // 2. Check document type and route accordingly
+      const docType = currentAnalysis?.document_type || currentAnalysis?.raw_analysis?.document_type || currentAnalysis?.analysis?.document_type;
+      console.log('[Blueprint] Document type detected:', docType);
+
+      if (docType === 'lecture') {
+        // Route to lecture blueprint skeleton page
+        console.log('[Blueprint] Lecture document detected - routing to lecture skeleton page');
+        setGenerating(false);
+        navigate(`/blueprint/${id}/lecture`);
+        return;
+      }
+
+      // 3. Generate Structure WITH Solution Walkthroughs (PARALLEL VERSION - much faster!)
       setGenerationStatus('generating');
       console.log('[Blueprint] Deep Dive: Generating structure with solution walkthroughs (parallel mode)...');
 
