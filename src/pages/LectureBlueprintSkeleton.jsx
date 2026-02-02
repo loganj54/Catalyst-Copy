@@ -54,10 +54,8 @@ const LectureBlueprintSkeleton = () => {
 
       if (structure?.structure?.structure_type === 'lecture') {
         setLectureStructure(structure.structure);
-        // Set first section as active if we have content
-        if (structure.structure.lecture_sections?.length > 0) {
-          setActiveTab(structure.structure.lecture_sections[0].section_id);
-        }
+        // Default to prerequisites tab first
+        setActiveTab('prerequisites');
       }
     } catch (error) {
       console.error('Error fetching blueprint data:', error);
@@ -93,12 +91,10 @@ const LectureBlueprintSkeleton = () => {
 
       setLectureStructure(data.structure);
       
-      // Set first section as active
-      if (data.structure.lecture_sections?.length > 0) {
-        setActiveTab(data.structure.lecture_sections[0].section_id);
-      }
+      // Default to prerequisites tab
+      setActiveTab('prerequisites');
 
-      alert(`Lecture blueprint generated! ${data.metrics?.total_sections || 0} topic sections created.`);
+      alert(`Lecture blueprint generated! ${data.metrics?.total_sections || 0} topic sections and ${data.metrics?.total_prerequisites || 0} prerequisites created.`);
     } catch (error) {
       console.error('Generation error:', error);
       setGenerationError(error.message);
@@ -128,14 +124,13 @@ const LectureBlueprintSkeleton = () => {
   const tabs = [];
   
   if (lectureStructure) {
-    // Prerequisites tab
-    if (lectureStructure.prerequisites_section?.learning_units?.length > 0) {
-      tabs.push({
-        id: 'prerequisites',
-        label: 'Prerequisites',
-        type: 'prerequisites'
-      });
-    }
+    // Prerequisites tab - always show if we have a structure (even if empty, we'll show a message)
+    tabs.push({
+      id: 'prerequisites',
+      label: 'Prerequisites',
+      type: 'prerequisites',
+      hasContent: lectureStructure.prerequisites_section?.learning_units?.length > 0
+    });
 
     // Lecture section tabs
     lectureStructure.lecture_sections?.forEach((section, idx) => {
@@ -309,30 +304,39 @@ const LectureBlueprintSkeleton = () => {
                     Prerequisites
                   </h2>
                   <p className="text-stone-500 dark:text-stone-400">
-                    {currentContent.data.description || 'Topics you should understand before diving into this lecture.'}
+                    {currentContent.data?.description || 'Topics you should understand before diving into this lecture.'}
                   </p>
                 </div>
 
-                <div className="grid gap-4">
-                  {currentContent.data.learning_units?.map((unit, idx) => (
-                    <div 
-                      key={unit.unit_id || idx}
-                      className="bg-stone-50 dark:bg-stone-800 rounded-xl p-6 border border-stone-200 dark:border-stone-700"
-                    >
-                      <h3 className="text-lg font-medium text-stone-900 dark:text-stone-100 mb-2">
-                        {unit.topic}
-                      </h3>
-                      <p className="text-stone-600 dark:text-stone-400 text-sm mb-3">
-                        {unit.concept_summary || unit.description}
-                      </p>
-                      {unit.tutor_guidance && (
-                        <p className="text-stone-500 dark:text-stone-500 text-sm italic">
-                          {unit.tutor_guidance}
+                {currentContent.data?.learning_units?.length > 0 ? (
+                  <div className="grid gap-4">
+                    {currentContent.data.learning_units.map((unit, idx) => (
+                      <div 
+                        key={unit.unit_id || idx}
+                        className="bg-stone-50 dark:bg-stone-800 rounded-xl p-6 border border-stone-200 dark:border-stone-700"
+                      >
+                        <h3 className="text-lg font-medium text-stone-900 dark:text-stone-100 mb-2">
+                          {unit.topic}
+                        </h3>
+                        <p className="text-stone-600 dark:text-stone-400 text-sm mb-3">
+                          {unit.concept_summary || unit.description}
                         </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        {unit.tutor_guidance && (
+                          <p className="text-stone-500 dark:text-stone-500 text-sm italic">
+                            {unit.tutor_guidance}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-6 border border-amber-200 dark:border-amber-800 text-center">
+                    <p className="text-amber-800 dark:text-amber-200">
+                      No prerequisites were generated for this lecture. 
+                      The content may be introductory level or self-contained.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -365,14 +369,25 @@ const LectureBlueprintSkeleton = () => {
 
                 {/* Main Content Text */}
                 <div className="prose prose-stone dark:prose-invert max-w-none">
-                  <div className="text-stone-700 dark:text-stone-300 leading-relaxed whitespace-pre-wrap">
-                    <LatexText 
-                      text={currentContent.data.content_text} 
-                      unitId={currentContent.data.section_id}
-                      context={currentContent.data.title}
-                      blueprintId={id}
-                    />
-                  </div>
+                  {currentContent.data.content_text ? (
+                    <div className="text-stone-700 dark:text-stone-300 leading-relaxed whitespace-pre-wrap">
+                      <LatexText 
+                        text={currentContent.data.content_text} 
+                        unitId={currentContent.data.section_id}
+                        context={currentContent.data.title}
+                        blueprintId={id}
+                      />
+                    </div>
+                  ) : (
+                    <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
+                      <p className="text-red-800 dark:text-red-200 text-sm">
+                        No content text was generated for this section. This may be a generation error.
+                      </p>
+                      <p className="text-red-600 dark:text-red-400 text-xs mt-2">
+                        Debug: Section data keys: {Object.keys(currentContent.data || {}).join(', ')}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Reference Tables */}

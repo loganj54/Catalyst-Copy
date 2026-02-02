@@ -94,11 +94,24 @@ Transform the document analysis into a structured lecture blueprint that helps s
 4. Maximum 7 topic sections (fewer is better if the content allows)
 5. All math must be in LaTeX: inline $...$ or block $$...$$
 
-**PREREQUISITES SECTION:**
-Generate 3-6 prerequisite topics that students need before studying this lecture.
-- These should be foundational concepts the lecture builds upon
-- Each prerequisite needs search queries for finding YouTube tutorials
-- Keep descriptions concise but helpful
+**PREREQUISITES SECTION - MANDATORY:**
+You MUST generate 3-6 prerequisite topics in the prerequisites_section field.
+- These are foundational concepts students need BEFORE studying this lecture
+- Think: what math, physics, or prior knowledge does this lecture assume?
+- Each prerequisite MUST have:
+  - unit_id: unique identifier like "prereq-1", "prereq-2", etc.
+  - unit_type: "prerequisite"
+  - topic: the prerequisite topic name
+  - concept_summary: 10-15 word summary
+  - description: 1-2 sentence explanation of why this is needed
+  - tutor_guidance: advice for studying this prerequisite
+  - estimated_time_minutes: time to review (15-45 min typically)
+  - search_queries: 3 YouTube search queries to find tutorials
+
+Example prerequisites for a thermodynamics lecture:
+- "Conservation of Energy" - needed to understand energy balance equations
+- "Ideal Gas Law" - foundation for gas behavior analysis
+- "Basic Calculus (Derivatives)" - needed for rate equations
 
 **LECTURE SECTIONS (Max 7):**
 For each major topic in the document, create a section with:
@@ -115,13 +128,35 @@ For each major topic in the document, create a section with:
    - No jargon, no complex terms
    - 1-2 sentences max
 
-4. **content_text**: A fluid, conversational explanation that combines:
-   - Key definitions from the document
-   - Important equations (in LaTeX) with variable explanations
-   - Core concepts and how they connect
-   - Write casually but accurately, like a friendly professor explaining
-   - 300-600 words per section
-   - All equations must come from the document
+4. **content_text**: THIS IS THE MAIN CONTENT - MAKE IT COMPREHENSIVE (800-1500 words per section)
+   
+   Write ONE LONG, FLUID, COHESIVE text column that deeply explains the topic. This should read like a friendly professor giving you the real understanding, not a textbook.
+   
+   **Structure your content_text to flow through these elements naturally (don't use headers, just weave them together):**
+   
+   a) **Big Picture / Intuition** - Start with a mental model. What's the core idea? Use an analogy if helpful.
+   
+   b) **Key Definitions** - Define important terms AS THEY APPEAR IN THE DOCUMENT. Explain what each term means in plain language.
+   
+   c) **Core Equations** - Present the key equations from the document in LaTeX. For EACH equation:
+      - State the equation: $$equation$$
+      - Define EVERY variable immediately after
+      - Explain WHEN this equation is valid / what assumptions it requires
+      - Explain WHY this equation makes sense intuitively
+   
+   d) **How Concepts Connect** - Explain how the definitions and equations relate to each other. What's the logical flow?
+   
+   e) **Common Mistakes & Pitfalls** - Weave in warnings about what students typically get wrong. Use phrases like "A common mistake is..." or "Watch out for..." or "Don't confuse X with Y..."
+   
+   f) **Units & Sanity Checks** - Mention typical units and magnitudes. What should answers "look like"?
+   
+   **Writing Style:**
+   - Casual, clear, confident - like a smart friend explaining
+   - No fluff, no "as an AI" nonsense
+   - Short paragraphs, easy to scan
+   - Use **bold** for key terms when first introduced
+   - All math in LaTeX (inline $...$ or block $$...$$)
+   - ONLY use equations and definitions from the document - no external knowledge
 
 5. **quick_quiz**: 5-8 questions per section
    - 70% conceptual multiple choice (test understanding, not calculation)
@@ -155,19 +190,33 @@ ${JSON.stringify(analysisData.sections || [], null, 2)}
 **KEY EQUATIONS FROM DOCUMENT:**
 ${JSON.stringify(analysisData.key_equations || [], null, 2)}
 
-**PREREQUISITES IDENTIFIED:**
+**PREREQUISITES FROM ANALYSIS (use as hints, but generate your own):**
 ${JSON.stringify(analysisData.prerequisites || [], null, 2)}
 
 **STUDY RECOMMENDATIONS:**
 ${JSON.stringify(analysisData.study_recommendations || {}, null, 2)}
 
-Remember:
-1. ONLY use content from this document - no external knowledge
-2. Keep sidebar_label to 3-4 words max
-3. Write why_this_matters at a 7th grade reading level
-4. Maximum 7 lecture sections
-5. 70% conceptual quiz questions, 30% numerical
-6. Only include reference_tables if actually needed
+**CRITICAL REQUIREMENTS:**
+1. You MUST include a prerequisites_section with 3-6 learning_units - this is REQUIRED
+2. ONLY use content from this document - no external knowledge for lecture content
+3. Keep sidebar_label to 3-4 words max
+4. Write why_this_matters at a 7th grade reading level
+5. Maximum 7 lecture sections
+6. 70% conceptual quiz questions, 30% numerical
+7. Only include reference_tables if actually needed
+
+**OUTPUT STRUCTURE (follow exactly):**
+{
+  "summary": { "title": "...", "description": "...", "total_estimated_time_minutes": N, "topic_count": N },
+  "prerequisites_section": {
+    "description": "Topics you should understand before this lecture",
+    "learning_units": [
+      { "unit_id": "prereq-1", "unit_type": "prerequisite", "topic": "...", "concept_summary": "...", "description": "...", "tutor_guidance": "...", "estimated_time_minutes": N, "search_queries": [...] },
+      ...3-6 more prerequisites...
+    ]
+  },
+  "lecture_sections": [...]
+}
 
 Output valid JSON only.`;
 }
