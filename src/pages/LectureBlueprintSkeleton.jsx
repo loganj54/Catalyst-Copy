@@ -32,6 +32,10 @@ const LectureBlueprintSkeleton = () => {
   const [showChatHistory, setShowChatHistory] = useState(false);
   const [chatTitle, setChatTitle] = useState('Chat with your document');
   const [activeThreadId, setActiveThreadId] = useState(null);
+  
+  // Practice Problems state
+  const [practiceProblems, setPracticeProblems] = useState({});
+  const [showProblemBank, setShowProblemBank] = useState(false);
 
   // Fetch blueprint and existing structure on mount
   useEffect(() => {
@@ -375,12 +379,23 @@ const LectureBlueprintSkeleton = () => {
                 hasDocument={!!blueprint?.document_id}
                 initialQuery={blueprint?.content?.text || ""}
                 tabs={tabs}
-                practiceProblems={[]} // Lecture skeleton doesn't have practice problems yet in state
-                structure={lectureStructure}
-                documentAnalysis={null} // Lecture skeleton doesn't have document analysis yet
-                showProblemBank={false}
-                onToggleProblemBank={() => {}}
-                onProblemGenerated={() => {}}
+                practiceProblems={practiceProblems} // Now using state
+                structure={lectureStructure} // Pass the full lecture structure with lecture_sections
+                documentAnalysis={null} // Lecture blueprints don't have document analysis
+                showProblemBank={showProblemBank} // Now controlled by state
+                onToggleProblemBank={() => setShowProblemBank(!showProblemBank)} // Toggle function
+                onProblemGenerated={(problem, unitId) => {
+                  console.log('[LectureBlueprintSkeleton] Practice problem generated:', problem);
+                  // Store in state
+                  setPracticeProblems(prev => {
+                    const existingProblems = prev[unitId] || [];
+                    const currentList = Array.isArray(existingProblems) ? existingProblems : [existingProblems];
+                    return {
+                      ...prev,
+                      [unitId]: [...currentList, { ...problem, solving: false }]
+                    };
+                  });
+                }}
               />
             </div>
           ) : (

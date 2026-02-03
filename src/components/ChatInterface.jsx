@@ -63,6 +63,8 @@ const ChatInterface = forwardRef(({
     const [isResolvingDocId, setIsResolvingDocId] = useState(false);
     const [classId, setClassId] = useState(null);
     const [useClassContext, setUseClassContext] = useState(false);
+    const [isProcessingEmbeddings, setIsProcessingEmbeddings] = useState(false);
+    const [embeddingsReady, setEmbeddingsReady] = useState(false);
 
     const activeDocumentId = documentId || fetchedDocumentId;
 
@@ -95,6 +97,13 @@ const ChatInterface = forwardRef(({
             fetchThreads();
         }
     }, [blueprintId]);
+
+    // Check and ensure embeddings exist when document ID is resolved
+    useEffect(() => {
+        if (activeDocumentId && !embeddingsReady) {
+            ensureEmbeddingsExist(activeDocumentId);
+        }
+    }, [activeDocumentId]);
 
     // Load messages when thread changes
     useEffect(() => {
@@ -175,6 +184,66 @@ const ChatInterface = forwardRef(({
             console.error("Error resolving doc ID:", e);
         } finally {
             setIsResolvingDocId(false);
+        }
+    };
+
+    // Ensure document embeddings exist for chat to work
+    const ensureEmbeddingsExist = async (docId) => {
+        if (!docId) return;
+        
+        try {
+            // Check if chunks exist for this document
+            const { count, error } = await supabase
+                .from('document_chunks')
+                .select('*', { count: 'exact', head: true })
+                .eq('document_id', docId);
+
+            if (error) {
+                console.error('[ChatInterface] Error checking chunks:', error);
+                return;
+            }
+
+            if (count && count > 0) {
+                console.log(`[ChatInterface] Document has ${count} chunks - ready for chat`);
+                setEmbeddingsReady(true);
+                return;
+            }
+
+            // No chunks exist - trigger embedding generation
+            console.log('[ChatInterface] No chunks found - triggering embedding generation...');
+            setIsProcessingEmbeddings(true);
+
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                console.error('[ChatInterface] No session for embedding generation');
+                setIsProcessingEmbeddings(false);
+                return;
+            }
+
+            const response = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-document-embeddings`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ document_id: docId })
+                }
+            );
+
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('[ChatInterface] Embeddings generated:', result.chunks_count || result.count, 'chunks');
+                setEmbeddingsReady(true);
+            } else {
+                console.error('[ChatInterface] Embedding generation failed:', result.error);
+            }
+        } catch (e) {
+            console.error('[ChatInterface] Error ensuring embeddings:', e);
+        } finally {
+            setIsProcessingEmbeddings(false);
         }
     };
 
@@ -473,6 +542,14 @@ const ChatInterface = forwardRef(({
             </div>
 
             {/* Overlay Backdrop REMOVED */}
+
+            {/* Embedding Processing Indicator */}
+            {isProcessingEmbeddings && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-full px-4 py-2 shadow-lg flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-600 dark:text-amber-400" />
+                    <span className="text-sm text-amber-700 dark:text-amber-300 font-medium">Preparing document for chat...</span>
+                </div>
+            )}
 
             {/* EMPTY STATE */}
             {isEmptyView ? (

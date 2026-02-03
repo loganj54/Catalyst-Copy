@@ -116,9 +116,10 @@ Example prerequisites for a thermodynamics lecture:
 **LECTURE SECTIONS (Max 7):**
 For each major topic in the document, create a section with:
 
-1. **sidebar_label**: A SHORT punchy label (3-4 words max) for the navigation sidebar
-   - Examples: "Heat Transfer Basics", "Reynolds Number", "Bernoulli Equation"
-   - Must fit in a small button
+1. **sidebar_label**: A SHORT punchy label for the navigation sidebar
+   - CRITICAL: Must be 21 characters or less (including spaces)
+   - Examples: "Heat Transfer" (13), "Reynolds Number" (15), "Bernoulli Eq" (12)
+   - Keep it tight - abbreviate if needed to stay under 21 chars
 
 2. **title**: The full descriptive title of the section
 
@@ -235,7 +236,7 @@ ${JSON.stringify(analysisData.study_recommendations || {}, null, 2)}
 **CRITICAL REQUIREMENTS:**
 1. You MUST include a prerequisites_section with 3-6 learning_units - this is REQUIRED
 2. ONLY use content from this document - no external knowledge for lecture content
-3. Keep sidebar_label to 3-4 words max
+3. Keep sidebar_label to 21 characters or LESS (very important for UI layout)
 4. Write why_this_matters at a 7th grade reading level
 5. Maximum 7 lecture sections
 6. 70% conceptual quiz questions, 30% numerical
@@ -478,6 +479,46 @@ serve(async (req) => {
       .from('blueprints')
       .update({ generation_status: 'lecture_structure_generated' })
       .eq('id', blueprint_id);
+
+    // =========================================================================
+    // STEP: Ensure Document Embeddings Exist for Chat
+    // =========================================================================
+    // Check if document chunks exist - if not, trigger embedding generation
+    // This ensures "Chat with Document" works for lecture blueprints
+    if (documentId) {
+      const { count: chunkCount } = await supabase
+        .from('document_chunks')
+        .select('*', { count: 'exact', head: true })
+        .eq('document_id', documentId);
+
+      if (!chunkCount || chunkCount === 0) {
+        console.log('[lecture-blueprint] No document chunks found - triggering embedding generation...');
+        
+        // Get the extracted text from the analysis
+        const extractedText = analysis.extracted_text || analysisData.extracted_text || null;
+        
+        // Trigger embedding generation in background (don't await)
+        fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/process-document-embeddings`, {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            document_id: documentId,
+            extracted_text: extractedText,
+            user_id: userId,
+            class_id: blueprint.class_id
+          })
+        }).then(() => {
+          console.log('[lecture-blueprint] Embedding generation triggered successfully');
+        }).catch(err => {
+          console.error('[lecture-blueprint] Background embedding trigger failed:', err);
+        });
+      } else {
+        console.log(`[lecture-blueprint] Document already has ${chunkCount} chunks - chat ready`);
+      }
+    }
 
     console.log('[lecture-blueprint] ========================================');
     console.log('[lecture-blueprint] SUCCESS - Lecture blueprint generated!');

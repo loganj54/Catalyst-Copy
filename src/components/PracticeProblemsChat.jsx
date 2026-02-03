@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import {
     Send, Loader2, MessageSquare, Plus, Trash2, Clock, Folder, Library,
-    ArrowRight, Paperclip, X, ChevronDown, ChevronUp
+    ArrowRight, Paperclip, X, ChevronDown, ChevronUp, FileText
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
@@ -89,37 +89,71 @@ const PracticeProblemsChat = forwardRef(({
     const [selectedSections, setSelectedSections] = useState(new Set()); // State for selected practice sections
     const [selectedProblems, setSelectedProblems] = useState(new Set()); // State for selected problems
     const [generatedProblem, setGeneratedProblem] = useState(null); // Stores the most recently generated problem
+    const [isProcessingEmbeddings, setIsProcessingEmbeddings] = useState(false);
+    const [embeddingsReady, setEmbeddingsReady] = useState(false);
 
     const activeDocumentId = documentId || fetchedDocumentId;
 
-    // Extract problems from documentAnalysis with their full context
+    // Extract problems from documentAnalysis OR lecture sections from structure
     const extractedProblems = React.useMemo(() => {
         const sections = documentAnalysis?.raw_analysis?.sections || [];
         const structureSections = structure?.content_sections || structure?.learning_structure?.content_sections || [];
 
-        return sections
-            .filter(section => section.problem_statement) // Only include sections with actual problems
-            .map(section => {
-                // Find matching structure section for the label
-                const matchingTab = tabs.find(t =>
-                    t.id === section.section_id ||
-                    t.id === section.section_id?.replace('_walkthroughs', '') ||
-                    section.section_id?.includes(t.id)
-                );
+        // Debug logging
+        console.log('[PracticeProblemsChat] Structure keys:', structure ? Object.keys(structure) : 'null');
+        console.log('[PracticeProblemsChat] Has lecture_sections?', !!structure?.lecture_sections);
+        console.log('[PracticeProblemsChat] Lecture sections count:', structure?.lecture_sections?.length || 0);
 
+        // Check if this is a lecture structure (has lecture_sections instead of problems)
+        const isLectureStructure = structure?.lecture_sections?.length > 0;
+
+        if (isLectureStructure) {
+            // For LECTURE blueprints: extract lecture sections as selectable items
+            console.log('[PracticeProblemsChat] Extracting lecture sections...');
+            const extracted = structure.lecture_sections.map((section, idx) => {
                 return {
-                    id: section.section_id,
-                    label: matchingTab?.label || section.section_id || 'Problem',
-                    fullTitle: matchingTab?.fullTitle || section.section_id,
-                    description: cleanDescription(matchingTab?.unit_title || matchingTab?.topic || matchingTab?.description || matchingTab?.learning_objective || section.content_summary || section.concept_summary || section.summary || section.description || ''),
-                    problem_statement: section.problem_statement,
-                    given_values: section.given_values || [],
-                    solution_approach: section.solution_approach || [],
-                    common_mistakes: section.common_mistakes || [],
-                    concepts_covered: section.concepts_covered || [],
-                    difficulty_level: section.difficulty_level
+                    id: section.section_id || `section-${idx}`,
+                    label: section.sidebar_label || section.title || `Topic ${idx + 1}`,
+                    fullTitle: section.title,
+                    description: section.why_this_matters || '',
+                    // For lectures, we extract ideas from the content
+                    content_text: section.content_text,
+                    key_concepts: section.key_concepts || [],
+                    learning_objectives: section.learning_objectives || [],
+                    equations_in_content: section.equations_in_content || [],
+                    quick_quiz: section.quick_quiz || [],
+                    type: 'lecture_section'
                 };
             });
+            console.log('[PracticeProblemsChat] Extracted lecture sections:', extracted.length, extracted.map(s => s.label));
+            return extracted;
+        } else {
+            // For HOMEWORK blueprints: extract problems as before
+            return sections
+                .filter(section => section.problem_statement) // Only include sections with actual problems
+                .map(section => {
+                    // Find matching structure section for the label
+                    const matchingTab = tabs.find(t =>
+                        t.id === section.section_id ||
+                        t.id === section.section_id?.replace('_walkthroughs', '') ||
+                        section.section_id?.includes(t.id)
+                    );
+
+                    return {
+                        id: section.section_id,
+                        label: matchingTab?.label || section.section_id || 'Problem',
+                        fullTitle: matchingTab?.fullTitle || section.section_id,
+                        description: cleanDescription(matchingTab?.unit_title || matchingTab?.topic || matchingTab?.description || matchingTab?.learning_objective || section.content_summary || section.concept_summary || section.summary || section.description || ''),
+                        problem_statement: section.problem_statement,
+                        given_values: section.given_values || [],
+                        solution_approach: section.solution_approach || [],
+                        common_mistakes: section.common_mistakes || [],
+                        concepts_covered: section.concepts_covered || [],
+                        difficulty_level: section.difficulty_level,
+                        type: 'homework_problem'
+                    };
+                });
+        }
     }, [documentAnalysis, structure, tabs]);
 
     const messagesEndRef = useRef(null);
@@ -138,6 +172,13 @@ const PracticeProblemsChat = forwardRef(({
             fetchThreads();
         }
     }, [blueprintId]);
+
+    // Check and ensure embeddings exist when document ID is resolved
+    useEffect(() => {
+        if (activeDocumentId && !embeddingsReady) {
+            ensureEmbeddingsExist(activeDocumentId);
+        }
+    }, [activeDocumentId]);
 
     // Load messages when thread changes
     useEffect(() => {
@@ -211,6 +252,66 @@ const PracticeProblemsChat = forwardRef(({
             console.error("Error resolving doc ID:", e);
         } finally {
             setIsResolvingDocId(false);
+        }
+    };
+
+    // Ensure document embeddings exist for chat to work
+    const ensureEmbeddingsExist = async (docId) => {
+        if (!docId) return;
+        
+        try {
+            // Check if chunks exist for this document
+            const { count, error } = await supabase
+                .from('document_chunks')
+                .select('*', { count: 'exact', head: true })
+                .eq('document_id', docId);
+
+            if (error) {
+                console.error('[PracticeProblemsChat] Error checking chunks:', error);
+                return;
+            }
+
+            if (count && count > 0) {
+                console.log(`[PracticeProblemsChat] Document has ${count} chunks - ready for chat`);
+                setEmbeddingsReady(true);
+                return;
+            }
+
+            // No chunks exist - trigger embedding generation
+            console.log('[PracticeProblemsChat] No chunks found - triggering embedding generation...');
+            setIsProcessingEmbeddings(true);
+
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                console.error('[PracticeProblemsChat] No session for embedding generation');
+                setIsProcessingEmbeddings(false);
+                return;
+            }
+
+            const response = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-document-embeddings`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ document_id: docId })
+                }
+            );
+
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('[PracticeProblemsChat] Embeddings generated:', result.chunks_count || result.count, 'chunks');
+                setEmbeddingsReady(true);
+            } else {
+                console.error('[PracticeProblemsChat] Embedding generation failed:', result.error);
+            }
+        } catch (e) {
+            console.error('[PracticeProblemsChat] Error ensuring embeddings:', e);
+        } finally {
+            setIsProcessingEmbeddings(false);
         }
     };
 
@@ -457,6 +558,8 @@ const PracticeProblemsChat = forwardRef(({
     };
 
     // Generate practice problem and save to Problem Bank (not chat history)
+    // Now uses IDEA-BASED generation for more varied problems
+    // Supports both HOMEWORK problems and LECTURE sections
     const handleGeneratePracticeProblem = async (selectedProblemData) => {
         setIsLoading(true);
         setGeneratedProblem(null);
@@ -464,12 +567,136 @@ const PracticeProblemsChat = forwardRef(({
         try {
             const { data: { session } } = await supabase.auth.getSession();
 
-            // Use the first selected problem's section_id as unit_id
+            // Use the first selected item's section_id as unit_id
             const unitId = selectedProblemData[0]?.id || 'generated';
 
-            // Build context from selected problems
-            const original_problem = selectedProblemData.map(p => p.problem_statement).join('\n\n');
-            const topic = selectedProblemData.map(p => p.label).join(', ');
+            // ================================================================
+            // EXTRACT CORE IDEAS from selected items (problems OR lecture sections)
+            // ================================================================
+            const coreIdeas = [];
+            const equations = [];
+            const commonMistakes = [];
+
+            selectedProblemData.forEach(item => {
+                if (item.type === 'lecture_section') {
+                    // ========== LECTURE SECTION EXTRACTION ==========
+                    // Extract ideas from lecture content
+                    
+                    // 1. Add key concepts
+                    if (item.key_concepts?.length) {
+                        item.key_concepts.forEach(concept => {
+                            if (!coreIdeas.includes(concept)) {
+                                coreIdeas.push(concept);
+                            }
+                        });
+                    }
+                    
+                    // 2. Add learning objectives
+                    if (item.learning_objectives?.length) {
+                        item.learning_objectives.forEach(objective => {
+                            if (!coreIdeas.includes(objective)) {
+                                coreIdeas.push(objective);
+                            }
+                        });
+                    }
+                    
+                    // 3. Add the section title as a core idea
+                    if (item.fullTitle && !coreIdeas.includes(item.fullTitle)) {
+                        coreIdeas.push(item.fullTitle);
+                    }
+                    
+                    // 4. Extract equations from content
+                    if (item.equations_in_content?.length) {
+                        equations.push(...item.equations_in_content);
+                    }
+                    
+                    // 5. Parse content_text for additional equations (look for $$ blocks)
+                    if (item.content_text) {
+                        const blockEqMatches = item.content_text.match(/\$\$(.*?)\$\$/g);
+                        if (blockEqMatches) {
+                            blockEqMatches.forEach(match => {
+                                const eq = match.replace(/\$\$/g, '').trim();
+                                if (eq && !equations.includes(eq)) {
+                                    equations.push(eq);
+                                }
+                            });
+                        }
+                    }
+                    
+                } else {
+                    // ========== HOMEWORK PROBLEM EXTRACTION ==========
+                    // Extract ideas from homework problems
+                    
+                    // Add concepts covered
+                    if (item.concepts_covered?.length) {
+                        item.concepts_covered.forEach(concept => {
+                            if (!coreIdeas.includes(concept)) {
+                                coreIdeas.push(concept);
+                            }
+                        });
+                    }
+                    
+                    // Add the problem label/topic as an idea
+                    if (item.label && !coreIdeas.includes(item.label)) {
+                        coreIdeas.push(item.label);
+                    }
+                    
+                    // Extract ideas from solution approach
+                    if (item.solution_approach?.length) {
+                        item.solution_approach.forEach(step => {
+                            // Look for key concept phrases
+                            if (step.includes('conservation') || step.includes('equation') || 
+                                step.includes('principle') || step.includes('law')) {
+                                if (!coreIdeas.includes(step) && coreIdeas.length < 10) {
+                                    coreIdeas.push(step);
+                                }
+                            }
+                        });
+                    }
+
+                    // Collect common mistakes for context
+                    if (item.common_mistakes?.length) {
+                        commonMistakes.push(...item.common_mistakes);
+                    }
+                }
+            });
+
+            // Build topic from selected items
+            const topic = selectedProblemData.map(p => p.label || p.fullTitle).join(', ');
+
+            // Determine generation mode
+            // For lecture sections, we ALWAYS use idea-based since there's no problem to remix
+            const isLectureMode = selectedProblemData[0]?.type === 'lecture_section';
+            const hasEnoughIdeas = coreIdeas.length >= 2;
+            const generationMode = (isLectureMode || hasEnoughIdeas) ? 'idea_based' : 'remix';
+
+            console.log(`[PracticeProblemsChat] Mode: ${isLectureMode ? 'LECTURE' : 'HOMEWORK'}, Generation: ${generationMode}, Core ideas: ${coreIdeas.length}, Equations: ${equations.length}`);
+
+            // Build request body
+            const requestBody = {
+                topic,
+                unit_id: unitId,
+                blueprint_id: blueprintId,
+                generation_mode: generationMode,
+                context: {
+                    concepts: coreIdeas.slice(0, 5),
+                    source_problems: selectedProblemData.length,
+                    common_mistakes: commonMistakes.slice(0, 3),
+                    is_lecture: isLectureMode
+                }
+            };
+
+            if (generationMode === 'idea_based') {
+                // For idea-based: pass core ideas and equations
+                requestBody.core_ideas = coreIdeas.slice(0, 8);  // More ideas for lectures
+                requestBody.equations = equations.slice(0, 6);
+            } else {
+                // For remix mode: pass original problem statements
+                requestBody.original_problem = selectedProblemData
+                    .filter(p => p.problem_statement)
+                    .map(p => p.problem_statement)
+                    .join('\n\n');
+            }
 
             const response = await fetch(
                 `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-practice-problem`,
@@ -479,16 +706,7 @@ const PracticeProblemsChat = forwardRef(({
                         'Authorization': `Bearer ${session.access_token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        topic,
-                        original_problem,
-                        unit_id: unitId,
-                        blueprint_id: blueprintId,
-                        context: {
-                            concepts: selectedProblemData.flatMap(p => p.concepts_covered || []),
-                            source_problems: selectedProblemData.length
-                        }
-                    })
+                    body: JSON.stringify(requestBody)
                 }
             );
 
@@ -503,6 +721,8 @@ const PracticeProblemsChat = forwardRef(({
                 setActiveProblemId(unitId);
                 // Clear selection after successful generation
                 setSelectedProblems(new Set());
+                
+                console.log(`[PracticeProblemsChat] ✅ Generated ${result.generation_mode} problem from ${isLectureMode ? 'lecture sections' : 'homework problems'}`);
             } else {
                 console.error('Failed to generate problem:', result.error);
             }
@@ -605,13 +825,48 @@ const PracticeProblemsChat = forwardRef(({
             {isEmptyView ? (
                 <div className="w-full h-full flex flex-col items-center overflow-y-auto pl-4 pr-[84px] lg:pr-[334px] bg-transparent animate-in fade-in duration-500 pt-[max(2rem,calc(50vh-20.25rem))]">
 
+                    {/* Top Action Buttons */}
+                    <div className="absolute top-6 right-6 flex items-center gap-3 z-50">
+                        <button
+                            onClick={() => onToggleProblemBank?.()}
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-sm font-medium"
+                        >
+                            <Library className="w-4 h-4" />
+                            Problem Bank
+                        </button>
+                        <button
+                            onClick={() => {
+                                setActiveThreadId(null);
+                                setActiveProblemId(null);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-sm font-medium"
+                        >
+                            <Plus className="w-4 h-4" />
+                            New Problem
+                        </button>
+                        {hasDocument && (
+                            <button
+                                onClick={() => {
+                                    // Navigate to document view or open document
+                                    window.open(`/documents/${documentId}`, '_blank');
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
+                            >
+                                <FileText className="w-4 h-4" />
+                                View Document
+                            </button>
+                        )}
+                    </div>
+
                     {/* Header */}
                     <div className="text-center mb-10">
                         <h1 className="inline-block text-4xl md:text-5xl text-black dark:text-white tracking-tight font-display mb-3 pb-6">
                             Ready for some practice?
                         </h1>
                         <p className="text-gray-600 dark:text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
-                            Select problems to generate a custom practice scenario.
+                            {extractedProblems[0]?.type === 'lecture_section' 
+                                ? 'Select lecture sections to generate practice problems based on those topics.'
+                                : 'Select problems to generate a custom practice scenario.'}
                         </p>
                     </div>
 
@@ -622,7 +877,9 @@ const PracticeProblemsChat = forwardRef(({
                                 <div className="border border-stone-200 dark:border-stone-800 rounded-lg p-3">
                                     <div className="flex items-center justify-between mb-4">
                                         <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100 tracking-wider">
-                                            Base practice problem on...
+                                            {extractedProblems[0]?.type === 'lecture_section' 
+                                                ? 'Select lecture sections...'
+                                                : 'Base practice problem on...'}
                                         </h2>
                                         <button
                                             onClick={() => {
@@ -640,8 +897,16 @@ const PracticeProblemsChat = forwardRef(({
 
                                     {extractedProblems.length === 0 ? (
                                         <div className="text-center py-8 text-stone-400">
-                                            <p className="text-sm">No problems found in this blueprint.</p>
-                                            <p className="text-xs mt-1">Problems will appear here once the document is analyzed.</p>
+                                            <p className="text-sm">
+                                                {structure?.lecture_sections 
+                                                    ? 'No lecture sections found. Generate a lecture blueprint first.'
+                                                    : 'No problems found in this blueprint.'}
+                                            </p>
+                                            <p className="text-xs mt-1">
+                                                {structure?.lecture_sections
+                                                    ? 'Sections will appear here once the lecture is generated.'
+                                                    : 'Problems will appear here once the document is analyzed.'}
+                                            </p>
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">

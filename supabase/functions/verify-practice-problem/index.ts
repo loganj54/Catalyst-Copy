@@ -10,13 +10,20 @@ const SIMILARITY_THRESHOLD = 0.97;
 
 interface RequestBody {
     topic: string;
-    original_problem: string;
+    original_problem?: string;  // Optional for idea-based mode
     unit_id: string;
     blueprint_id: string;
+    // NEW: Support idea-based generation
+    generation_mode?: 'remix' | 'idea_based';  // Default: 'remix' for backward compatibility
+    core_ideas?: string[];  // Required for idea_based mode
+    equations?: string[];   // Optional equations for context
     context?: {
         learning_objective?: string;
         unit_type?: string;
         description?: string;
+        difficulty?: number;
+        common_mistakes?: string[];
+        concepts?: string[];  // Additional concepts for context
     };
 }
 
@@ -30,7 +37,29 @@ serve(async (req: Request) => {
         if (!authHeader) throw new Error('Missing authorization header');
 
         const body: RequestBody = await req.json();
-        const { topic, original_problem, unit_id, blueprint_id, context } = body;
+        const { 
+            topic, 
+            original_problem, 
+            unit_id, 
+            blueprint_id, 
+            context,
+            generation_mode = 'remix',  // Default to remix for backward compatibility
+            core_ideas = [],
+            equations = []
+        } = body;
+
+        // Validate request based on mode
+        if (generation_mode === 'idea_based' && (!core_ideas || core_ideas.length === 0)) {
+            throw new Error('core_ideas array is required for idea_based generation mode');
+        }
+        if (generation_mode === 'remix' && !original_problem) {
+            throw new Error('original_problem is required for remix generation mode');
+        }
+
+        console.log(`[verify-practice-problem] Mode: ${generation_mode}, Topic: ${topic}`);
+        if (generation_mode === 'idea_based') {
+            console.log(`[verify-practice-problem] Core ideas: ${core_ideas.join(', ')}`);
+        }
 
         const supabaseAuth = createSupabaseClientWithAuth(authHeader);
         const supabaseService = createSupabaseClient();
@@ -61,7 +90,10 @@ serve(async (req: Request) => {
         };
 
         // 1. Check Cache (Pinecone)
-        const searchText = `${topic}: ${original_problem || 'practice problem'}`;
+        // For idea-based mode, use core ideas for cache lookup; for remix mode, use original problem
+        const searchText = generation_mode === 'idea_based'
+            ? `${topic}: ${core_ideas.join('; ')}`
+            : `${topic}: ${original_problem || 'practice problem'}`;
         const { embedding } = await generateEmbedding(searchText);
 
         // Use initial embedding for cache storage too, unless we regenerate it later
@@ -133,15 +165,37 @@ serve(async (req: Request) => {
             attempts++;
             console.log(`[verify-practice-problem] Attempt ${attempts}/${MAX_ATTEMPTS}...`);
 
-            // A. Generate with Grok
+            // A. Generate with Grok - use appropriate prompt based on mode
+            let systemPrompt: string;
+            let userPrompt: string;
+
+            if (generation_mode === 'idea_based') {
+                // Use the new idea-based generation prompt
+                systemPrompt = PROMPTS.ideaBasedPracticeProblemGeneration.system;
+                userPrompt = PROMPTS.ideaBasedPracticeProblemGeneration.user(
+                    core_ideas,
+                    topic,
+                    equations,
+                    context || {}
+                );
+            } else {
+                // Use the original remix-style prompt
+                systemPrompt = PROMPTS.verifiedPracticeProblemGeneration.system;
+                userPrompt = PROMPTS.verifiedPracticeProblemGeneration.user(
+                    topic,
+                    original_problem || '',
+                    context || {}
+                );
+            }
+
             const grokRes = await fetch('https://api.x.ai/v1/chat/completions', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${grokApiKey}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     model: 'grok-4-1-fast-non-reasoning',
                     messages: [
-                        { role: 'system', content: PROMPTS.verifiedPracticeProblemGeneration.system },
-                        { role: 'user', content: PROMPTS.verifiedPracticeProblemGeneration.user(topic, original_problem || '', context || {}) }
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt }
                     ],
                     temperature: 0.7 + (attempts * 0.1),
                     response_format: { type: 'json_object' }
@@ -292,23 +346,31 @@ serve(async (req: Request) => {
 
         // 3. Cache and Return
         if (isVerified && finalProblem) {
-            // Store in Supabase
+            // Store in Supabase with extended context for idea-based problems
+            const extendedContext = {
+                ...(context || {}),
+                generation_mode,
+                core_ideas: generation_mode === 'idea_based' ? core_ideas : undefined,
+                equations: equations.length > 0 ? equations : undefined,
+                problem_format: finalProblem.problem_format,  // New field from idea-based generation
+                core_ideas_tested: finalProblem.core_ideas_tested  // Track which ideas were tested
+            };
+
             const { data: cached } = await supabaseService
                 .from('practice_problems_cache')
                 .insert({
                     problem_name: finalProblem.problem_name || 'Practice Problem',
                     problem_statement: finalProblem.practice_problem,
-                    context: context || {},
+                    context: extendedContext,
                     given_values: finalProblem.given_values,
                     hints: finalProblem.hints,
                     solution_steps: finalProblem.solution_steps,
-                    final_answer: finalProblem.final_answer, // Grok's detailed answer text
+                    final_answer: finalProblem.final_answer,
                     verification_status: 'verified',
                     models_agreed: finalVerificationData.models_agreed,
                     grok_answer: finalVerificationData.all_answers.grok,
                     sonnet_answer: finalVerificationData.all_answers.sonnet,
                     gpt_answer: finalVerificationData.all_answers.gpt
-                    // Add gemini/opus columns if needed? For now just store standard ones or extend JSON
                 })
                 .select()
                 .single();
@@ -334,6 +396,7 @@ serve(async (req: Request) => {
             success: true,
             from_cache: false,
             verified: isVerified,
+            generation_mode,
             problem: finalProblem || lastGrokResult || {}, // Fallback to last grok result if unverified
             verification: finalVerificationData || { status: 'failed_verification' }
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

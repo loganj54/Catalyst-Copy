@@ -1507,6 +1507,7 @@ const Blueprint = () => {
   };
 
   // Handle Practice Problem Generation (With Caching & Multi-Model Verification)
+  // Now supports IDEA-BASED generation for more varied, conceptually-focused problems
   const handleGeneratePracticeProblem = async (unit) => {
     if (!session?.access_token) return;
     const unitId = unit.unit_id;
@@ -1516,8 +1517,7 @@ const Blueprint = () => {
     try {
       console.log(`[Blueprint] Generating verified practice problem for unit ${unitId}...`);
 
-      // Get problem context from document analysis if available
-      let originalProblem = null;
+      // Get document analysis sections
       const sections = documentAnalysis?.raw_analysis?.sections || [];
 
       // Find the parent section of this unit
@@ -1528,40 +1528,131 @@ const Blueprint = () => {
         s.learning_units?.some(u => u.unit_id === unitId)
       );
 
+      // Find matching analysis section
+      let analysisSection = null;
       if (currentSection) {
-        const analysisSection = sections.find(s =>
+        analysisSection = sections.find(s =>
           s.section_id === currentSection.section_id ||
           s.section_id === currentSection.section_id.replace('_walkthroughs', '')
         );
-        if (analysisSection && analysisSection.problem_statement) {
-          originalProblem = analysisSection.problem_statement;
+      }
+
+      // ========================================================================
+      // EXTRACT CORE IDEAS for idea-based generation
+      // ========================================================================
+      // Core ideas come from multiple sources:
+      // 1. concepts_tested from document analysis
+      // 2. key_concepts from lecture topics
+      // 3. learning_objectives
+      // 4. The unit's own topic and description
+      const coreIdeas = [];
+
+      // From analysis section
+      if (analysisSection) {
+        if (analysisSection.concepts_tested?.length) {
+          coreIdeas.push(...analysisSection.concepts_tested);
+        }
+        if (analysisSection.key_concepts?.length) {
+          coreIdeas.push(...analysisSection.key_concepts);
+        }
+        if (analysisSection.learning_objectives?.length) {
+          coreIdeas.push(...analysisSection.learning_objectives);
         }
       }
 
-      if (!originalProblem) {
-        originalProblem = unit.target_resource_profile || unit.description || unit.topic;
+      // From the unit itself
+      if (unit.learning_objective && !coreIdeas.includes(unit.learning_objective)) {
+        coreIdeas.push(unit.learning_objective);
+      }
+      if (unit.topic && !coreIdeas.includes(unit.topic)) {
+        coreIdeas.push(unit.topic);
       }
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      // From the current section's units (sibling concepts)
+      if (currentSection?.learning_units) {
+        currentSection.learning_units.forEach(u => {
+          if (u.topic && !coreIdeas.includes(u.topic)) {
+            coreIdeas.push(u.topic);
+          }
+        });
+      }
 
-      // Call the new verification endpoint (handles cache check + multi-model verification)
+      // ========================================================================
+      // EXTRACT EQUATIONS
+      // ========================================================================
+      const equations = [];
+      if (analysisSection?.equations_needed?.length) {
+        equations.push(...analysisSection.equations_needed);
+      }
+      if (unit.equations?.length) {
+        unit.equations.forEach(eq => {
+          const eqStr = eq.latex || eq.equation || eq;
+          if (eqStr && !equations.includes(eqStr)) {
+            equations.push(eqStr);
+          }
+        });
+      }
+      // Also check document-level key_equations
+      if (documentAnalysis?.raw_analysis?.key_equations?.length) {
+        documentAnalysis.raw_analysis.key_equations.forEach(eq => {
+          const eqStr = eq.latex || eq.formula || eq.name;
+          if (eqStr && !equations.includes(eqStr)) {
+            equations.push(eqStr);
+          }
+        });
+      }
+
+      // ========================================================================
+      // DETERMINE GENERATION MODE
+      // ========================================================================
+      // Use idea-based mode when:
+      // 1. We have core ideas extracted
+      // 2. OR this is a lecture/topic (no problem_statement)
+      // 3. OR the user explicitly wants varied problems
+      const hasProblemStatement = analysisSection?.problem_statement;
+      const hasEnoughIdeas = coreIdeas.length >= 2;
+      
+      // Prefer idea-based generation for richer, more varied problems
+      const generationMode = hasEnoughIdeas ? 'idea_based' : 'remix';
+
+      console.log(`[Blueprint] Generation mode: ${generationMode}, Core ideas: ${coreIdeas.length}, Equations: ${equations.length}`);
+
+      // Build request body based on mode
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const requestBody = {
+        topic: unit.topic,
+        unit_id: unitId,
+        blueprint_id: id,
+        generation_mode: generationMode,
+        context: {
+          learning_objective: unit.learning_objective,
+          unit_type: unit.unit_type,
+          description: unit.description,
+          difficulty: analysisSection?.difficulty,
+          common_mistakes: analysisSection?.common_mistakes || [],
+          concepts: coreIdeas.slice(0, 5)  // Include top concepts in context
+        }
+      };
+
+      if (generationMode === 'idea_based') {
+        // For idea-based: pass core ideas and equations
+        requestBody.core_ideas = coreIdeas.slice(0, 6);  // Limit to 6 most relevant ideas
+        requestBody.equations = equations.slice(0, 5);   // Limit equations
+      } else {
+        // For remix mode: pass original problem
+        requestBody.original_problem = hasProblemStatement 
+          ? analysisSection.problem_statement 
+          : (unit.target_resource_profile || unit.description || unit.topic);
+      }
+
+      // Call the verification endpoint
       const response = await fetch(`${supabaseUrl}/functions/v1/verify-practice-problem`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          topic: unit.topic,
-          original_problem: originalProblem,
-          unit_id: unitId,
-          blueprint_id: id,
-          context: {
-            learning_objective: unit.learning_objective,
-            unit_type: unit.unit_type,
-            description: unit.description
-          }
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
@@ -1574,7 +1665,7 @@ const Blueprint = () => {
       if (data.from_cache) {
         console.log('[Blueprint] ✅ Used cached verified problem');
       } else if (data.verified) {
-        console.log('[Blueprint] ✅ New problem verified by multiple models:', data.verification?.models_agreed);
+        console.log(`[Blueprint] ✅ New ${data.generation_mode} problem verified by multiple models:`, data.verification?.models_agreed);
       } else {
         console.warn('[Blueprint] ⚠️ Problem generated but not fully verified');
       }
