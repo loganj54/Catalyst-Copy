@@ -130,16 +130,29 @@ For each major topic in the document, create a section with:
 
 4. **content_text**: THIS IS THE MAIN CONTENT - MAKE IT COMPREHENSIVE (800-1500 words per section)
    
-   Write ONE LONG, FLUID, COHESIVE text column that deeply explains the topic. This should read like a friendly professor giving you the real understanding, not a textbook.
+   Write a well-organized, readable text column that deeply explains the topic. This should read like a friendly professor giving you the real understanding, not a textbook.
    
-   **Structure your content_text to flow through these elements naturally (don't use headers, just weave them together):**
+   **STRUCTURE WITH HEADERS (USE 4-6 HEADERS PER SECTION):**
+   Use markdown headers (## Header Name) to organize the content into logical subsections. Each section should have 4-6 headers that break up the content naturally. Example headers:
+   - ## The Big Picture
+   - ## Key Definitions
+   - ## The Core Equation
+   - ## How It All Connects
+   - ## Watch Out For These Mistakes
+   - ## Units and Sanity Checks
+   
+   **PARAGRAPH STRUCTURE:**
+   For longer explanations, start each subsection with a 1-2 sentence introduction that summarizes the key point. Then follow with the detailed explanation in subsequent paragraphs. This makes the content easier to scan and digest.
+   
+   **CONTENT ELEMENTS TO INCLUDE:**
    
    a) **Big Picture / Intuition** - Start with a mental model. What's the core idea? Use an analogy if helpful.
    
    b) **Key Definitions** - Define important terms AS THEY APPEAR IN THE DOCUMENT. Explain what each term means in plain language.
    
-   c) **Core Equations** - Present the key equations from the document in LaTeX. For EACH equation:
-      - State the equation: $$equation$$
+   c) **Core Equations** - Present the key equations from the document. Include MORE equations throughout - don't be sparse! For EACH equation:
+      - Introduce it with context in a paragraph
+      - Present the equation as a BLOCK EQUATION on its own line: $$equation$$
       - Define EVERY variable immediately after
       - Explain WHEN this equation is valid / what assumptions it requires
       - Explain WHY this equation makes sense intuitively
@@ -150,12 +163,24 @@ For each major topic in the document, create a section with:
    
    f) **Units & Sanity Checks** - Mention typical units and magnitudes. What should answers "look like"?
    
+   **EQUATION FORMATTING - CRITICAL:**
+   - Use INLINE math ($...$) for variables and short expressions within sentences: "where $T$ is temperature"
+   - Use BLOCK math ($$...$$) for important equations - these MUST be on their own line, centered:
+     
+     The relationship is given by:
+     
+     $$Q = mc\\Delta T$$
+     
+     where $Q$ is heat transfer...
+   
+   - Include 3-6 block equations per section where appropriate
+   - Block equations should flow naturally: introduce with text, show equation, then explain
+   
    **Writing Style:**
    - Casual, clear, confident - like a smart friend explaining
    - No fluff, no "as an AI" nonsense
    - Short paragraphs, easy to scan
    - Use **bold** for key terms when first introduced
-   - All math in LaTeX (inline $...$ or block $$...$$)
    - ONLY use equations and definitions from the document - no external knowledge
 
 5. **quick_quiz**: 5-8 questions per section
@@ -168,11 +193,22 @@ For each major topic in the document, create a section with:
    - Only include if actually needed for problems
    - Leave empty array if no tables needed
 
-**LATEX FORMATTING:**
-- Inline math: $F = ma$, $\\Delta T$, $25 \\text{ m/s}$
-- Block equations: $$Q = mc\\Delta T$$
+**LATEX FORMATTING - VERY IMPORTANT:**
+- INLINE math (within text): Use single dollar signs $...$
+  Examples: $F = ma$, $\\Delta T$, $25 \\text{ m/s}$
+  
+- BLOCK equations (centered, on own line): Use double dollar signs $$...$$
+  MUST be on their own line with blank lines before and after:
+  
+  The fundamental equation is:
+  
+  $$Q = mc\\Delta T$$
+  
+  where $Q$ represents...
+
 - Use $\\cdot$ for multiplication (NOT \\cdotp)
 - Double-escape backslashes in JSON: \\\\frac, \\\\Delta
+- NEVER mix block and inline - block equations get their own paragraph
 
 **OUTPUT FORMAT:**
 Return valid JSON with the LectureStructure schema. Ensure all brackets are properly closed.`;

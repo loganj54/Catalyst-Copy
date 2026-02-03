@@ -1895,6 +1895,14 @@ const Blueprint = () => {
         // DEBUG: Log the raw structure data to see if suggested_figures exists
         console.log('[Blueprint] RAW structureData from DB:', structureData);
         const struct = structureData.structure_data || structureData.structure;
+        
+        // Check if this is a lecture-type structure - redirect to lecture page
+        if (struct?.structure_type === 'lecture') {
+          console.log('[Blueprint] Lecture structure detected - redirecting to lecture page');
+          navigate(`/blueprint/${id}/lecture`);
+          return; // Stop processing, we're redirecting
+        }
+        
         if (struct?.content_sections?.[0]?.learning_units?.[0]) {
           console.log('[Blueprint] RAW first unit from DB:', struct.content_sections[0].learning_units[0]);
           console.log('[Blueprint] RAW first unit keys:', Object.keys(struct.content_sections[0].learning_units[0]));
@@ -1923,6 +1931,15 @@ const Blueprint = () => {
       analysisData = analysisDoc || analysisBp;
 
       if (analysisData) {
+        // Check if analysis indicates this is a lecture document - redirect if no structure yet
+        // (If there's already a structure, the structure check above handles the redirect)
+        const docType = analysisData.raw_analysis?.document_type;
+        if (docType === 'lecture' && !structureData) {
+          console.log('[Blueprint] Lecture document detected (from analysis) - redirecting to lecture page');
+          navigate(`/blueprint/${id}/lecture`);
+          return; // Stop processing, we're redirecting
+        }
+        
         setDocumentAnalysis({
           success: true,
           analysis_id: analysisData.id,
