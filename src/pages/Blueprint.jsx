@@ -326,7 +326,7 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer,
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-3">
-              <h4 className="font-normal tracking-tight text-xl text-[#2A2B2A] dark:text-stone-100">
+              <h4 className="font-light tracking-tight text-xl text-[#2A2B2A] dark:text-stone-100">
                 Step by Step Solution
               </h4>
               {/* Contextual Tag - Right Aligned */}
@@ -738,7 +738,7 @@ const TopicListItem = ({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-3">
-              <h4 className={`inline-block px-3 py-1 rounded-lg bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm font-normal tracking-tight text-xl transition-all duration-300 ${isWalkthrough ? 'text-stone-900 dark:text-stone-100' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
+              <h4 className={`inline-block px-3 py-1 rounded-lg bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm font-light tracking-tight text-xl transition-all duration-300 ${isWalkthrough ? 'text-stone-900 dark:text-stone-100' : 'text-[#2A2B2A] dark:text-stone-100'}`}>
                 {unit.topic === 'Similar Worked Example Walkthrough' ? 'Similar Examples' : unit.topic}
               </h4>
 
@@ -796,7 +796,7 @@ const TopicListItem = ({
                       <div key={idx} className="space-y-4">
                         {/* Problem Name Header */}
                         {problem.problem_name && (
-                          <h5 className="font-semibold text-lg text-stone-800 dark:text-stone-200 px-1">
+                          <h5 className="font-light tracking-tight text-xl text-stone-800 dark:text-stone-200 px-1">
                             {problem.problem_name}
                           </h5>
                         )}
@@ -4055,9 +4055,9 @@ const Blueprint = () => {
   return (
     <div className="flex h-full w-full py-3 pr-3 pl-0 gap-0 overflow-hidden transition-all duration-300 bg-stone-100 dark:bg-stone-950">
       {/* 1. Class Sidebar Bubble */}
-      <div className="hidden lg:flex flex-col w-[250px] bg-white border-l border-stone-200 dark:border-stone-800 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
+      <div className="hidden lg:flex flex-col w-[250px] bg-white dark:bg-stone-900 border-l border-stone-200 dark:border-stone-800 rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
         <Sidebar
-          className="w-full h-full border-r-0 bg-white"
+          className="w-full h-full border-r-0 bg-white dark:bg-stone-900"
           activeClassId={blueprint?.class_id}
           extraContent={
             <>
@@ -4169,8 +4169,8 @@ const Blueprint = () => {
           <div className="px-6 py-5 relative">
             {/* Centered Chat Title (Absolute) */}
             {(activeTab === 'chat' || activeTab === 'practice-problems-chat') && activeThreadId && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 pr-[80px] lg:pr-[236px]">
-                <h2 className="text-lg font-medium text-stone-900 dark:text-stone-100 bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full truncate max-w-[40%]">
+              <div className="absolute inset-y-0 left-1/2 lg:left-[calc(50%-131px)] -translate-x-1/2 flex items-center justify-center pointer-events-none z-0">
+                <h2 className="text-lg font-medium text-stone-900 dark:text-stone-100 bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full">
                   {chatTitle}
                 </h2>
               </div>
@@ -4180,8 +4180,8 @@ const Blueprint = () => {
             {/* Centered Section Title (Absolute) */}
             {/* Centered Section Title (Absolute) */}
             {activeTab !== 'chat' && activeTab !== 'practice-problems-chat' && (tabs.find(t => t.id === activeTab)?.label || activeTab === 'practice-generator') && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 pr-[80px] lg:pr-[236px]">
-                <h2 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full truncate max-w-[40%]">
+              <div className="absolute inset-y-0 left-1/2 lg:left-[calc(50%-131px)] -translate-x-1/2 flex items-center justify-center pointer-events-none z-0">
+                <h2 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full">
                   {tabs.find(t => t.id === activeTab)?.label || (activeTab === 'practice-generator' ? 'Generate Practice Problems' : '')}
                 </h2>
               </div>
@@ -4317,7 +4317,7 @@ const Blueprint = () => {
                   />
                 </div>
               ) : (
-                <div id="blueprint-content-column" className="pt-32 pb-24 px-8 w-full max-w-5xl mx-auto space-y-12">
+                <div id="blueprint-content-column" className="pt-32 pb-24 px-6 w-full max-w-5xl mx-auto space-y-12">
 
                   {/* Blueprint Description Only (Title removed) */}
                   {blueprint.description && (
@@ -4461,7 +4461,7 @@ const Blueprint = () => {
                     <div className="w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
                       {/* Container wrapping header and content */}
                       {/* Container wrapping header and content */}
-                      <div className="bg-white dark:bg-stone-900 rounded-2xl p-8 md:p-12 shadow-xl border border-stone-200 dark:border-stone-700">
+                      <div className="bg-white dark:bg-stone-950 rounded-2xl p-8 md:p-12 shadow-xl relative z-10">
                         {/* 1. Problem Header (Active Section) */}
                         <div className="space-y-6 mb-16">
                           <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">

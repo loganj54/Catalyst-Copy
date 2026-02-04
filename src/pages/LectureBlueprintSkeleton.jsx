@@ -470,8 +470,8 @@ const LectureBlueprintSkeleton = () => {
 
             {/* Centered Chat Title (Absolute) */}
             {(activeTab === 'chat' || activeTab === 'practice-problems-chat') && activeThreadId && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 pr-[80px] lg:pr-[262px]">
-                <h2 className="text-lg font-medium text-stone-900 dark:text-stone-100 bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full truncate max-w-[40%]">
+              <div className="absolute inset-y-0 left-1/2 lg:left-[calc(50%-131px)] -translate-x-1/2 flex items-center justify-center pointer-events-none z-0">
+                <h2 className="text-lg font-medium text-stone-900 dark:text-stone-100 bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full">
                   {chatTitle}
                 </h2>
               </div>
@@ -479,14 +479,14 @@ const LectureBlueprintSkeleton = () => {
 
             {/* Centered Section Title (Absolute) - for lecture sections */}
             {activeTab === 'prerequisites' ? (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 pr-[80px] lg:pr-[262px]">
-                <h2 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full truncate max-w-[40%]">
+              <div className="absolute inset-y-0 left-1/2 lg:left-[calc(50%-131px)] -translate-x-1/2 flex items-center justify-center pointer-events-none z-0">
+                <h2 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full">
                   Prerequisites
                 </h2>
               </div>
             ) : activeTab !== 'chat' && activeTab !== 'practice-problems-chat' && currentTitle && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 pr-[80px] lg:pr-[262px]">
-                <h2 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full truncate max-w-[40%]">
+              <div className="absolute inset-y-0 left-1/2 lg:left-[calc(50%-131px)] -translate-x-1/2 flex items-center justify-center pointer-events-none z-0">
+                <h2 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full">
                   {currentTitle}
                 </h2>
               </div>
@@ -628,7 +628,7 @@ const LectureBlueprintSkeleton = () => {
             </div>
           ) : (
             <div className="w-full lg:pr-[262px]">
-              <div className="max-w-5xl mx-auto px-6 py-8">
+              <div className="max-w-5xl mx-auto px-6 pt-32 pb-24">
                 {/* No structure yet - show generation UI */}
                 {!lectureStructure && (
                   <div className="bg-white dark:bg-stone-800 rounded-2xl border border-stone-200 dark:border-stone-700 p-12 text-center">
@@ -666,7 +666,7 @@ const LectureBlueprintSkeleton = () => {
 
                 {/* Prerequisites Section */}
                 {currentContent?.type === 'prerequisites' && (
-                  <div className="bg-white rounded-2xl p-8 md:p-12 shadow-xl border border-stone-200 dark:border-stone-700 relative z-10">
+                  <div className="bg-white dark:bg-stone-950 rounded-2xl p-8 md:p-12 shadow-xl relative z-10">
                     {/* 1. Header */}
                     <div className="space-y-6 mb-16">
                       <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
@@ -909,7 +909,7 @@ const LectureBlueprintSkeleton = () => {
 
                 {/* Lecture Section Content */}
                 {currentContent?.type === 'lecture' && (
-                  <div className="bg-white rounded-2xl p-8 md:p-12 shadow-xl border border-stone-200 dark:border-stone-700 relative z-10">
+                  <div className="bg-white dark:bg-stone-950 rounded-2xl p-8 md:p-12 shadow-xl relative z-10">
 
                     {/* Section Header */}
                     <div className="space-y-6 mb-16">

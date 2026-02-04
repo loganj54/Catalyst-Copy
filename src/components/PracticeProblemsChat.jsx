@@ -116,7 +116,7 @@ const PracticeProblemsChat = forwardRef(({
                     id: section.section_id || `section-${idx}`,
                     label: section.sidebar_label || section.title || `Topic ${idx + 1}`,
                     fullTitle: section.title,
-                    description: section.why_this_matters || '',
+                    description: section.title || '',
                     // For lectures, we extract ideas from the content
                     content_text: section.content_text,
                     key_concepts: section.key_concepts || [],
@@ -144,7 +144,7 @@ const PracticeProblemsChat = forwardRef(({
                         id: section.section_id,
                         label: matchingTab?.label || section.section_id || 'Problem',
                         fullTitle: matchingTab?.fullTitle || section.section_id,
-                        description: cleanDescription(matchingTab?.unit_title || matchingTab?.topic || matchingTab?.description || matchingTab?.learning_objective || section.content_summary || section.concept_summary || section.summary || section.description || ''),
+                        description: matchingTab?.fullTitle || section.section_id || '',
                         problem_statement: section.problem_statement,
                         given_values: section.given_values || [],
                         solution_approach: section.solution_approach || [],

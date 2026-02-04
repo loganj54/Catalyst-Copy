@@ -85,11 +85,16 @@ The application uses a **Sidebar + Main Content** layout.
     *   Style: `w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm font-medium`
 
 ### Cards & Containers
-*   **Standard Card**:
+*   **Main Content Section (Central Column)**:
+    *   `bg-white` (Light) / `bg-stone-950` (Dark)
+    *   `rounded-2xl`
+    *   `shadow-xl`
+    *   *Note*: borders are explicitly removed to allow the content to flow naturally into the backdrop.
+*   **Standard/Internal Card**:
     *   `bg-white dark:bg-stone-900`
-    *   `rounded-xl` or `rounded-2xl`
+    *   `rounded-xl`
     *   `border border-stone-200 dark:border-stone-700`
-    *   `shadow-sm` or `shadow-xl` (for larger containers)
+    *   `shadow-sm`
 *   **Interactive Card**:
     *   Add `hover:border-gray-400 hover:shadow-md transition-all cursor-pointer`
 *   **Inner Well**:
@@ -107,7 +112,7 @@ The application uses a **Sidebar + Main Content** layout.
 ## 4. Page-Specific Styling
 
 ### Blueprint Section ("Prerequisites" / "Lecture")
-*   **Layout**: `max-w-5xl mx-auto px-6 py-8`
+*   **Layout**: `max-w-5xl mx-auto px-6 pt-32 pb-24`
 *   **Typography**: Relies heavily on `LECTURE_TYPOGRAPHY` (prose-stone, font-light headers).
 *   **Resource Table**:
     *   `rounded-xl border border-gray-300 overflow-hidden`
@@ -144,5 +149,5 @@ The application uses a **Sidebar + Main Content** layout.
 2.  **Header**: Implement the sticky header with `z-30` and the center absolute pil.
 3.  **Typography**: Apply `font-light tracking-tight` to all major headings. Avoid bold weights for H1/H2.
 4.  **Borders**: Ensure subtle `border-stone-200` is used for separation, avoiding harsh blacks/grays.
-5.  **Shadows**: Use `shadow-xl` for the main content block and sidebar, but `shadow-sm` for internal cards.
+5.  **Shadows**: Use `shadow-xl` for the main content block and sidebar. The main content block should have NO border, while internal cards use `shadow-sm` and subtle borders.
 6.  **Spacing**: Use consistent spacing units: `gap-8` for major grids, `p-6` or `p-8` for content padding.
