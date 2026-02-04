@@ -4169,7 +4169,7 @@ const Blueprint = () => {
           <div className="px-6 py-5 relative">
             {/* Centered Chat Title (Absolute) */}
             {(activeTab === 'chat' || activeTab === 'practice-problems-chat') && activeThreadId && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 pr-[80px] lg:pr-[330px]">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 pr-[80px] lg:pr-[236px]">
                 <h2 className="text-lg font-medium text-stone-900 dark:text-stone-100 bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full truncate max-w-[40%]">
                   {chatTitle}
                 </h2>
@@ -4180,7 +4180,7 @@ const Blueprint = () => {
             {/* Centered Section Title (Absolute) */}
             {/* Centered Section Title (Absolute) */}
             {activeTab !== 'chat' && activeTab !== 'practice-problems-chat' && (tabs.find(t => t.id === activeTab)?.label || activeTab === 'practice-generator') && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 pr-[80px] lg:pr-[330px]">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 pr-[80px] lg:pr-[236px]">
                 <h2 className="text-sm font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider bg-white/50 dark:bg-stone-900/50 backdrop-blur-sm px-4 py-1 rounded-full truncate max-w-[40%]">
                   {tabs.find(t => t.id === activeTab)?.label || (activeTab === 'practice-generator' ? 'Generate Practice Problems' : '')}
                 </h2>
@@ -4278,7 +4278,7 @@ const Blueprint = () => {
 
 
             {/* Content Wrapper for Centering in Window (balancing sidebars) */}
-            <div className={`w-full ${(activeTab === 'chat' || activeTab === 'practice-problems-chat') ? 'h-full' : 'lg:pr-[274px]'}`}>
+            <div className={`w-full ${(activeTab === 'chat' || activeTab === 'practice-problems-chat') ? 'h-full' : 'lg:pr-[236px]'}`}>
 
 
               {activeTab === 'chat' ? (
@@ -4295,6 +4295,7 @@ const Blueprint = () => {
                       setChatTitle(title);
                       setActiveThreadId(threadId);
                     }}
+                    sidePadding="lg:pr-[236px]"
                   />
                 </div>
               ) : activeTab === 'practice-problems-chat' ? (
@@ -4312,6 +4313,7 @@ const Blueprint = () => {
                     showProblemBank={showProblemBank}
                     onToggleProblemBank={() => setShowProblemBank(!showProblemBank)}
                     onProblemGenerated={handleProblemGeneratedFromChat}
+                    sidePadding="lg:pr-[236px]"
                   />
                 </div>
               ) : (

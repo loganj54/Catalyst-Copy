@@ -17,7 +17,8 @@ const ChatInterface = forwardRef(({
     initialQuery = "",
     onThreadChange, // Callback (title, threadId)
     showHistory: propShowHistory,
-    onToggleHistory: propOnToggleHistory
+    onToggleHistory: propOnToggleHistory,
+    sidePadding = "" // Optional padding for centering
 }, ref) => {
     // History Sidebar State
     const [internalShowHistory, setInternalShowHistory] = useState(false);
@@ -190,7 +191,7 @@ const ChatInterface = forwardRef(({
     // Ensure document embeddings exist for chat to work
     const ensureEmbeddingsExist = async (docId) => {
         if (!docId) return;
-        
+
         try {
             // Check if chunks exist for this document
             const { count, error } = await supabase
@@ -233,7 +234,7 @@ const ChatInterface = forwardRef(({
             );
 
             const result = await response.json();
-            
+
             if (result.success) {
                 console.log('[ChatInterface] Embeddings generated:', result.chunks_count || result.count, 'chunks');
                 setEmbeddingsReady(true);
@@ -553,7 +554,7 @@ const ChatInterface = forwardRef(({
 
             {/* EMPTY STATE */}
             {isEmptyView ? (
-                <div className="w-full h-full flex flex-col items-center overflow-y-auto pl-4 pr-[84px] lg:pr-[334px] bg-transparent animate-in fade-in duration-500 pt-[max(2rem,calc(50vh-20.25rem))]">
+                <div className={`w-full h-full flex flex-col items-center overflow-y-auto px-4 bg-transparent animate-in fade-in duration-500 pt-[max(2rem,calc(50vh-20.25rem))] ${sidePadding}`}>
 
                     {/* Header */}
                     <div className="text-center mb-10">
@@ -629,9 +630,9 @@ const ChatInterface = forwardRef(({
                     {/* Chat Header REMOVED - Controlled by parent */}
 
                     {/* Messages Area */}
-                    <div className="flex-1 overflow-y-auto pl-6 py-6 space-y-6 pr-[92px] lg:pr-[342px]">
+                    <div className={`flex-1 overflow-y-auto px-6 py-6 space-y-6 ${sidePadding}`}>
                         {/* Same message list code ... */}
-                        <div className="max-w-4xl mx-auto w-full space-y-6">
+                        <div className="max-w-5xl mx-auto w-full space-y-6">
                             {messages.map((msg, idx) => {
                                 const isUser = msg.role === 'user';
                                 const isSystem = msg.role === 'system';
@@ -657,8 +658,8 @@ const ChatInterface = forwardRef(({
                     </div>
 
                     {/* Bottom Input Area */}
-                    <div className="pl-4 py-4 bg-transparent pr-[84px] lg:pr-[334px]">
-                        <div className="max-w-4xl mx-auto w-full p-2 bg-white dark:bg-stone-900 border border-gray-300 dark:border-stone-700 rounded-2xl shadow-xl focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/10 transition-all">
+                    <div className={`px-4 py-4 bg-transparent ${sidePadding}`}>
+                        <div className="max-w-5xl mx-auto w-full p-2 bg-white dark:bg-stone-900 border border-gray-300 dark:border-stone-700 rounded-2xl shadow-xl focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/10 transition-all">
                             <div className="relative flex items-end">
                                 <textarea
                                     ref={inputRef}

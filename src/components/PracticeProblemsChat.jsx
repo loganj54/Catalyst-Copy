@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import {
     Send, Loader2, MessageSquare, Plus, Trash2, Clock, Folder, Library,
-    ArrowRight, Paperclip, X, ChevronDown, ChevronUp, FileText
+    ArrowRight, Paperclip, X, ChevronDown, ChevronUp
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
@@ -62,7 +62,8 @@ const PracticeProblemsChat = forwardRef(({
     documentAnalysis = null, // Contains raw_analysis.sections with problem data
     showProblemBank = false,
     onToggleProblemBank,
-    onProblemGenerated // Callback to update Problem Bank when a new problem is generated
+    onProblemGenerated, // Callback to update Problem Bank when a new problem is generated
+    sidePadding = "" // Optional padding for centering
 }, ref) => {
 
     // Thread state
@@ -258,7 +259,7 @@ const PracticeProblemsChat = forwardRef(({
     // Ensure document embeddings exist for chat to work
     const ensureEmbeddingsExist = async (docId) => {
         if (!docId) return;
-        
+
         try {
             // Check if chunks exist for this document
             const { count, error } = await supabase
@@ -301,7 +302,7 @@ const PracticeProblemsChat = forwardRef(({
             );
 
             const result = await response.json();
-            
+
             if (result.success) {
                 console.log('[PracticeProblemsChat] Embeddings generated:', result.chunks_count || result.count, 'chunks');
                 setEmbeddingsReady(true);
@@ -581,7 +582,7 @@ const PracticeProblemsChat = forwardRef(({
                 if (item.type === 'lecture_section') {
                     // ========== LECTURE SECTION EXTRACTION ==========
                     // Extract ideas from lecture content
-                    
+
                     // 1. Add key concepts
                     if (item.key_concepts?.length) {
                         item.key_concepts.forEach(concept => {
@@ -590,7 +591,7 @@ const PracticeProblemsChat = forwardRef(({
                             }
                         });
                     }
-                    
+
                     // 2. Add learning objectives
                     if (item.learning_objectives?.length) {
                         item.learning_objectives.forEach(objective => {
@@ -599,17 +600,17 @@ const PracticeProblemsChat = forwardRef(({
                             }
                         });
                     }
-                    
+
                     // 3. Add the section title as a core idea
                     if (item.fullTitle && !coreIdeas.includes(item.fullTitle)) {
                         coreIdeas.push(item.fullTitle);
                     }
-                    
+
                     // 4. Extract equations from content
                     if (item.equations_in_content?.length) {
                         equations.push(...item.equations_in_content);
                     }
-                    
+
                     // 5. Parse content_text for additional equations (look for $$ blocks)
                     if (item.content_text) {
                         const blockEqMatches = item.content_text.match(/\$\$(.*?)\$\$/g);
@@ -622,11 +623,11 @@ const PracticeProblemsChat = forwardRef(({
                             });
                         }
                     }
-                    
+
                 } else {
                     // ========== HOMEWORK PROBLEM EXTRACTION ==========
                     // Extract ideas from homework problems
-                    
+
                     // Add concepts covered
                     if (item.concepts_covered?.length) {
                         item.concepts_covered.forEach(concept => {
@@ -635,17 +636,17 @@ const PracticeProblemsChat = forwardRef(({
                             }
                         });
                     }
-                    
+
                     // Add the problem label/topic as an idea
                     if (item.label && !coreIdeas.includes(item.label)) {
                         coreIdeas.push(item.label);
                     }
-                    
+
                     // Extract ideas from solution approach
                     if (item.solution_approach?.length) {
                         item.solution_approach.forEach(step => {
                             // Look for key concept phrases
-                            if (step.includes('conservation') || step.includes('equation') || 
+                            if (step.includes('conservation') || step.includes('equation') ||
                                 step.includes('principle') || step.includes('law')) {
                                 if (!coreIdeas.includes(step) && coreIdeas.length < 10) {
                                     coreIdeas.push(step);
@@ -721,7 +722,7 @@ const PracticeProblemsChat = forwardRef(({
                 setActiveProblemId(unitId);
                 // Clear selection after successful generation
                 setSelectedProblems(new Set());
-                
+
                 console.log(`[PracticeProblemsChat] ✅ Generated ${result.generation_mode} problem from ${isLectureMode ? 'lecture sections' : 'homework problems'}`);
             } else {
                 console.error('Failed to generate problem:', result.error);
@@ -823,40 +824,7 @@ const PracticeProblemsChat = forwardRef(({
 
             {/* EMPTY STATE */}
             {isEmptyView ? (
-                <div className="w-full h-full flex flex-col items-center overflow-y-auto pl-4 pr-[84px] lg:pr-[334px] bg-transparent animate-in fade-in duration-500 pt-[max(2rem,calc(50vh-20.25rem))]">
-
-                    {/* Top Action Buttons */}
-                    <div className="absolute top-6 right-6 flex items-center gap-3 z-50">
-                        <button
-                            onClick={() => onToggleProblemBank?.()}
-                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-sm font-medium"
-                        >
-                            <Library className="w-4 h-4" />
-                            Problem Bank
-                        </button>
-                        <button
-                            onClick={() => {
-                                setActiveThreadId(null);
-                                setActiveProblemId(null);
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-sm font-medium"
-                        >
-                            <Plus className="w-4 h-4" />
-                            New Problem
-                        </button>
-                        {hasDocument && (
-                            <button
-                                onClick={() => {
-                                    // Navigate to document view or open document
-                                    window.open(`/documents/${documentId}`, '_blank');
-                                }}
-                                className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
-                            >
-                                <FileText className="w-4 h-4" />
-                                View Document
-                            </button>
-                        )}
-                    </div>
+                <div className={`w-full h-full flex flex-col items-center overflow-y-auto px-4 bg-transparent animate-in fade-in duration-500 pt-[max(2rem,calc(50vh-20.25rem))] ${sidePadding}`}>
 
                     {/* Header */}
                     <div className="text-center mb-10">
@@ -864,7 +832,7 @@ const PracticeProblemsChat = forwardRef(({
                             Ready for some practice?
                         </h1>
                         <p className="text-gray-600 dark:text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
-                            {extractedProblems[0]?.type === 'lecture_section' 
+                            {extractedProblems[0]?.type === 'lecture_section'
                                 ? 'Select lecture sections to generate practice problems based on those topics.'
                                 : 'Select problems to generate a custom practice scenario.'}
                         </p>
@@ -877,7 +845,7 @@ const PracticeProblemsChat = forwardRef(({
                                 <div className="border border-stone-200 dark:border-stone-800 rounded-lg p-3">
                                     <div className="flex items-center justify-between mb-4">
                                         <h2 className="text-sm font-semibold text-stone-900 dark:text-stone-100 tracking-wider">
-                                            {extractedProblems[0]?.type === 'lecture_section' 
+                                            {extractedProblems[0]?.type === 'lecture_section'
                                                 ? 'Select lecture sections...'
                                                 : 'Base practice problem on...'}
                                         </h2>
@@ -898,7 +866,7 @@ const PracticeProblemsChat = forwardRef(({
                                     {extractedProblems.length === 0 ? (
                                         <div className="text-center py-8 text-stone-400">
                                             <p className="text-sm">
-                                                {structure?.lecture_sections 
+                                                {structure?.lecture_sections
                                                     ? 'No lecture sections found. Generate a lecture blueprint first.'
                                                     : 'No problems found in this blueprint.'}
                                             </p>
@@ -961,7 +929,7 @@ const PracticeProblemsChat = forwardRef(({
                                         handleGeneratePracticeProblem(selectedProblemData);
                                     }}
                                     disabled={selectedProblems.size === 0 || isLoading || extractedProblems.length === 0}
-                                    className={`w-full flex items-center justify-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg font-medium text-sm border border-transparent shadow-sm hover:opacity-80 transition-all ${(selectedProblems.size === 0 || extractedProblems.length === 0) ? 'opacity-50 cursor-not-allowed' : ''
+                                    className={`w-full flex items-center justify-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black rounded-lg font-medium text-sm border border-transparent shadow-sm hover:opacity-80 transition-all ${(selectedProblems.size === 0 || extractedProblems.length === 0) ? 'cursor-not-allowed' : ''
                                         }`}
                                 >
                                     {isLoading ? (
@@ -994,7 +962,7 @@ const PracticeProblemsChat = forwardRef(({
                 </div >
             ) : activeProblemId ? (
                 /* PRACTICE PROBLEM VIEW */
-                <div className="w-full h-full flex flex-col items-center overflow-y-auto px-6 py-10 lg:pr-[334px] bg-transparent animate-in fade-in duration-500 relative z-10">
+                <div className={`w-full h-full flex flex-col items-center overflow-y-auto px-6 py-10 bg-transparent animate-in fade-in duration-500 relative z-10 ${sidePadding}`}>
                     {(() => {
                         // Find the problem data
                         const problems = practiceProblems[activeProblemId];
@@ -1021,7 +989,7 @@ const PracticeProblemsChat = forwardRef(({
                         );
 
                         return (
-                            <div className="w-full max-w-4xl space-y-8 pb-20">
+                            <div className="w-full max-w-5xl space-y-8 pb-20">
                                 {/* Header */}
                                 <div className="border-b border-stone-200 dark:border-stone-700 pb-6">
                                     <h1 className="text-3xl font-display font-medium text-stone-900 dark:text-stone-100">
@@ -1102,9 +1070,9 @@ const PracticeProblemsChat = forwardRef(({
                     {/* Chat Header REMOVED - Controlled by parent */}
 
                     {/* Messages Area */}
-                    <div className="flex-1 overflow-y-auto pl-6 py-6 space-y-6 pr-[92px] lg:pr-[342px]">
+                    <div className={`flex-1 overflow-y-auto px-6 py-6 space-y-6 ${sidePadding}`}>
                         {/* Same message list code ... */}
-                        <div className="max-w-4xl mx-auto w-full space-y-6">
+                        <div className="max-w-5xl mx-auto w-full space-y-6">
                             {messages.map((msg, idx) => {
                                 const isUser = msg.role === 'user';
                                 const isSystem = msg.role === 'system';
@@ -1130,8 +1098,8 @@ const PracticeProblemsChat = forwardRef(({
                     </div>
 
                     {/* Bottom Input Area */}
-                    <div className="pl-4 py-4 bg-transparent pr-[84px] lg:pr-[334px]">
-                        <div className="max-w-4xl mx-auto w-full p-2 bg-white dark:bg-stone-900 border border-gray-300 dark:border-stone-700 rounded-2xl shadow-xl focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/10 transition-all">
+                    <div className={`px-4 py-4 bg-transparent ${sidePadding}`}>
+                        <div className="max-w-5xl mx-auto w-full p-2 bg-white dark:bg-stone-900 border border-gray-300 dark:border-stone-700 rounded-2xl shadow-xl focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/10 transition-all">
                             <div className="relative flex items-end">
                                 <textarea
                                     ref={inputRef}
