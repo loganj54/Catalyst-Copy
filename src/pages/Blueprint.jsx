@@ -23,6 +23,7 @@ import PracticeProblemsChat from '../components/PracticeProblemsChat';
 import RelatedMaterialModule from '../components/RelatedMaterialModule';
 import TopicCard from '../components/TopicCard';
 import LatexText from '../components/LatexText';
+import { LECTURE_TYPOGRAPHY, getLectureMarkdownComponents } from '../utils/lectureStyles';
 import ExplainerOverlay from '../components/ExplainerOverlay';
 
 // Generation status display configuration
@@ -285,7 +286,7 @@ const ResourceTable = ({ resources, session }) => {
                 </a>
               </td>
               <td className="px-6 py-4 align-top">
-                <div className="text-sm text-stone-600 dark:text-stone-300">
+                <div className="text-base text-stone-600 dark:text-stone-300">
                   {resource.resource_explanation ? (
                     <span>
                       <span className="italic text-[#FF4A1C] dark:text-[#FF4A1C]">Why this helps: </span>
@@ -325,7 +326,7 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer,
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-3">
-              <h4 className="font-normal tracking-tight text-lg text-[#2A2B2A] dark:text-stone-100">
+              <h4 className="font-normal tracking-tight text-xl text-[#2A2B2A] dark:text-stone-100">
                 Step by Step Solution
               </h4>
               {/* Contextual Tag - Right Aligned */}
@@ -354,14 +355,14 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer,
                       <div key={i} className="flex items-start gap-3">
                         <span className="font-medium text-stone-400 shrink-0 mt-0.5">{i + 1}.</span>
                         <div className="flex-1">
-                          <p className="text-stone-700 dark:text-stone-200 leading-relaxed">
+                          <p className="text-stone-700 dark:text-stone-200 leading-relaxed text-base">
                             <LatexText text={step} context={title} />
                           </p>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div className="whitespace-pre-wrap text-stone-700 dark:text-stone-200 leading-relaxed">
+                    <div className="whitespace-pre-wrap text-stone-700 dark:text-stone-200 leading-relaxed text-base">
                       <LatexText text={solutionApproach} context={title} />
                     </div>
                   )}
@@ -371,7 +372,7 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer,
                     <div className="mt-6 pt-6 border-t border-stone-100 dark:border-stone-700/50">
                       <div className="bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border border-stone-200 dark:border-stone-700">
                         <span className="text-stone-500 uppercase text-xs font-medium tracking-wider block mb-2">Final Answer</span>
-                        <div className="text-lg font-medium text-stone-900 dark:text-stone-50">
+                        <div className="text-xl font-medium text-stone-900 dark:text-stone-50">
                           <LatexText text={finalAnswer} context={title} />
                         </div>
                       </div>
@@ -743,7 +744,7 @@ const TopicListItem = ({
 
               {/* Short Summary Tagline - Visible if available */}
               {unit.concept_summary && (
-                <p className="text-sm font-medium text-stone-500 dark:text-stone-400 max-w-2xl leading-snug">
+                <p className="text-base font-medium text-stone-500 dark:text-stone-400 max-w-2xl leading-snug">
                   {unit.concept_summary}
                 </p>
               )}
@@ -768,7 +769,7 @@ const TopicListItem = ({
               </div>
             </div>
             {!isExpanded && (
-              <p className="text-sm text-stone-500 dark:text-stone-400 mt-1 line-clamp-1">{unit.description}</p>
+              <p className="text-base text-stone-500 dark:text-stone-400 mt-1 line-clamp-1">{unit.description}</p>
             )}
           </div>
         </div>
@@ -1611,7 +1612,7 @@ const Blueprint = () => {
       // 3. OR the user explicitly wants varied problems
       const hasProblemStatement = analysisSection?.problem_statement;
       const hasEnoughIdeas = coreIdeas.length >= 2;
-      
+
       // Prefer idea-based generation for richer, more varied problems
       const generationMode = hasEnoughIdeas ? 'idea_based' : 'remix';
 
@@ -1640,8 +1641,8 @@ const Blueprint = () => {
         requestBody.equations = equations.slice(0, 5);   // Limit equations
       } else {
         // For remix mode: pass original problem
-        requestBody.original_problem = hasProblemStatement 
-          ? analysisSection.problem_statement 
+        requestBody.original_problem = hasProblemStatement
+          ? analysisSection.problem_statement
           : (unit.target_resource_profile || unit.description || unit.topic);
       }
 
@@ -1986,14 +1987,14 @@ const Blueprint = () => {
         // DEBUG: Log the raw structure data to see if suggested_figures exists
         console.log('[Blueprint] RAW structureData from DB:', structureData);
         const struct = structureData.structure_data || structureData.structure;
-        
+
         // Check if this is a lecture-type structure - redirect to lecture page
         if (struct?.structure_type === 'lecture') {
           console.log('[Blueprint] Lecture structure detected - redirecting to lecture page');
           navigate(`/blueprint/${id}/lecture`);
           return; // Stop processing, we're redirecting
         }
-        
+
         if (struct?.content_sections?.[0]?.learning_units?.[0]) {
           console.log('[Blueprint] RAW first unit from DB:', struct.content_sections[0].learning_units[0]);
           console.log('[Blueprint] RAW first unit keys:', Object.keys(struct.content_sections[0].learning_units[0]));
@@ -2030,7 +2031,7 @@ const Blueprint = () => {
           navigate(`/blueprint/${id}/lecture`);
           return; // Stop processing, we're redirecting
         }
-        
+
         setDocumentAnalysis({
           success: true,
           analysis_id: analysisData.id,
@@ -3847,10 +3848,11 @@ const Blueprint = () => {
         let label = '';
 
         // Try to parse clean label from title (e.g. "Problem 1A: ..." -> "Problem 1A")
-        if (section.title) {
+        const sectionTitle = section.section_title || section.title;
+        if (sectionTitle) {
           // Check for colon separator first (most common format: "Topic 1: Introduction")
           // We limit length to avoid using long titles as labels if they just happen to have a colon far in
-          const colonMatch = section.title.match(/^([^:]+):/);
+          const colonMatch = sectionTitle.match(/^([^:]+):/);
           if (colonMatch && colonMatch[1].length < 20) {
             label = colonMatch[1].trim();
           }
@@ -3863,7 +3865,7 @@ const Blueprint = () => {
             ];
 
             for (const pattern of patterns) {
-              const match = section.title.match(pattern);
+              const match = sectionTitle.match(pattern);
               if (match) {
                 label = match[0];
                 break;
@@ -3875,7 +3877,7 @@ const Blueprint = () => {
         // Fallback to default numbering if extraction failed
         if (!label) {
           let labelPrefix = 'Topic';
-          if (section.section_type === 'problem' || section.title?.toLowerCase().includes('problem')) {
+          if (section.section_type === 'problem' || sectionTitle?.toLowerCase().includes('problem')) {
             labelPrefix = 'Problem';
           }
           label = `${labelPrefix} ${idx + 1}`;
@@ -3884,7 +3886,7 @@ const Blueprint = () => {
         tabs.push({
           id: section.section_id || `section-${idx}`,
           label: label,
-          fullTitle: section.title,
+          fullTitle: sectionTitle,
           topic: section.learning_units?.[0]?.topic,
           unit_title: section.learning_units?.[0]?.unit_title,
           description: section.description || section.learning_units?.[0]?.description || section.learning_units?.[0]?.learning_objective || '',
@@ -3932,7 +3934,7 @@ const Blueprint = () => {
     currentUnits = activeSection?.learning_units || [];
     // Use title if available, otherwise fallback to the tab label (e.g. "Topic 1")
     const activeTabLabel = tabs.find(t => t.id === activeTab)?.label;
-    currentSectionTitle = activeSection?.title || activeTabLabel || 'Untitled Section';
+    currentSectionTitle = activeSection?.section_title || activeSection?.title || activeTabLabel || 'Untitled Section';
 
     // CHECK FOR SOLUTION DATA & INJECT VIRTUAL UNIT
     if (documentAnalysis?.raw_analysis?.sections) {
@@ -4460,11 +4462,9 @@ const Blueprint = () => {
                       <div className="bg-white dark:bg-stone-900 rounded-2xl p-8 md:p-12 shadow-xl border border-stone-200 dark:border-stone-700">
                         {/* 1. Problem Header (Active Section) */}
                         <div className="space-y-6 mb-16">
-                          {(!currentSectionTitle?.startsWith('Problem')) && (
-                            <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
-                              {currentSectionTitle}
-                            </h2>
-                          )}
+                          <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
+                            {currentSectionTitle}
+                          </h2>
                           {currentSectionTitle === 'Prerequisites' && (
                             <p className="text-xl text-stone-500 italic max-w-2xl font-light">
                               You must be comfortable with the following topics before moving forward.
@@ -4539,8 +4539,8 @@ const Blueprint = () => {
 
                                   {/* Concept Header & Text Content */}
                                   <div>
-                                    <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
-                                      {unit.unit_title || unit.topic || 'Concept'}
+                                    <h3 className="text-4xl md:text-5xl font-bold tracking-tight text-stone-900 dark:text-stone-100 mb-6">
+                                      {unit.unit_title || unit.topic}
                                     </h3>
                                   </div>
 
@@ -4549,69 +4549,14 @@ const Blueprint = () => {
                                     <div className="mt-12 mb-16">
 
 
-                                      <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                                      <div className={LECTURE_TYPOGRAPHY.container}>
                                         <ReactMarkdown
-                                          components={{
-                                            // Helper function to extract text from children
-                                            // Custom renderer for paragraphs to handle LaTeX
-                                            p: ({ node, children }) => {
-                                              // Extract text content from children (handles nested objects)
-                                              const extractText = (child) => {
-                                                if (typeof child === 'string') return child;
-                                                if (Array.isArray(child)) return child.map(extractText).join('');
-                                                if (child?.props?.children) return extractText(child.props.children);
-                                                return '';
-                                              };
-                                              const textContent = Array.isArray(children)
-                                                ? children.map(extractText).join('')
-                                                : extractText(children);
-
-                                              return (
-                                                <p className="mb-6 text-stone-600 dark:text-stone-400 text-lg leading-relaxed">
-                                                  <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
-                                                </p>
-                                              );
-                                            },
-                                            // Custom renderer for list items
-                                            li: ({ node, children }) => {
-                                              const extractText = (child) => {
-                                                if (typeof child === 'string') return child;
-                                                if (Array.isArray(child)) return child.map(extractText).join('');
-                                                if (child?.props?.children) return extractText(child.props.children);
-                                                return '';
-                                              };
-                                              const textContent = Array.isArray(children)
-                                                ? children.map(extractText).join('')
-                                                : extractText(children);
-
-                                              return (
-                                                <li className="text-stone-600 dark:text-stone-400 text-lg leading-relaxed mb-2">
-                                                  <LatexText text={textContent} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
-                                                </li>
-                                              );
-                                            },
-                                            // Headers matched to Blueprint design (font-light, tracking-tight)
-                                            h1: ({ node, children }) => (
-                                              <h1 className="text-4xl font-light tracking-tight text-stone-900 dark:text-stone-100 mt-12 mb-6 border-b border-stone-200 dark:border-stone-800 pb-4">
-                                                {children}
-                                              </h1>
-                                            ),
-                                            h2: ({ node, children }) => (
-                                              <h2 className="text-3xl font-light tracking-tight text-stone-900 dark:text-stone-100 mt-12 mb-6">
-                                                {children}
-                                              </h2>
-                                            ),
-                                            h3: ({ node, children }) => (
-                                              <h3 className="text-2xl font-medium tracking-tight text-stone-900 dark:text-stone-100 mt-8 mb-4">
-                                                {children}
-                                              </h3>
-                                            ),
-                                            h4: ({ node, children }) => (
-                                              <h4 className="text-xl font-bold text-stone-900 dark:text-stone-100 mt-6 mb-3">
-                                                {children}
-                                              </h4>
-                                            ),
-                                          }}
+                                          components={getLectureMarkdownComponents(LatexText, {
+                                            unitId: unit.unit_id,
+                                            context: currentSectionTitle,
+                                            blueprintId: id,
+                                            solutionContext: unit.solutionWalkthrough
+                                          })}
                                         >
                                           {unit.solutionWalkthrough}
                                         </ReactMarkdown>
