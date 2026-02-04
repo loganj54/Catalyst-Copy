@@ -286,7 +286,7 @@ const ResourceTable = ({ resources, session }) => {
                 </a>
               </td>
               <td className="px-6 py-4 align-top">
-                <div className="text-base text-stone-600 dark:text-stone-300">
+                <div className="text-lg text-stone-600 dark:text-stone-300">
                   {resource.resource_explanation ? (
                     <span>
                       <span className="italic text-[#FF4A1C] dark:text-[#FF4A1C]">Why this helps: </span>
@@ -355,14 +355,14 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer,
                       <div key={i} className="flex items-start gap-3">
                         <span className="font-medium text-stone-400 shrink-0 mt-0.5">{i + 1}.</span>
                         <div className="flex-1">
-                          <p className="text-stone-700 dark:text-stone-200 leading-relaxed text-base">
+                          <p className="text-stone-700 dark:text-stone-200 leading-relaxed text-lg">
                             <LatexText text={step} context={title} />
                           </p>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div className="whitespace-pre-wrap text-stone-700 dark:text-stone-200 leading-relaxed text-base">
+                    <div className="whitespace-pre-wrap text-stone-700 dark:text-stone-200 leading-relaxed text-lg">
                       <LatexText text={solutionApproach} context={title} />
                     </div>
                   )}
@@ -392,7 +392,7 @@ const StepByStepSolutionCard = ({ solutionApproach, commonMistakes, finalAnswer,
                 <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-gray-300 dark:border-stone-600 shadow-sm">
                   <div className="space-y-3">
                     {commonMistakes.map((mistake, i) => (
-                      <div key={i} className="flex gap-3 text-sm text-stone-600 dark:text-stone-300 bg-stone-50 dark:bg-stone-800/50 p-3 rounded-lg border border-stone-100 dark:border-stone-700/50">
+                      <div key={i} className="flex gap-3 text-base text-stone-600 dark:text-stone-300 bg-stone-50 dark:bg-stone-800/50 p-3 rounded-lg border border-stone-100 dark:border-stone-700/50">
                         <span className="text-red-500 font-bold shrink-0">•</span>
                         <span>{mistake}</span>
                       </div>
@@ -744,7 +744,7 @@ const TopicListItem = ({
 
               {/* Short Summary Tagline - Visible if available */}
               {unit.concept_summary && (
-                <p className="text-base font-medium text-stone-500 dark:text-stone-400 max-w-2xl leading-snug">
+                <p className="text-lg font-medium text-stone-500 dark:text-stone-400 max-w-2xl leading-snug">
                   {unit.concept_summary}
                 </p>
               )}
@@ -769,7 +769,7 @@ const TopicListItem = ({
               </div>
             </div>
             {!isExpanded && (
-              <p className="text-base text-stone-500 dark:text-stone-400 mt-1 line-clamp-1">{unit.description}</p>
+              <p className="text-lg text-stone-500 dark:text-stone-400 mt-1 line-clamp-1">{unit.description}</p>
             )}
           </div>
         </div>
@@ -883,7 +883,7 @@ const TopicListItem = ({
                         Overview
                       </span>
                     </h5>
-                    <p className="text-stone-700 dark:text-stone-200 text-base leading-relaxed -mt-1">
+                    <p className="text-stone-700 dark:text-stone-200 text-lg leading-relaxed -mt-1">
                       {unit.description}
                     </p>
                   </div>
@@ -891,7 +891,7 @@ const TopicListItem = ({
                   {unit.tutor_guidance && (
                     <div className="p-4 rounded-lg bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-600 shadow-sm transition-all duration-300">
 
-                      <p className="text-stone-700 dark:text-stone-300 text-base leading-relaxed">
+                      <p className="text-stone-700 dark:text-stone-300 text-lg leading-relaxed">
                         <LatexText text={unit.tutor_guidance} context={finalContext} />
                       </p>
                     </div>
@@ -1016,7 +1016,7 @@ const TopicListItem = ({
                                   <StarRatingWidget />
                                 </div>
                                 <div className="flex-1 p-3 pt-2 relative border-l border-stone-100 dark:border-stone-800">
-                                  <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-3 mb-6">
+                                  <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-3 mb-6">
                                     {resource.resource_explanation || resource.description || "No specific validation details available for this resource."}
                                   </p>
                                   <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
@@ -1041,10 +1041,10 @@ const TopicListItem = ({
                         <div className="flex items-start gap-3">
                           <BookOpen className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                           <div>
-                            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                            <p className="text-base font-medium text-amber-800 dark:text-amber-200">
                               Use Your Own: {unit.data_gathering_resource}
                             </p>
-                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
                               Practice gathering this data from your class materials so you're ready on exam day.
                             </p>
                           </div>
@@ -1055,7 +1055,7 @@ const TopicListItem = ({
                 ) : (
                   <div className="space-y-6">
                     <div className="p-6 text-center border-2 border-dashed border-stone-200 dark:border-stone-700 rounded-xl">
-                      <p className="text-stone-500 dark:text-stone-400 text-sm mb-4">No resources gathered yet.</p>
+                      <p className="text-stone-500 dark:text-stone-400 text-base mb-4">No resources gathered yet.</p>
                       {!isComfortable && (
                         <div className="flex flex-wrap justify-center gap-3">
                           <button
@@ -4322,7 +4322,7 @@ const Blueprint = () => {
                   {/* Blueprint Description Only (Title removed) */}
                   {blueprint.description && (
                     <div className="text-center pb-8">
-                      <p className="text-xl text-stone-500 dark:text-stone-400 max-w-3xl mx-auto leading-relaxed">
+                      <p className="text-2xl text-stone-500 dark:text-stone-400 max-w-3xl mx-auto leading-relaxed">
                         {blueprint.description}
                       </p>
                     </div>
@@ -4443,11 +4443,11 @@ const Blueprint = () => {
                           <h2 className="text-4xl md:text-5xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
                             📚 Solution Walkthrough
                           </h2>
-                          <p className="text-lg text-stone-500 dark:text-stone-400">
+                          <p className="text-xl text-stone-500 dark:text-stone-400">
                             Detailed step-by-step solution generated by AI
                           </p>
                         </div>
-                        <div className="prose prose-lg dark:prose-invert max-w-none text-stone-700 dark:text-stone-300">
+                        <div className="prose prose-xl dark:prose-invert max-w-none text-stone-700 dark:text-stone-300">
                           <div className="whitespace-pre-wrap">
                             <LatexText text={deepDiveSolutions['__blueprint__']} />
                           </div>
@@ -4468,7 +4468,7 @@ const Blueprint = () => {
                             {currentSectionTitle}
                           </h2>
                           {currentSectionTitle === 'Prerequisites' && (
-                            <p className="text-xl text-stone-500 italic max-w-2xl font-light">
+                            <p className="text-2xl text-stone-500 italic max-w-2xl font-light">
                               You must be comfortable with the following topics before moving forward.
                             </p>
                           )}
@@ -4541,7 +4541,7 @@ const Blueprint = () => {
 
                                   {/* Concept Header & Text Content */}
                                   <div>
-                                    <h3 className="text-4xl md:text-5xl font-bold tracking-tight text-stone-900 dark:text-stone-100 mb-6">
+                                    <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-900 dark:text-stone-100 mb-6">
                                       {unit.unit_title || unit.topic}
                                     </h3>
                                   </div>
@@ -4567,7 +4567,7 @@ const Blueprint = () => {
                                   )}
 
                                   {/* Tutor Guidance / Intro Text - SECOND */}
-                                  <div className="mb-12 prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none space-y-6">
+                                  <div className="mb-12 prose prose-xl dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none space-y-6">
                                     {/* Content Block Sub-header */}
                                     <div className="flex items-center gap-2 mb-2">
                                       <span className="px-3 py-1 bg-stone-100 dark:bg-stone-800 rounded-lg text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
@@ -4671,11 +4671,11 @@ const Blueprint = () => {
                                         <div className="flex-1 flex flex-col justify-between min-w-0">
                                           <div className="space-y-3">
                                             {primaryVideo.resource_explanation ? (
-                                              <p className="text-sm text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-3">
+                                              <p className="text-base text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-3">
                                                 {primaryVideo.resource_explanation}
                                               </p>
                                             ) : (
-                                              <p className="text-sm text-stone-500 italic">No explanation available for this resource.</p>
+                                              <p className="text-base text-stone-500 italic">No explanation available for this resource.</p>
                                             )}
                                           </div>
 
@@ -4713,8 +4713,8 @@ const Blueprint = () => {
                                         <Play className="w-6 h-6 text-stone-300 dark:text-stone-600 ml-1" />
                                       </div>
                                       <div className="space-y-2">
-                                        <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100">No Video Available</h3>
-                                        <p className="text-xl text-stone-500 dark:text-stone-400 text-sm max-w-sm mx-auto">
+                                        <h3 className="text-2xl font-light text-stone-900 dark:text-stone-100">No Video Available</h3>
+                                        <p className="text-stone-500 dark:text-stone-400 text-base max-w-sm mx-auto">
                                           We couldn't find a curated video for this topic.
                                         </p>
                                       </div>
@@ -4748,15 +4748,15 @@ const Blueprint = () => {
                                         <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
                                           <Sparkles className="w-4 h-4 text-blue-500" />
                                         </div>
-                                        <h4 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+                                        <h4 className="text-xl font-light text-stone-900 dark:text-stone-100">
                                           Deep Dive Solution
                                         </h4>
                                       </div>
                                       <div className="space-y-8">
                                         {deepDiveSolutions[unit.unit_id].map((section, idx) => (
                                           <div key={idx}>
-                                            <h5 className="text-md font-bold text-stone-800 dark:text-stone-200 mb-3">{section.title}</h5>
-                                            <div className="prose dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                                            <h5 className="text-md font-light text-stone-500 dark:text-stone-400 mb-3 uppercase tracking-wider">{section.title}</h5>
+                                            <div className="prose prose-xl dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
                                               <LatexText text={section.content} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
                                             </div>
                                           </div>
@@ -4790,11 +4790,11 @@ const Blueprint = () => {
                                         <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
                                           <BookOpen className="w-4 h-4 text-blue-500" />
                                         </div>
-                                        <h4 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+                                        <h4 className="text-xl font-light text-stone-900 dark:text-stone-100">
                                           📚 Deep Dive Solution
                                         </h4>
                                       </div>
-                                      <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                                      <div className="prose prose-xl dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
                                         <ReactMarkdown>
                                           {deepDiveSolutions[unit.unit_id]}
                                         </ReactMarkdown>
@@ -4809,11 +4809,11 @@ const Blueprint = () => {
                                         <div className="w-8 h-8 rounded-lg bg-[#FF4A1C]/10 flex items-center justify-center">
                                           <BookOpen className="w-4 h-4 text-[#FF4A1C]" />
                                         </div>
-                                        <h4 className="text-lg font-semibold text-stone-900 dark:text-stone-100">
+                                        <h4 className="text-xl font-light text-stone-900 dark:text-stone-100">
                                           Deep Dive: Applying This Concept
                                         </h4>
                                       </div>
-                                      <div className="prose prose-lg dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
+                                      <div className="prose prose-xl dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none">
                                         <div className="whitespace-pre-wrap">
                                           <LatexText text={unit.deep_dive_explanation} unitId={unit.unit_id} context={currentSectionTitle} blueprintId={id} solutionContext={unit.solutionWalkthrough} />
                                         </div>
@@ -4870,7 +4870,7 @@ const Blueprint = () => {
                     <div className="p-2 bg-stone-100 dark:bg-stone-800 rounded-lg">
                       <FileText className="w-5 h-5 text-stone-600 dark:text-stone-400" />
                     </div>
-                    <h3 className="text-xl font-bold text-stone-900 dark:text-stone-100">Text Input</h3>
+                    <h3 className="text-xl font-light text-stone-900 dark:text-stone-100">Text Input</h3>
                   </div>
                   <button
                     onClick={() => setShowInputPopover(false)}
@@ -4880,7 +4880,7 @@ const Blueprint = () => {
                   </button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar">
-                  <div className="prose dark:prose-invert max-w-none text-stone-600 dark:text-stone-300 whitespace-pre-wrap leading-relaxed">
+                  <div className="prose prose-lg dark:prose-invert max-w-none text-stone-600 dark:text-stone-300 whitespace-pre-wrap leading-relaxed">
                     {blueprint.content?.text}
                   </div>
                 </div>

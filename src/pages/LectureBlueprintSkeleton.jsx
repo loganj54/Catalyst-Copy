@@ -636,7 +636,7 @@ const LectureBlueprintSkeleton = () => {
                       <FileText className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
                     </div>
 
-                    <h2 className="text-2xl font-semibold text-stone-900 dark:text-stone-100 mb-4">
+                    <h2 className="text-3xl font-light text-stone-900 dark:text-stone-100 mb-4">
                       Lecture Document Detected
                     </h2>
 
@@ -672,7 +672,7 @@ const LectureBlueprintSkeleton = () => {
                       <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
                         Prerequisites
                       </h2>
-                      <p className="text-base text-stone-700 dark:text-stone-300 max-w-3xl leading-relaxed">
+                      <p className="text-lg text-stone-700 dark:text-stone-300 max-w-3xl leading-relaxed">
                         {currentContent.data?.description || 'You must be comfortable with the following topics before moving forward.'}
                       </p>
                     </div>
@@ -738,7 +738,7 @@ const LectureBlueprintSkeleton = () => {
                                 )}
 
                                 {/* Tutor Guidance / Intro Text */}
-                                <div className="mb-12 bg-white dark:bg-stone-900 leading-relaxed max-w-none space-y-4 text-base text-stone-700 dark:text-stone-300">
+                                <div className="mb-12 bg-white dark:bg-stone-900 leading-relaxed max-w-none space-y-4 text-lg text-stone-700 dark:text-stone-300">
                                   <div className="flex items-center gap-2 mb-2">
                                     <span className="px-3 py-1 bg-stone-100 dark:bg-stone-800 rounded-lg text-xs font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
                                       Overview
@@ -817,7 +817,7 @@ const LectureBlueprintSkeleton = () => {
 
                                       <div className="flex-1 flex flex-col justify-between min-w-0">
                                         <div className="space-y-3">
-                                          <p className="text-sm text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-3">
+                                          <p className="text-lg text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-3">
                                             {primaryVideo.resource_explanation || "No explanation available for this resource."}
                                           </p>
                                         </div>
@@ -842,8 +842,8 @@ const LectureBlueprintSkeleton = () => {
                                       <Play className="w-6 h-6 text-stone-300 dark:text-stone-600 ml-1" />
                                     </div>
                                     <div className="space-y-2">
-                                      <h3 className="text-xl font-semibold text-stone-900 dark:text-stone-100">No Video Available</h3>
-                                      <p className="text-stone-500 dark:text-stone-400 text-base max-w-sm mx-auto">
+                                      <h3 className="text-2xl font-light text-stone-900 dark:text-stone-100">No Video Available</h3>
+                                      <p className="text-stone-500 dark:text-stone-400 text-lg max-w-sm mx-auto">
                                         We couldn't find a curated video for this topic.
                                       </p>
                                     </div>
@@ -851,7 +851,7 @@ const LectureBlueprintSkeleton = () => {
                                       <button
                                         onClick={() => handleGenerateBlueprint(unit, 'database')}
                                         disabled={searchingTopics.has(unit.unit_id)}
-                                        className="px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-sm font-medium hover:bg-stone-50 hover:text-[#FF4A1C] transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        className="px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-base font-medium hover:bg-stone-50 hover:text-[#FF4A1C] transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                         {searchingTopics.has(unit.unit_id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                                         Search Database
                                       </button>
@@ -897,7 +897,7 @@ const LectureBlueprintSkeleton = () => {
                         })
                       ) : (
                         <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-6 border border-amber-200 dark:border-amber-800">
-                          <p className="text-amber-800 dark:text-amber-200">
+                          <p className="text-amber-800 dark:text-amber-200 text-lg">
                             No prerequisites were generated for this lecture.
                             The content may be introductory level or self-contained.
                           </p>
@@ -919,7 +919,7 @@ const LectureBlueprintSkeleton = () => {
 
                       {/* Why This Matters - Styled as Subtitle */}
                       {currentContent.data.why_this_matters && (
-                        <p className="text-base text-stone-700 dark:text-stone-300 max-w-3xl leading-relaxed">
+                        <p className="text-lg text-stone-700 dark:text-stone-300 max-w-3xl leading-relaxed">
                           {currentContent.data.why_this_matters}
                         </p>
                       )}
@@ -938,7 +938,7 @@ const LectureBlueprintSkeleton = () => {
                           </ReactMarkdown>
                         ) : (
                           <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
-                            <p className="text-red-800 dark:text-red-200 text-sm">
+                            <p className="text-red-800 dark:text-red-200 text-base">
                               No content text was generated for this section. This may be a generation error.
                             </p>
                           </div>
@@ -956,7 +956,7 @@ const LectureBlueprintSkeleton = () => {
                               <h4 className="text-xl font-medium text-amber-900 dark:text-amber-300 mb-3">
                                 Reference Tables Needed
                               </h4>
-                              <ul className="text-amber-800 dark:text-amber-200 text-base space-y-2">
+                              <ul className="text-amber-800 dark:text-amber-200 text-lg space-y-2">
                                 {currentContent.data.reference_tables.map((table, idx) => (
                                   <li key={idx} className="flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
@@ -1029,10 +1029,10 @@ const LectureBlueprintSkeleton = () => {
 
                                       {showAnswers[q.question_id || `q-${idx}`] && (
                                         <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                                          <p className="text-base font-medium text-green-800 dark:text-green-300 mb-2">
+                                          <p className="text-lg font-medium text-green-800 dark:text-green-300 mb-2">
                                             Answer: <LatexText text={q.correct_answer} />
                                           </p>
-                                          <p className="text-sm text-green-700 dark:text-green-400 leading-relaxed">
+                                          <p className="text-base text-green-700 dark:text-green-400 leading-relaxed">
                                             <LatexText text={q.explanation} />
                                           </p>
                                         </div>

@@ -2,15 +2,15 @@ import React from 'react';
 
 export const LECTURE_TYPOGRAPHY = {
     // Container
-    container: "prose prose-stone dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none font-sans",
+    container: "prose prose-lg prose-stone dark:prose-invert text-stone-600 dark:text-stone-400 leading-relaxed max-w-none font-sans",
 
     // Handlers for ReactMarkdown components
     h1: "text-4xl font-light tracking-tight text-stone-900 dark:text-stone-100 mt-12 mb-6 border-b border-stone-200 dark:border-stone-800 pb-4",
     h2: "text-3xl font-light tracking-tight text-stone-900 dark:text-stone-100 mt-12 mb-6",
-    h3: "text-2xl font-medium tracking-tight text-stone-900 dark:text-stone-100 mt-8 mb-4",
-    h4: "text-xl font-bold text-stone-900 dark:text-stone-100 mt-6 mb-3",
-    p: "mb-6 text-stone-700 dark:text-stone-300 text-base leading-relaxed",
-    li: "text-stone-700 dark:text-stone-300 text-base leading-relaxed mb-2",
+    h3: "text-2xl font-light tracking-tight text-stone-900 dark:text-stone-100 mt-8 mb-4",
+    h4: "text-xl font-light text-stone-900 dark:text-stone-100 mt-6 mb-3",
+    p: "mb-6 text-stone-700 dark:text-stone-300 text-lg leading-relaxed",
+    li: "text-stone-700 dark:text-stone-300 text-lg leading-relaxed mb-2",
 
     // Utility for lists to ensure consistent spacing
     ul: "list-disc pl-5 mb-6 space-y-2",

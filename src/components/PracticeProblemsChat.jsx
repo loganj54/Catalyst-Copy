@@ -995,7 +995,7 @@ const PracticeProblemsChat = forwardRef(({
                                     <h1 className="text-3xl font-display font-medium text-stone-900 dark:text-stone-100">
                                         {problem.problem_name || unitTitle}
                                     </h1>
-                                    <p className="text-sm text-stone-400 dark:text-stone-500 mt-2">
+                                    <p className="text-base text-stone-400 dark:text-stone-500 mt-2">
                                         {new Date().toLocaleDateString()}
                                     </p>
                                 </div>
@@ -1079,8 +1079,8 @@ const PracticeProblemsChat = forwardRef(({
                                 if (isSystem) return <div key={idx} className="flex justify-center"><span className="text-xs bg-stone-100 text-stone-500 px-3 py-1 rounded-full">{msg.content}</span></div>;
                                 return (
                                     <div key={idx} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[85%] rounded-2xl px-6 py-4 text-base leading-relaxed shadow-sm ${isUser ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200'}`}>
-                                            {isUser ? msg.content : <div className="prose prose-base max-w-none dark:prose-invert break-words"><ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{msg.content}</ReactMarkdown></div>}
+                                        <div className={`max-w-[85%] rounded-2xl px-6 py-4 text-lg leading-relaxed shadow-sm ${isUser ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-800 dark:text-stone-200'}`}>
+                                            {isUser ? msg.content : <div className="prose prose-lg max-w-none dark:prose-invert break-words"><ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{msg.content}</ReactMarkdown></div>}
                                         </div>
                                     </div>
                                 );
