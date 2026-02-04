@@ -155,7 +155,7 @@ const SmartTextSelection = ({ children, unitId, context, blueprintId, solutionCo
             const rect = range.getBoundingClientRect();
 
             // Capture scroll offset of the main container to ensure anchored position is correct even if user scrolls while menu is open
-            const scrollContainer = document.getElementById('main-scroll-container');
+            const scrollContainer = document.getElementById('main-scroll-container') || document.getElementById('lecture-scroll-container');
             const currentScrollOffset = scrollContainer ? scrollContainer.scrollTop : 0;
 
             setMenuPosition({

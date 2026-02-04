@@ -14,6 +14,7 @@ import LatexText from '../components/LatexText';
 import { Sidebar } from '../components/dub-ui/Sidebar';
 import ChatInterface from '../components/ChatInterface';
 import PracticeProblemsChat from '../components/PracticeProblemsChat';
+import ExplainerOverlay from '../components/ExplainerOverlay';
 import { LECTURE_TYPOGRAPHY, getLectureMarkdownComponents } from '../utils/lectureStyles';
 
 const LectureBlueprintSkeleton = () => {
@@ -628,7 +629,7 @@ const LectureBlueprintSkeleton = () => {
             </div>
           ) : (
             <div className="w-full lg:pr-[262px]">
-              <div className="max-w-5xl mx-auto px-6 pt-32 pb-24">
+              <div id="blueprint-content-column" className="max-w-5xl mx-auto px-6 pt-32 pb-24">
                 {/* No structure yet - show generation UI */}
                 {!lectureStructure && (
                   <div className="bg-white dark:bg-stone-800 rounded-2xl border border-stone-200 dark:border-stone-700 p-12 text-center">
@@ -747,13 +748,23 @@ const LectureBlueprintSkeleton = () => {
 
                                   {unit.tutor_guidance && (
                                     <div className="mb-4 whitespace-pre-wrap">
-                                      <LatexText text={unit.tutor_guidance} />
+                                      <LatexText
+                                        text={unit.tutor_guidance}
+                                        unitId={unit.unit_id}
+                                        blueprintId={id}
+                                        context={`Prerequisites - ${unit.topic} - Tutor Guidance`}
+                                      />
                                     </div>
                                   )}
 
                                   {(unit.concept_summary || unit.description) && (
                                     <div className="whitespace-pre-wrap">
-                                      <LatexText text={unit.concept_summary || unit.description} />
+                                      <LatexText
+                                        text={unit.concept_summary || unit.description}
+                                        unitId={unit.unit_id}
+                                        blueprintId={id}
+                                        context={`Prerequisites - ${unit.topic} - Overview`}
+                                      />
                                     </div>
                                   )}
                                 </div>
@@ -999,7 +1010,12 @@ const LectureBlueprintSkeleton = () => {
                                     </span>
                                     <div className="flex-1">
                                       <p className="text-stone-900 dark:text-stone-100 font-medium text-xl mb-4">
-                                        <LatexText text={q.question} />
+                                        <LatexText
+                                          text={q.question}
+                                          unitId={currentContent.data.section_id}
+                                          blueprintId={id}
+                                          context={`Quiz Q${idx + 1}: ${q.question}`}
+                                        />
                                       </p>
 
                                       {/* Multiple choice options */}
@@ -1013,7 +1029,12 @@ const LectureBlueprintSkeleton = () => {
                                               <span className="w-6 h-6 border border-stone-300 dark:border-stone-600 rounded flex items-center justify-center text-xs">
                                                 {String.fromCharCode(65 + optIdx)}
                                               </span>
-                                              <LatexText text={option} />
+                                              <LatexText
+                                                text={option}
+                                                unitId={currentContent.data.section_id}
+                                                blueprintId={id}
+                                                context={`Quiz Q${idx + 1} Option ${String.fromCharCode(65 + optIdx)}`}
+                                              />
                                             </div>
                                           ))}
                                         </div>
@@ -1030,10 +1051,20 @@ const LectureBlueprintSkeleton = () => {
                                       {showAnswers[q.question_id || `q-${idx}`] && (
                                         <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                                           <p className="text-lg font-medium text-green-800 dark:text-green-300 mb-2">
-                                            Answer: <LatexText text={q.correct_answer} />
+                                            Answer: <LatexText
+                                              text={q.correct_answer}
+                                              unitId={currentContent.data.section_id}
+                                              blueprintId={id}
+                                              context={`Quiz Q${idx + 1} Answer`}
+                                            />
                                           </p>
                                           <p className="text-base text-green-700 dark:text-green-400 leading-relaxed">
-                                            <LatexText text={q.explanation} />
+                                            <LatexText
+                                              text={q.explanation}
+                                              unitId={currentContent.data.section_id}
+                                              blueprintId={id}
+                                              context={`Quiz Q${idx + 1} Explanation`}
+                                            />
                                           </p>
                                         </div>
                                       )}
@@ -1052,6 +1083,7 @@ const LectureBlueprintSkeleton = () => {
             </div>
           )}
         </div>
+        <ExplainerOverlay />
       </div>
     </div>
   );

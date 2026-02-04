@@ -365,7 +365,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
             if (!containerRef.current || !containerRef.current.parentElement) return;
 
             // Get scroll container to calculate absolute layout position relative to CONTENT, not Viewport
-            const scrollContainer = document.getElementById('main-scroll-container');
+            const scrollContainer = document.getElementById('main-scroll-container') || document.getElementById('lecture-scroll-container');
             const currentScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
             const parentRect = containerRef.current.parentElement.getBoundingClientRect();
 
@@ -564,7 +564,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
         if (bubbleRef.current) resizeObserver.observe(bubbleRef.current);
 
         // FIX: Add Scroll Listener
-        const scrollContainer = document.getElementById('main-scroll-container');
+        const scrollContainer = document.getElementById('main-scroll-container') || document.getElementById('lecture-scroll-container');
         if (scrollContainer) {
             scrollContainer.addEventListener('scroll', updatePosition);
         }

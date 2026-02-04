@@ -32,12 +32,12 @@ export const getLectureMarkdownComponents = (LatexTextComponent, contextData = {
             : extractText(children);
 
         return (
-            <p className={LECTURE_TYPOGRAPHY.p}>
+            <div className={LECTURE_TYPOGRAPHY.p}>
                 <LatexTextComponent
                     text={textContent}
                     {...contextData}
                 />
-            </p>
+            </div>
         );
     },
     li: ({ node, children }) => {
