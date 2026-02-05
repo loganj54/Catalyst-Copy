@@ -16,6 +16,7 @@ import ChatInterface from '../components/ChatInterface';
 import PracticeProblemsChat from '../components/PracticeProblemsChat';
 import ExplainerOverlay from '../components/ExplainerOverlay';
 import { LECTURE_TYPOGRAPHY, getLectureMarkdownComponents } from '../utils/lectureStyles';
+import { useUiState } from '../context/UiStateContext';
 
 const LectureBlueprintSkeleton = () => {
   const { id } = useParams();
@@ -23,6 +24,24 @@ const LectureBlueprintSkeleton = () => {
   const { session, user } = useAuth();
   const { bgPattern } = useTheme();
   const chatRef = React.useRef(null);
+
+  // UI State for Explainers
+  const { loadExplainersFromDb, clearAllExplainers } = useUiState();
+
+  // Load explainers on mount
+  useEffect(() => {
+    if (id) {
+      loadExplainersFromDb(id);
+    }
+  }, [id, loadExplainersFromDb]);
+
+  // FIXME: Temporary clear function for user request
+  const handleClearExplainers = async () => {
+    if (confirm('Are you sure you want to clear all explainers from this page?')) {
+      await clearAllExplainers(id);
+      window.location.reload();
+    }
+  };
 
   // State
   const [blueprint, setBlueprint] = useState(null);
@@ -440,6 +459,18 @@ const LectureBlueprintSkeleton = () => {
                       <span className="truncate">Generate Practice Problems</span>
                     </div>
                   </button>
+                  <button
+                    onClick={handleClearExplainers}
+                    className={`
+                      w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm font-medium transition-colors
+                      text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20
+                    `}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <X className="w-4 h-4" />
+                      <span className="truncate">Clear Screen</span>
+                    </div>
+                  </button>
                 </div>
               </div>
             </>
@@ -718,7 +749,12 @@ const LectureBlueprintSkeleton = () => {
                                 {/* Concept Header */}
                                 <div>
                                   <h3 className="text-4xl md:text-5xl font-light tracking-tight text-stone-800 dark:text-stone-200 mb-6">
-                                    {unit.topic}
+                                    <LatexText
+                                      text={unit.topic}
+                                      unitId={unit.unit_id}
+                                      blueprintId={id}
+                                      context={`Prerequisites - ${unit.topic} - Title`}
+                                    />
                                   </h3>
                                 </div>
 
@@ -925,13 +961,23 @@ const LectureBlueprintSkeleton = () => {
                     {/* Section Header */}
                     <div className="space-y-6 mb-16">
                       <h2 className="text-5xl md:text-6xl tracking-tighter font-light text-stone-900 dark:text-stone-100">
-                        {currentContent.data.title}
+                        <LatexText
+                          text={currentContent.data.title}
+                          unitId={currentContent.data.section_id}
+                          blueprintId={id}
+                          context={`Lecture Section - ${currentContent.data.title} - Title`}
+                        />
                       </h2>
 
                       {/* Why This Matters - Styled as Subtitle */}
                       {currentContent.data.why_this_matters && (
                         <p className="text-lg text-stone-700 dark:text-stone-300 max-w-3xl leading-relaxed">
-                          {currentContent.data.why_this_matters}
+                          <LatexText
+                            text={currentContent.data.why_this_matters}
+                            unitId={currentContent.data.section_id}
+                            blueprintId={id}
+                            context={`Lecture Section - ${currentContent.data.title} - Why This Matters`}
+                          />
                         </p>
                       )}
                     </div>
@@ -1083,7 +1129,22 @@ const LectureBlueprintSkeleton = () => {
             </div>
           )}
         </div>
-        <ExplainerOverlay />
+        {/* Calculate visible unit IDs for explainer filtering */}
+        {(() => {
+          let visibleUnitIds = null;
+
+          if (activeTab === 'prerequisites' && lectureStructure?.prerequisites_section?.learning_units) {
+            visibleUnitIds = lectureStructure.prerequisites_section.learning_units.map(u => u.unit_id);
+          } else if (currentContent?.type === 'lecture' && currentContent?.data?.section_id) {
+            visibleUnitIds = [currentContent.data.section_id];
+          }
+
+          return (
+            !['chat', 'practice-problems-chat'].includes(activeTab) && (
+              <ExplainerOverlay allowedUnitIds={visibleUnitIds} />
+            )
+          );
+        })()}
       </div>
     </div>
   );

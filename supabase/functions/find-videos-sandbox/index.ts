@@ -49,6 +49,9 @@ interface RankedVideo {
     thumbnail_url: string;
     duration_seconds: number;
     summary: string;
+    description?: string;
+    average_rating?: number;
+    rating_count?: number;
     similarity_score?: number;
     profile_match_score?: number;
 }
@@ -353,6 +356,9 @@ serve(async (req: Request) => {
                                 thumbnail_url: video.thumbnail_url || '',
                                 duration_seconds: parseInt(video.duration) || 0,
                                 summary: video.summary || '',
+                                description: video.description || '',
+                                average_rating: video.average_rating || 0,
+                                rating_count: video.rating_count || 0,
                                 similarity_score: (video as any).similarity_score,
                                 profile_match_score: r.score
                             };
@@ -452,6 +458,9 @@ serve(async (req: Request) => {
                     thumbnail_url: video.thumbnailUrl || '',
                     duration_seconds: video.duration || 0,
                     summary: video.analysis.summary,
+                    description: video.description || '',
+                    average_rating: 0,
+                    rating_count: 0,
                     profile_match_score: r.score
                 };
             });

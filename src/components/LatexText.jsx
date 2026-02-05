@@ -29,7 +29,17 @@ function LatexText({ text, unitId, context, blueprintId, solutionContext }) {
                     const level = headerMatch[1].length;
                     const content = headerMatch[2];
                     const Tag = `h${level}`;
-                    return <Tag key={i}>{content}</Tag>;
+                    return (
+                        <Tag key={i}>
+                            <LatexText
+                                text={content}
+                                unitId={unitId}
+                                context={context}
+                                blueprintId={blueprintId}
+                                solutionContext={solutionContext}
+                            />
+                        </Tag>
+                    );
                 }
 
                 // Handling Block Math: $$...$$
@@ -41,7 +51,7 @@ function LatexText({ text, unitId, context, blueprintId, solutionContext }) {
                         </div>
                     );
                 }
-                
+
                 // Handling Inline Math: $...$
                 if (part.startsWith('$') && part.endsWith('$')) {
                     const content = part.slice(1, -1);
@@ -55,7 +65,17 @@ function LatexText({ text, unitId, context, blueprintId, solutionContext }) {
                 // Handling Bold Text: **...**
                 if (part.startsWith('**') && part.endsWith('**')) {
                     const content = part.slice(2, -2);
-                    return <strong key={i} className="font-bold text-stone-900 dark:text-stone-100">{content}</strong>;
+                    return (
+                        <strong key={i} className="font-bold text-stone-900 dark:text-stone-100">
+                            <LatexText
+                                text={content}
+                                unitId={unitId}
+                                context={context}
+                                blueprintId={blueprintId}
+                                solutionContext={solutionContext}
+                            />
+                        </strong>
+                    );
                 }
 
                 // Handling Regular Text

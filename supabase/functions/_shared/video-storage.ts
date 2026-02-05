@@ -35,6 +35,9 @@ export interface StoredVideo {
     real_world_score: number;
     ai_quality_score: number;
     summary: string;
+    description?: string; // YouTube description
+    average_rating?: number; // Aggregate rating (computed/stored)
+    rating_count?: number;   // Number of ratings
     embedding_text?: string;  // The text used for vector embedding
 }
 
@@ -156,6 +159,11 @@ function buildStorageData(video: AnalyzedVideo): Record<string, any> {
     }
     if (video.comment_analysis) {
         storageData.comment_analysis_json = JSON.stringify(video.comment_analysis);
+    }
+
+    // Add description if available (for display)
+    if (video.description) {
+        storageData.description = video.description;
     }
 
     return storageData;

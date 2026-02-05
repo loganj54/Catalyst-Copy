@@ -23,29 +23,33 @@ serve(async (req) => {
         let userPrompt: string;
 
         if (solutionContext) {
-            // Enhanced 2-paragraph response when solution context is available
+            // Enhanced response when solution context is available
             userPrompt = `Explain "${term}" in the context of solving this problem.
 
 PROBLEM/SOLUTION CONTEXT:
 ${solutionContext}
 
-Write exactly TWO short paragraphs (no headers, no labels, just the paragraphs):
+Structure your response as follows:
+1. A clear overview paragraph (max 40 words).
+2. A bulleted list of 2-3 key points (max 25 words each).
 
-First paragraph: Define "${term}" in ${context || 'general engineering'} and its fundamental significance.
-
-Second paragraph: Explain how "${term}" applies to this specific problem - why it's relevant and where it appears in the solution.
-
-IMPORTANT FORMATTING RULES:
-- Keep each paragraph under 50 words
-- Write ALL equations and mathematical expressions in LaTeX format using $...$ delimiters (e.g., $Nu = hL/k$, $Re > 10^5$)
-- Do NOT include any headers - just write the two paragraphs directly
-- Be concise and student-friendly`;
+IMPORTANT GUIDELINES:
+- **Tone:** Educational and clear, but accessible (Early Undergraduate level). Avoid overly complex jargon, but give actual substance.
+- **Bolding:** Use bolding **Semantic Labels** only at the start of a bullet (e.g., "- **Flexibility:** It adapts to..."). If a bullet doesn't have a distinct concept label, DO NOT bold the first word.
+- **Formatting:** Use standard dashes (-) for bullets. Write equations in LaTeX ($...$).
+- Do NOT put spaces inside bold tags.`;
         } else {
-            // Original simple explanation when no solution context
+            // Original explanation when no solution context
             userPrompt = `Explain "${term}" with respect to "${context || 'general engineering principles'}". 
     
-    Make the explanation descriptive but keep it under 100 words. 
-    Focus on the relationship between the term and the context provided.`;
+    Structure:
+    1. A single sentence overview (max 30 words).
+    2. A bulleted list of 2-3 distinct facts (max 20 words each).
+
+    IMPORTANT GUIDELINES:
+    - **Tone:** Clear and Educational (Early Undergraduate).
+    - **Bolding:** ONLY bold semantic labels (e.g., "- **Mechanism:** ..."). Do not randomly bold the first word.
+    - **Formatting:** Markdown dashes (-). LaTeX in $...$. No bold spaces.`;
         }
 
         console.log(`[explain-term] Explaining: ${term} (Context: ${context}, Has Solution Context: ${!!solutionContext})`);

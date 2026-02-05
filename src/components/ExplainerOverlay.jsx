@@ -1,10 +1,13 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useUiState } from '../context/UiStateContext';
 import { X, Sparkles, Play, RefreshCw, Star, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import 'katex/dist/katex.min.css';
 
 import { InlineMath, BlockMath } from 'react-katex';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 
 /**
  * ExplainerBubble Component
@@ -27,6 +30,11 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
     const [selectedVideoType, setSelectedVideoType] = useState(null);
     const [showVideoTypeSelector, setShowVideoTypeSelector] = useState(explainer.type === 'video' && !explainer.cachedVideoData);
     const [debugInfo, setDebugInfo] = useState(null);
+
+    // Rating State (Local overrides for immediate UI update)
+    const [userRatings, setUserRatings] = useState({});
+    const [localAverages, setLocalAverages] = useState({});
+    const [hoverRating, setHoverRating] = useState(0);
 
     // AI Query Generation state
     const [generatedQueries, setGeneratedQueries] = useState([]);
@@ -260,7 +268,11 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                     thumbnailUrl: data.video.thumbnail_url,
                     duration: data.video.duration_seconds,
                     summary: data.video.summary,
-                    scores: data.video.scores
+                    description: data.video.description,
+                    scores: data.video.scores,
+                    id: data.video.video_id,
+                    average_rating: data.video.average_rating,
+                    rating_count: data.video.rating_count
                 }]);
 
                 // Store full ranked list for reroll
@@ -272,7 +284,11 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                         thumbnailUrl: v.thumbnail_url,
                         duration: v.duration_seconds,
                         summary: v.summary,
-                        rank: v.rank
+                        description: v.description,
+                        rank: v.rank,
+                        id: v.video_id,
+                        average_rating: v.average_rating,
+                        rating_count: v.rating_count
                     })));
                     setCurrentVideoIndex(0);
                 }
@@ -295,7 +311,11 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                     thumbnailUrl: v.thumbnail_url,
                     duration: v.duration_seconds,
                     summary: v.summary,
-                    rank: v.rank
+                    description: v.description,
+                    rank: v.rank,
+                    id: v.video_id,
+                    average_rating: v.average_rating,
+                    rating_count: v.rating_count
                 })) || [];
 
                 updateExplainer(explainer.id, {
@@ -347,6 +367,40 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
             fetchExplanation();
         }
     }, [explainer.type, explainer.term, explainer.context, explainer.id, updateExplainer]);
+
+    // Process explanation content to extract title and clean markdown
+    const processedExplanation = useMemo(() => {
+        if (explainer.type !== 'explain' || !explanation) {
+            return { title: null, content: '' };
+        }
+
+        let rawText = explanation;
+        let extractedTitle = null;
+
+        // 1. Try to find a primary header (# Title) to promote
+        // Match start of string or start of line, #, space, then text
+        const titleMatch = rawText.match(/(?:^|\n)\s*#\s+(.+)(?:$|\n)/);
+        if (titleMatch) {
+            extractedTitle = titleMatch[1].trim();
+            // Remove the title line from the text
+            rawText = rawText.replace(titleMatch[0], '');
+        }
+
+        // 2. Existing Cleaning Logic
+        let cleanText = rawText || '';
+        // Unescape asterisks
+        cleanText = cleanText.replace(/\\(\*)/g, '$1');
+        // Ensure headers have space
+        cleanText = cleanText.replace(/([^\n])\n(#+)/g, '$1\n\n$2');
+        cleanText = cleanText.replace(/^(#+)(?=[^ \n])/gm, '$1 ');
+        // Fix Bold Syntax
+        cleanText = cleanText.replace(/\*\*\s*(.+?)\s*\*\*/g, '**$1**');
+        // Convert inline "dash lists"
+        cleanText = cleanText.replace(/([.:])\s+-\s+(\*\*)/g, '$1\n\n- $2');
+        cleanText = cleanText.replace(/\s+-\s+(\*\*)/g, '\n- $1');
+
+        return { title: extractedTitle, content: cleanText.trim() };
+    }, [explainer.type, explanation]);
 
 
     useEffect(() => {
@@ -634,7 +688,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                                 {explainer.type === 'video' ?
                                     (currentVideo ? currentVideo.title : 'Searching for videos...') :
                                     explainer.type === 'question' ? `Ask a question about ${explainer.term}` :
-                                        `${explainer.term} explained`
+                                        (processedExplanation.title || `${explainer.term} explained`)
                                 }
                             </h3>
                         </div>
@@ -791,20 +845,83 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                                                         )}
                                                     </div>
 
-                                                    {/* Star Rating (Centered below thumb) */}
+                                                    {/* Star Rating (Interactive) */}
                                                     <div className="flex items-center justify-between px-1">
-                                                        <div className="flex items-center gap-0.5">
-                                                            {[1, 2, 3, 4, 5].map((star) => (
-                                                                <div key={star}>
-                                                                    <Star
-                                                                        className={`w-3 h-3 ${star <= (currentVideo.average_rating || 0) ? 'fill-yellow-400 text-yellow-400' : 'text-stone-200 dark:text-stone-700'}`}
-                                                                    />
-                                                                </div>
-                                                            ))}
+                                                        <div className="flex items-center gap-0.5 group/stars" onMouseLeave={() => setHoverRating(0)}>
+                                                            {[1, 2, 3, 4, 5].map((star) => {
+                                                                // Use local state if available, otherwise fall back to video data
+                                                                const videoId = currentVideo.id;
+                                                                const userRating = userRatings[videoId] || currentVideo.user_rating;
+
+                                                                // Display Logic:
+                                                                // 1. Hover takes precedence
+                                                                // 2. User's own rating
+                                                                // 3. Global average
+                                                                const displayAvg = localAverages[videoId]?.average_rating || currentVideo.average_rating || 0;
+
+                                                                const isFilled = hoverRating
+                                                                    ? star <= hoverRating
+                                                                    : (userRating
+                                                                        ? star <= userRating
+                                                                        : star <= Math.round(displayAvg));
+
+                                                                return (
+                                                                    <button
+                                                                        key={star}
+                                                                        onMouseEnter={() => setHoverRating(star)}
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
+                                                                            if (!videoId) return;
+
+                                                                            // Optimistic Update
+                                                                            setUserRatings(prev => ({ ...prev, [videoId]: star }));
+
+                                                                            try {
+                                                                                const response = await supabase.functions.invoke('rate-resource', {
+                                                                                    body: {
+                                                                                        resource_id: videoId,
+                                                                                        rating: star
+                                                                                    }
+                                                                                });
+
+                                                                                if (response.data && response.data.success) {
+                                                                                    setLocalAverages(prev => ({
+                                                                                        ...prev,
+                                                                                        [videoId]: {
+                                                                                            average_rating: response.data.average_rating,
+                                                                                            rating_count: response.data.rating_count
+                                                                                        }
+                                                                                    }));
+                                                                                }
+                                                                            } catch (err) {
+                                                                                console.error("Rating failed:", err);
+                                                                            }
+                                                                        }}
+                                                                        className="focus:outline-none transition-transform hover:scale-110 active:scale-90 p-0.5"
+                                                                    >
+                                                                        <Star
+                                                                            className={`w-3 h-3 transition-colors ${isFilled
+                                                                                ? 'fill-yellow-400 text-yellow-400'
+                                                                                : 'text-stone-200 dark:text-stone-700 hover:text-yellow-200'
+                                                                                }`}
+                                                                        />
+                                                                    </button>
+                                                                );
+                                                            })}
                                                         </div>
                                                         <span className="text-xs text-stone-400 font-medium ml-1">
-                                                            {currentVideo.average_rating ? currentVideo.average_rating.toFixed(1) : 'NR'}
-                                                            <span className="text-[10px] opacity-70 ml-0.5">({currentVideo.rating_count || 0})</span>
+                                                            {(() => {
+                                                                const videoId = currentVideo.id;
+                                                                const displayAvg = localAverages[videoId]?.average_rating || currentVideo.average_rating;
+                                                                const displayCount = localAverages[videoId]?.rating_count || currentVideo.rating_count || 0;
+
+                                                                return (
+                                                                    <>
+                                                                        {displayAvg ? displayAvg.toFixed(1) : 'NR'}
+                                                                        <span className="text-[10px] opacity-70 ml-0.5">({displayCount})</span>
+                                                                    </>
+                                                                );
+                                                            })()}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -812,7 +929,7 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                                                 {/* Right Column: Description & Footer */}
                                                 <div className="flex-1 flex flex-col justify-between min-w-0">
                                                     <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed line-clamp-4">
-                                                        {currentVideo.match_explanation || currentVideo.description || "No description available."}
+                                                        {currentVideo.description || currentVideo.match_explanation || currentVideo.summary || "No description available."}
                                                     </p>
 
                                                     <div className="flex items-center justify-between pt-3 mt-1 active:mt-1">
@@ -829,104 +946,11 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                                             </div>
                                         </div>
 
-                                        {/* Debug Information */}
-                                        {debugInfo && (
-                                            <div className="mt-4 space-y-2">
-                                                <div className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide mb-2">
-                                                    Debug Information
-                                                </div>
 
-                                                {/* Embedding Query Text */}
-                                                <div>
-                                                    <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">
-                                                        Embedding Query Text (used to find videos):
-                                                    </label>
-                                                    <textarea
-                                                        readOnly
-                                                        value={debugInfo.embedding_query_text}
-                                                        className="w-full px-3 py-2 text-xs bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg text-stone-700 dark:text-stone-300 font-mono resize-none"
-                                                        rows="3"
-                                                    />
-                                                </div>
-
-                                                {/* Resource Info */}
-                                                <div>
-                                                    <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">
-                                                        Resource Returned:
-                                                    </label>
-                                                    <textarea
-                                                        readOnly
-                                                        value={debugInfo.resource_info}
-                                                        className="w-full px-3 py-2 text-xs bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg text-stone-700 dark:text-stone-300 font-mono resize-none"
-                                                        rows="2"
-                                                    />
-                                                </div>
-
-                                                {/* User Query */}
-                                                <div>
-                                                    <label className="block text-xs font-medium text-stone-600 dark:text-stone-400 mb-1">
-                                                        What You Were Looking For:
-                                                    </label>
-                                                    <textarea
-                                                        readOnly
-                                                        value={debugInfo.user_query}
-                                                        className="w-full px-3 py-2 text-xs bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg text-stone-700 dark:text-stone-300 font-mono resize-none"
-                                                        rows="2"
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
                                     </>
                                 ) : (
                                     <div className="text-center p-4 text-stone-500 space-y-3">
                                         <p>No videos found for this term.</p>
-                                        <button
-                                            onClick={async (e) => {
-                                                e.stopPropagation();
-                                                console.log(`[ExplainerOverlay] 🖱️ "Activate Webhook" Clicked for: "${explainer.term}"`);
-
-                                                try {
-                                                    const webhookUrl = 'https://hook.us2.make.com/4biukvihdmvo4aianlpqk5sbnewjbonh';
-                                                    const term = explainer.term || 'Unknown Term';
-                                                    const context = explainer.context || 'general engineering';
-                                                    const query = `${term} with respect to ${context}`;
-
-                                                    const payload = {
-                                                        section_title: context,
-                                                        units: [{
-                                                            unit_id: 'manual_explainer_debug',
-                                                            topic: term,
-                                                            target_resource_profile: query,
-                                                            search_query: query
-                                                        }],
-                                                        query_index: 1,
-                                                        total_queries: 1,
-                                                        triggered_at: new Date().toISOString()
-                                                    };
-
-                                                    console.log('[ExplainerOverlay] 📡 Sending Payload:', payload);
-
-                                                    const res = await fetch(webhookUrl, {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify(payload)
-                                                    });
-
-                                                    if (res.ok) {
-                                                        console.log('[ExplainerOverlay] ✅ Webhook Sent Successfully');
-                                                        alert('Webhook Sent! Check Make.com.');
-                                                    } else {
-                                                        console.error('[ExplainerOverlay] ❌ Webhook Failed:', res.status);
-                                                        alert('Webhook Failed. Check Console.');
-                                                    }
-                                                } catch (err) {
-                                                    console.error('[ExplainerOverlay] ❌ Error:', err);
-                                                }
-                                            }}
-                                            className="px-3 py-1.5 bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 rounded text-xs font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition"
-                                        >
-                                            Activate Webhook
-                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -1048,21 +1072,23 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                                         explanation ? (
                                             <>
                                                 <div className="space-y-4">
-                                                    {explanation.split('\n\n').map((paragraph, idx) => (
-                                                        <p key={idx}>
-                                                            {paragraph.split(/(\$[^$]+\$)/g).map((part, i) => {
-                                                                if (part.startsWith('$') && part.endsWith('$')) {
-                                                                    const mathContent = part.slice(1, -1);
-                                                                    return (
-                                                                        <span key={i} className="inline-block mx-0.5">
-                                                                            <InlineMath math={mathContent} />
-                                                                        </span>
-                                                                    );
-                                                                }
-                                                                return <span key={i}>{part}</span>;
-                                                            })}
-                                                        </p>
-                                                    ))}
+                                                    <ReactMarkdown
+                                                        remarkPlugins={[remarkMath]}
+                                                        rehypePlugins={[rehypeKatex]}
+                                                        components={{
+                                                            h1: ({ node, ...props }) => <h1 className="text-base font-medium tracking-tight text-stone-900 dark:text-stone-100 mt-4 mb-2 border-b border-stone-200 dark:border-stone-800 pb-1" {...props} />,
+                                                            h2: ({ node, ...props }) => <h2 className="text-base font-medium tracking-tight text-stone-900 dark:text-stone-100 mt-3 mb-2" {...props} />,
+                                                            h3: ({ node, ...props }) => <h3 className="text-base font-medium tracking-tight text-stone-900 dark:text-stone-100 mt-2 mb-1" {...props} />,
+                                                            h4: ({ node, ...props }) => <h4 className="text-base font-bold text-stone-900 dark:text-stone-100 mt-2 mb-1" {...props} />,
+                                                            p: ({ node, ...props }) => <p className="mb-2 text-stone-700 dark:text-stone-300 text-base leading-relaxed" {...props} />,
+                                                            ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-2 space-y-1" {...props} />,
+                                                            ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-2 space-y-1" {...props} />,
+                                                            li: ({ node, ...props }) => <li className="text-stone-700 dark:text-stone-300 text-base leading-relaxed" {...props} />,
+                                                            strong: ({ node, ...props }) => <strong className="font-bold text-stone-900 dark:text-stone-100" {...props} />,
+                                                        }}
+                                                    >
+                                                        {processedExplanation.content}
+                                                    </ReactMarkdown>
                                                 </div>
                                                 {!isExpanded && (
                                                     <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-white dark:from-black to-transparent pointer-events-none" />
@@ -1100,11 +1126,16 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
     );
 };
 
-const ExplainerOverlay = () => {
+/**
+ * ExplainerOverlay Component
+ * Manages the list of explainer bubbles, their layout (collision avoidance), and rendering.
+ */
+const ExplainerOverlay = ({ allowedUnitIds }) => {
     const { explainers, removeExplainer } = useUiState();
 
     // Layout State
     const [bubbleMetrics, setBubbleMetrics] = useState({});
+    const [activeBubbles, setActiveBubbles] = useState([]);
     const [bubbleShifts, setBubbleShifts] = useState({});
     const [laneOffsets, setLaneOffsets] = useState({}); // New: Store calculated lane offsets
     const [zIndices, setZIndices] = useState({}); // New: Store collision-aware Z-indices
@@ -1315,7 +1346,10 @@ const ExplainerOverlay = () => {
             className="absolute inset-0 z-40 pointer-events-none overflow-visible"
             style={{ width: '100%', height: '100%' }}
         >
-            {explainers.map((explainer, index) => {
+            {explainers.filter(explainer => {
+                if (!allowedUnitIds) return true;
+                return allowedUnitIds.includes(explainer.unitId);
+            }).map((explainer, index) => {
                 const jitter = getJitter(explainer.id, index);
                 // Inject the calculated Z-index
                 const explainerWithZ = { ...explainer, zIndex: zIndices[explainer.id] };

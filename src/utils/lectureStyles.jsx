@@ -18,66 +18,99 @@ export const LECTURE_TYPOGRAPHY = {
 };
 
 // Helper to apply these styles to ReactMarkdown components map
-export const getLectureMarkdownComponents = (LatexTextComponent, contextData = {}) => ({
-    p: ({ node, children }) => {
-        // Extract text content from children for LaTeX processing
-        const extractText = (child) => {
-            if (typeof child === 'string') return child;
-            if (Array.isArray(child)) return child.map(extractText).join('');
-            if (child?.props?.children) return extractText(child.props.children);
-            return '';
-        };
-        const textContent = Array.isArray(children)
-            ? children.map(extractText).join('')
-            : extractText(children);
+export const getLectureMarkdownComponents = (LatexTextComponent, contextData = {}) => {
+    // Helper to extract text from React children
+    const extractText = (child) => {
+        if (typeof child === 'string') return child;
+        if (Array.isArray(child)) return child.map(extractText).join('');
+        if (child?.props?.children) return extractText(child.props.children);
+        return '';
+    };
 
-        return (
-            <div className={LECTURE_TYPOGRAPHY.p}>
-                <LatexTextComponent
-                    text={textContent}
-                    {...contextData}
-                />
-            </div>
-        );
-    },
-    li: ({ node, children }) => {
-        const extractText = (child) => {
-            if (typeof child === 'string') return child;
-            if (Array.isArray(child)) return child.map(extractText).join('');
-            if (child?.props?.children) return extractText(child.props.children);
-            return '';
-        };
-        const textContent = Array.isArray(children)
-            ? children.map(extractText).join('')
-            : extractText(children);
+    return {
+        p: ({ node, children }) => {
+            const textContent = Array.isArray(children)
+                ? children.map(extractText).join('')
+                : extractText(children);
 
-        return (
-            <li className={LECTURE_TYPOGRAPHY.li}>
-                <LatexTextComponent
-                    text={textContent}
-                    {...contextData}
-                />
-            </li>
-        );
-    },
-    h1: ({ node, children }) => (
-        <h1 className={LECTURE_TYPOGRAPHY.h1}>
-            {children}
-        </h1>
-    ),
-    h2: ({ node, children }) => (
-        <h2 className={LECTURE_TYPOGRAPHY.h2}>
-            {children}
-        </h2>
-    ),
-    h3: ({ node, children }) => (
-        <h3 className={LECTURE_TYPOGRAPHY.h3}>
-            {children}
-        </h3>
-    ),
-    h4: ({ node, children }) => (
-        <h4 className={LECTURE_TYPOGRAPHY.h4}>
-            {children}
-        </h4>
-    ),
-});
+            return (
+                <div className={LECTURE_TYPOGRAPHY.p}>
+                    <LatexTextComponent
+                        text={textContent}
+                        {...contextData}
+                    />
+                </div>
+            );
+        },
+        li: ({ node, children }) => {
+            const textContent = Array.isArray(children)
+                ? children.map(extractText).join('')
+                : extractText(children);
+
+            return (
+                <li className={LECTURE_TYPOGRAPHY.li}>
+                    <LatexTextComponent
+                        text={textContent}
+                        {...contextData}
+                    />
+                </li>
+            );
+        },
+        h1: ({ node, children }) => {
+            const textContent = Array.isArray(children)
+                ? children.map(extractText).join('')
+                : extractText(children);
+
+            return (
+                <h1 className={LECTURE_TYPOGRAPHY.h1}>
+                    <LatexTextComponent
+                        text={textContent}
+                        {...contextData}
+                    />
+                </h1>
+            );
+        },
+        h2: ({ node, children }) => {
+            const textContent = Array.isArray(children)
+                ? children.map(extractText).join('')
+                : extractText(children);
+
+            return (
+                <h2 className={LECTURE_TYPOGRAPHY.h2}>
+                    <LatexTextComponent
+                        text={textContent}
+                        {...contextData}
+                    />
+                </h2>
+            );
+        },
+        h3: ({ node, children }) => {
+            const textContent = Array.isArray(children)
+                ? children.map(extractText).join('')
+                : extractText(children);
+
+            return (
+                <h3 className={LECTURE_TYPOGRAPHY.h3}>
+                    <LatexTextComponent
+                        text={textContent}
+                        {...contextData}
+                    />
+                </h3>
+            );
+        },
+        h4: ({ node, children }) => {
+            const textContent = Array.isArray(children)
+                ? children.map(extractText).join('')
+                : extractText(children);
+
+            return (
+                <h4 className={LECTURE_TYPOGRAPHY.h4}>
+                    <LatexTextComponent
+                        text={textContent}
+                        {...contextData}
+                    />
+                </h4>
+            );
+        },
+    };
+};

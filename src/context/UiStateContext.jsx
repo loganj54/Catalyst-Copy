@@ -101,6 +101,10 @@ export const UiStateProvider = ({ children }) => {
     const loadExplainersFromDb = useCallback(async (blueprintId) => {
         if (!blueprintId) return;
 
+        // Clear existing explainers instantly to prevent showing data from previous pages
+        setExplainers([]);
+        setExplainersLoaded(false);
+
         try {
             const { data, error } = await supabase
                 .from('blueprint_explainers')
