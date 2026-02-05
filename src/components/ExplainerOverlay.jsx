@@ -41,6 +41,87 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
     const [isGeneratingQueries, setIsGeneratingQueries] = useState(false);
     const [selectedQuery, setSelectedQuery] = useState(explainer.selectedQuery || null);
 
+    // Save video to blueprint_topic_resources table
+    const saveVideoToBlueprint = React.useCallback(async (video) => {
+        if (!video || !explainer.blueprintId || !explainer.unitId) {
+            console.log('[ExplainerBubble] Cannot save video - missing required data:', {
+                hasVideo: !!video,
+                blueprintId: explainer.blueprintId,
+                unitId: explainer.unitId
+            });
+            return;
+        }
+
+        try {
+            console.log(`[ExplainerBubble] Saving video to blueprint: ${video.title}`);
+            
+            // Step 1: Insert or get existing resource from resources_from_make
+            const { data: existingResource, error: checkError } = await supabase
+                .from('resources_from_make')
+                .select('id')
+                .eq('url', video.url)
+                .maybeSingle();
+
+            let resourceId;
+
+            if (existingResource) {
+                // Resource already exists
+                resourceId = existingResource.id;
+                console.log('[ExplainerBubble] Resource already exists with ID:', resourceId);
+            } else {
+                // Insert new resource
+                const { data: newResource, error: insertError } = await supabase
+                    .from('resources_from_make')
+                    .insert({
+                        url: video.url,
+                        title: video.title,
+                        description: video.description || '',
+                        platform: 'youtube',
+                        channel_name: video.channelName || video.channel_name || '',
+                        thumbnail_url: video.thumbnailUrl || video.thumbnail_url || '',
+                        duration_seconds: video.duration || 0,
+                        resource_type: 'video',
+                        summary: video.summary || '',
+                        original_search_query: selectedQuery || explainer.text || ''
+                    })
+                    .select('id')
+                    .single();
+
+                if (insertError) {
+                    console.error('[ExplainerBubble] Failed to insert resource:', insertError);
+                    return;
+                }
+
+                resourceId = newResource.id;
+                console.log('[ExplainerBubble] Created new resource with ID:', resourceId);
+            }
+
+            // Step 2: Insert into blueprint_topic_resources (upsert to avoid duplicates)
+            const { data, error } = await supabase
+                .from('blueprint_topic_resources')
+                .upsert({
+                    blueprint_id: explainer.blueprintId,
+                    unit_id: explainer.unitId,
+                    resource_id: resourceId,
+                    relevance_score: video.profile_match_score || 0.8,
+                    from_cache: false,
+                    resource_explanation: video.quality_reasoning || 'Video found through explainer overlay'
+                }, {
+                    onConflict: 'blueprint_id,unit_id,resource_id'
+                })
+                .select()
+                .single();
+
+            if (error) {
+                console.error('[ExplainerBubble] Failed to save video to blueprint_topic_resources:', error);
+            } else {
+                console.log('[ExplainerBubble] Video saved successfully to blueprint:', data);
+            }
+        } catch (err) {
+            console.error('[ExplainerBubble] Error saving video to blueprint:', err);
+        }
+    }, [explainer.blueprintId, explainer.unitId, selectedQuery, explainer.text]);
+
 
     // Explanation specific state - initialize from cache if available
     const [explanation, setExplanation] = useState(explainer.cachedExplanation || null);
@@ -76,6 +157,12 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
         setIsRerolling(true);
         const nextIndex = (currentVideoIndex + 1) % rankedVideos.length;
         setCurrentVideoIndex(nextIndex);
+
+        // Save the new video to blueprint
+        const nextVideo = rankedVideos[nextIndex];
+        if (explainer.blueprintId && explainer.unitId) {
+            saveVideoToBlueprint(nextVideo);
+        }
 
         // Persist the new video selection to database
         updateExplainer(explainer.id, {
@@ -317,6 +404,11 @@ const ExplainerBubble = ({ explainer, onClose, index, onLayoutUpdate, layoutOffs
                     average_rating: v.average_rating,
                     rating_count: v.rating_count
                 })) || [];
+
+                // Save the first video to blueprint
+                if (rankedVideosList.length > 0 && explainer.blueprintId && explainer.unitId) {
+                    saveVideoToBlueprint(rankedVideosList[0]);
+                }
 
                 updateExplainer(explainer.id, {
                     cachedVideoData: {

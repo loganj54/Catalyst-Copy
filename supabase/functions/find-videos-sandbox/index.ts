@@ -36,7 +36,7 @@ interface FindVideosSandboxRequest {
     unit_topic?: string;             // Learning context
     problem_text?: string;           // The problem/solution context
     blueprint_id?: string;           // For saving rankings to DB
-    min_similarity?: number;         // Minimum similarity score for cache hit (default 0.65)
+    min_similarity?: number;         // Minimum similarity score for cache hit (default 0.60)
     force_refresh?: boolean;         // Skip cache and force new search
 }
 
@@ -54,6 +54,8 @@ interface RankedVideo {
     rating_count?: number;
     similarity_score?: number;
     profile_match_score?: number;
+    passes_quality_bar?: boolean;      // Does this video actually answer the question?
+    quality_reasoning?: string;        // Why it passes or fails the quality bar
 }
 
 interface FindVideosSandboxResponse {
@@ -145,38 +147,69 @@ Format your response EXACTLY like this:
 }
 
 // ============================================================================
-// GROK RANKING (for cache hits)
+// GROK RANKING (for cache hits) - With Global Quality Gate
 // ============================================================================
+
+interface GrokRankingResult {
+    video_id: string;
+    rank: number;
+    score: number;
+    passes_quality_bar: boolean;
+    quality_reasoning: string;
+}
 
 async function rankVideosByProfileWithGrok(
     videos: Array<{ video_id: string; title: string; transcript: string; summary?: string }>,
     targetProfile: string
-): Promise<Array<{ video_id: string; rank: number; score: number }>> {
-    console.log(`[Sandbox] Ranking ${videos.length} videos with Grok...`);
+): Promise<GrokRankingResult[]> {
+    console.log(`[Sandbox] Ranking ${videos.length} videos with Grok (with quality gate)...`);
 
     if (!XAI_API_KEY) {
         console.warn('[Sandbox] XAI_API_KEY not set, using fallback ranking');
-        return videos.map((v, i) => ({ video_id: v.video_id, rank: i + 1, score: 1 - (i * 0.1) }));
+        return videos.map((v, i) => ({ 
+            video_id: v.video_id, 
+            rank: i + 1, 
+            score: 1 - (i * 0.1),
+            passes_quality_bar: true, // Assume pass in fallback mode
+            quality_reasoning: 'Fallback mode - no quality evaluation'
+        }));
     }
 
-    const systemPrompt = `You are an expert at matching educational videos to student needs. Your job is CRITICAL - rank these videos by how well they fulfill the target resource profile.`;
+    const systemPrompt = `You are an expert at matching educational videos to student needs. You have TWO critical jobs:
 
-    // Build compact video summaries for ranking
-    const videoSummaries = videos.slice(0, 15).map((v, i) =>
-        `VIDEO ${i + 1} (ID: ${v.video_id}):\nTitle: ${v.title}\n${v.summary ? `Summary: ${v.summary}` : `Transcript excerpt: ${v.transcript.substring(0, 500)}...`}`
-    ).join('\n\n---\n\n');
+1. RELATIVE RANKING: Rank videos against each other (which is best, second best, etc.)
+2. ABSOLUTE QUALITY GATE: For EACH video, determine if it actually answers the student's question
 
-    const userPrompt = `TARGET RESOURCE PROFILE:
+The quality gate is CRITICAL. A video can be the "best" among the options but still FAIL the quality bar if it doesn't actually help the student understand what they asked about.
+
+Be strict with the quality bar. Only pass videos that would genuinely help the student.`;
+
+    // Build video summaries with full transcript excerpts for quality evaluation
+    const videoSummaries = videos.slice(0, 15).map((v, i) => {
+        const transcriptExcerpt = v.transcript ? v.transcript.substring(0, 800) : '';
+        return `VIDEO ${i + 1} (ID: ${v.video_id}):
+Title: ${v.title}
+Summary: ${v.summary || 'No summary available'}
+Transcript excerpt: ${transcriptExcerpt}...`;
+    }).join('\n\n---\n\n');
+
+    const userPrompt = `TARGET RESOURCE PROFILE (what the student needs):
 ${targetProfile}
 
-VIDEOS TO RANK:
+VIDEOS TO EVALUATE:
 ${videoSummaries}
 
-Rank these videos from BEST to WORST match for the target profile.
-Your ranking is CRITICAL for the student's learning experience.
+For EACH video, provide:
+1. relative_score (0-1): How well does this video match compared to the OTHER videos?
+2. passes_quality_bar (true/false): Would watching this video ACTUALLY help the student understand what they asked about? This is an ABSOLUTE judgment, not relative.
+   - TRUE = This video directly addresses the student's question and would help them learn
+   - FALSE = This video is tangentially related but won't actually answer their question
+3. quality_reasoning: One sentence explaining why it passes or fails the quality bar
 
-Return ONLY a JSON array of objects with video_id and score (0-1):
-[{"video_id": "xxx", "score": 0.95}, {"video_id": "yyy", "score": 0.82}, ...]`;
+IMPORTANT: Even the "best" video might fail the quality bar if none truly answer the question. Be honest - if a video only touches on the topic superficially or covers something different, it should FAIL.
+
+Return ONLY a JSON array sorted from best to worst:
+[{"video_id": "xxx", "relative_score": 0.95, "passes_quality_bar": true, "quality_reasoning": "Directly explains the concept with clear examples"}, ...]`;
 
     try {
         const response = await fetch('https://api.x.ai/v1/chat/completions', {
@@ -192,7 +225,7 @@ Return ONLY a JSON array of objects with video_id and score (0-1):
                     { role: 'user', content: userPrompt }
                 ],
                 temperature: 0.2,
-                max_tokens: 1000
+                max_tokens: 2500 // Increased for quality reasoning
             }),
         });
 
@@ -212,15 +245,28 @@ Return ONLY a JSON array of objects with video_id and score (0-1):
         }
 
         const rankings = JSON.parse(cleanedContent);
+        
+        // Log quality gate results
+        const passingCount = rankings.filter((r: any) => r.passes_quality_bar).length;
+        console.log(`[Sandbox] Quality gate results: ${passingCount}/${rankings.length} videos passed`);
+        
         return rankings.map((r: any, i: number) => ({
             video_id: r.video_id,
             rank: i + 1,
-            score: r.score || (1 - i * 0.05)
+            score: r.relative_score || r.score || (1 - i * 0.05),
+            passes_quality_bar: r.passes_quality_bar ?? true,
+            quality_reasoning: r.quality_reasoning || 'No reasoning provided'
         }));
     } catch (error) {
         console.error('[Sandbox] Grok ranking failed:', error);
-        // Fallback: return in original order
-        return videos.map((v, i) => ({ video_id: v.video_id, rank: i + 1, score: 1 - (i * 0.1) }));
+        // Fallback: return in original order, assume all pass
+        return videos.map((v, i) => ({ 
+            video_id: v.video_id, 
+            rank: i + 1, 
+            score: 1 - (i * 0.1),
+            passes_quality_bar: true,
+            quality_reasoning: 'Fallback mode - Grok evaluation failed'
+        }));
     }
 }
 
@@ -247,7 +293,7 @@ serve(async (req: Request) => {
             unit_topic,
             problem_text,
             blueprint_id,
-            min_similarity = 0.65,
+            min_similarity = 0.60,
             force_refresh = false
         } = body;
 
@@ -333,39 +379,52 @@ serve(async (req: Request) => {
                     console.log(`[Sandbox] Retrieved ${validVideos.length} video details`);
 
                     if (validVideos.length > 0) {
-                        // Rank videos using Grok
+                        // Rank videos using Grok (with quality gate evaluation)
                         const videosForRanking = validVideos.map(v => ({
                             video_id: v!.video_id,
                             title: v!.title,
-                            transcript: '', // We'll use summary instead
+                            transcript: v!.transcript || '', // Include transcript for quality evaluation
                             summary: v!.summary
                         }));
 
                         const rankings = await rankVideosByProfileWithGrok(videosForRanking, targetResourceProfile);
                         console.log(`[Sandbox] Grok ranked ${rankings.length} videos`);
 
-                        // Map rankings back to full video data
-                        rankedVideos = rankings.slice(0, 5).map(r => {
-                            const video = validVideos.find(v => v!.video_id === r.video_id)!;
-                            return {
-                                rank: r.rank,
-                                video_id: video.video_id,
-                                url: video.url,
-                                title: video.title,
-                                channel_name: video.channel_name || '',
-                                thumbnail_url: video.thumbnail_url || '',
-                                duration_seconds: parseInt(video.duration) || 0,
-                                summary: video.summary || '',
-                                description: video.description || '',
-                                average_rating: video.average_rating || 0,
-                                rating_count: video.rating_count || 0,
-                                similarity_score: (video as any).similarity_score,
-                                profile_match_score: r.score
-                            };
-                        });
+                        // Filter to only videos that pass the quality bar
+                        const passingRankings = rankings.filter(r => r.passes_quality_bar);
+                        console.log(`[Sandbox] Quality gate: ${passingRankings.length}/${rankings.length} videos passed`);
 
-                        source = 'cache';
-                        console.log(`[Sandbox] Returning ${rankedVideos.length} cached videos`);
+                        // Only use cache if at least one video passes the quality bar
+                        // If no videos pass, treat as cache miss and trigger fresh search
+                        if (passingRankings.length > 0) {
+                            // Map rankings back to full video data
+                            rankedVideos = passingRankings.map(r => {
+                                const video = validVideos.find(v => v!.video_id === r.video_id)!;
+                                return {
+                                    rank: r.rank,
+                                    video_id: video.video_id,
+                                    url: video.url,
+                                    title: video.title,
+                                    channel_name: video.channel_name || '',
+                                    thumbnail_url: video.thumbnail_url || '',
+                                    duration_seconds: parseInt(video.duration) || 0,
+                                    summary: video.summary || '',
+                                    description: video.description || '',
+                                    average_rating: video.average_rating || 0,
+                                    rating_count: video.rating_count || 0,
+                                    similarity_score: (video as any).similarity_score,
+                                    profile_match_score: r.score,
+                                    passes_quality_bar: r.passes_quality_bar,
+                                    quality_reasoning: r.quality_reasoning
+                                };
+                            });
+
+                            source = 'cache';
+                            console.log(`[Sandbox] Returning ${rankedVideos.length} cached videos`);
+                        } else {
+                            console.log('[Sandbox] ⚠️ No cached videos passed quality bar - treating as cache MISS, will trigger fresh search');
+                            // rankedVideos stays empty, which will trigger Step 3 (fresh search)
+                        }
                     }
                 } else {
                     console.log('[Sandbox] Cache MISS - no videos above similarity threshold');
@@ -436,7 +495,7 @@ serve(async (req: Request) => {
             console.log('[Sandbox] Storing videos...');
             await storeAnalyzedVideos(supabase, analyzedVideos);
 
-            // Rank using Grok
+            // Rank using Grok (with quality gate evaluation)
             const videosForRanking = analyzedVideos.map(v => ({
                 video_id: v.videoId,
                 title: v.title,
@@ -446,8 +505,19 @@ serve(async (req: Request) => {
 
             const rankings = await rankVideosByProfileWithGrok(videosForRanking, targetResourceProfile);
 
+            // Filter to only videos that pass the quality bar
+            const passingRankings = rankings.filter(r => r.passes_quality_bar);
+            console.log(`[Sandbox] Fresh search quality gate: ${passingRankings.length}/${rankings.length} videos passed`);
+
+            // Use passing videos if any, otherwise fall back to all ranked videos
+            // This ensures we always return SOMETHING rather than nothing
+            const rankingsToUse = passingRankings.length > 0 ? passingRankings : rankings.slice(0, 5);
+            if (passingRankings.length === 0) {
+                console.log('[Sandbox] ⚠️ No videos passed quality bar - returning top 5 anyway as fallback');
+            }
+
             // Build ranked videos
-            rankedVideos = rankings.slice(0, 5).map(r => {
+            rankedVideos = rankingsToUse.map(r => {
                 const video = analyzedVideos.find(v => v.videoId === r.video_id)!;
                 return {
                     rank: r.rank,
@@ -461,7 +531,9 @@ serve(async (req: Request) => {
                     description: video.description || '',
                     average_rating: 0,
                     rating_count: 0,
-                    profile_match_score: r.score
+                    profile_match_score: r.score,
+                    passes_quality_bar: r.passes_quality_bar,
+                    quality_reasoning: r.quality_reasoning
                 };
             });
 

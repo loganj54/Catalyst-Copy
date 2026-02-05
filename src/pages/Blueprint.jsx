@@ -4852,7 +4852,7 @@ const Blueprint = () => {
               )}
             </div>
             {/* End Content Wrapper */}
-            <ExplainerOverlay />
+            <ExplainerOverlay allowedUnitIds={currentUnits.map(u => u.unit_id)} />
           </div>
 
           {/* Floating Chat Toggle Button - Always rendered */}
